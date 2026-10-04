@@ -1,0 +1,459 @@
+loaded 1800 expert transitions from mpc_demos.jls
+splits: TRAIN 18, VAL 6, TEST 6 years
+CEM constant: VAL 0.12  TEST 0.12  EUR/m2
+budget 8.0 h, up to 15 seeds, 100000 steps/seed, demo_frac 0.25 (EXPERT demos)
+
+   seed 201 warm-start(expert) VAL 1.97
+   seed 201 critic-warmup done, VAL 1.97
+   seed 201 step   4000 | VAL -4.75 (best 1.97) | alpha 0.452
+   seed 201 step   8000 | VAL 1.29 (best 1.97) | alpha 0.202
+   seed 201 step  12000 | VAL 0.51 (best 1.97) | alpha 0.092
+   seed 201 step  16000 | VAL 1.81 (best 1.97) | alpha 0.042
+   seed 201 step  20000 | VAL -0.13 (best 1.97) | alpha 0.020
+   seed 201 step  24000 | VAL 0.21 (best 1.97) | alpha 0.011
+   seed 201 step  28000 | VAL 0.78 (best 1.97) | alpha 0.012
+   seed 201 step  32000 | VAL 1.29 (best 1.97) | alpha 0.011
+   seed 201 step  36000 | VAL 1.33 (best 1.97) | alpha 0.012
+   seed 201 step  40000 | VAL -2.19 (best 1.97) | alpha 0.016
+   seed 201 step  44000 | VAL -1.48 (best 1.97) | alpha 0.021
+   seed 201 step  48000 | VAL -0.71 (best 1.97) | alpha 0.019
+   seed 201 step  52000 | VAL 0.16 (best 1.97) | alpha 0.017
+   seed 201 step  56000 | VAL 0.20 (best 1.97) | alpha 0.018
+   seed 201 step  60000 | VAL 1.07 (best 1.97) | alpha 0.018
+   seed 201 step  64000 | VAL 1.03 (best 1.97) | alpha 0.018
+   seed 201 step  68000 | VAL 0.93 (best 1.97) | alpha 0.018
+   seed 201 step  72000 | VAL 1.06 (best 1.97) | alpha 0.017
+   seed 201 step  76000 | VAL 1.10 (best 1.97) | alpha 0.017
+   seed 201 step  80000 | VAL 1.61 (best 1.97) | alpha 0.017
+   seed 201 step  84000 | VAL 1.75 (best 1.97) | alpha 0.017
+   seed 201 step  88000 | VAL 1.77 (best 1.97) | alpha 0.017
+   seed 201 step  92000 | VAL 1.68 (best 1.97) | alpha 0.017
+   seed 201 step  96000 | VAL 1.95 (best 1.97) | alpha 0.017
+   seed 201 step 100000 | VAL 1.78 (best 1.97) | alpha 0.017
+=== seed 201 done: VAL 1.97  TEST 1.83  (CEM TEST 0.12)  [25 min]
+
+   seed 202 warm-start(expert) VAL 1.62
+   seed 202 critic-warmup done, VAL 1.62
+   seed 202 step   4000 | VAL -15.31 (best 1.62) | alpha 0.465
+   seed 202 step   8000 | VAL 0.09 (best 1.62) | alpha 0.206
+   seed 202 step  12000 | VAL 1.09 (best 1.62) | alpha 0.094
+   seed 202 step  16000 | VAL 1.99 (best 1.99) | alpha 0.044
+   seed 202 step  20000 | VAL 2.25 (best 2.25) | alpha 0.021
+   seed 202 step  24000 | VAL 2.33 (best 2.33) | alpha 0.012
+   seed 202 step  28000 | VAL 1.79 (best 2.33) | alpha 0.011
+   seed 202 step  32000 | VAL 1.77 (best 2.33) | alpha 0.011
+   seed 202 step  36000 | VAL 1.77 (best 2.33) | alpha 0.011
+   seed 202 step  40000 | VAL -1.57 (best 2.33) | alpha 0.014
+   seed 202 step  44000 | VAL -2.37 (best 2.33) | alpha 0.019
+   seed 202 step  48000 | VAL -1.75 (best 2.33) | alpha 0.018
+   seed 202 step  52000 | VAL -1.20 (best 2.33) | alpha 0.018
+   seed 202 step  56000 | VAL 0.80 (best 2.33) | alpha 0.017
+   seed 202 step  60000 | VAL 2.10 (best 2.33) | alpha 0.019
+   seed 202 step  64000 | VAL 1.30 (best 2.33) | alpha 0.018
+   seed 202 step  68000 | VAL 2.01 (best 2.33) | alpha 0.018
+   seed 202 step  72000 | VAL 2.41 (best 2.41) | alpha 0.018
+   seed 202 step  76000 | VAL 2.19 (best 2.41) | alpha 0.018
+   seed 202 step  80000 | VAL 2.25 (best 2.41) | alpha 0.018
+   seed 202 step  84000 | VAL 2.48 (best 2.48) | alpha 0.018
+   seed 202 step  88000 | VAL 2.13 (best 2.48) | alpha 0.018
+   seed 202 step  92000 | VAL 2.75 (best 2.75) | alpha 0.018
+   seed 202 step  96000 | VAL 2.71 (best 2.75) | alpha 0.018
+   seed 202 step 100000 | VAL 2.67 (best 2.75) | alpha 0.018
+=== seed 202 done: VAL 2.75  TEST 2.83  (CEM TEST 0.12)  [53 min]
+
+   seed 203 warm-start(expert) VAL 1.79
+   seed 203 critic-warmup done, VAL 1.79
+   seed 203 step   4000 | VAL -9.13 (best 1.79) | alpha 0.471
+   seed 203 step   8000 | VAL 1.37 (best 1.79) | alpha 0.207
+   seed 203 step  12000 | VAL -0.49 (best 1.79) | alpha 0.095
+   seed 203 step  16000 | VAL 1.54 (best 1.79) | alpha 0.044
+   seed 203 step  20000 | VAL 1.34 (best 1.79) | alpha 0.021
+   seed 203 step  24000 | VAL 1.59 (best 1.79) | alpha 0.012
+   seed 203 step  28000 | VAL 1.51 (best 1.79) | alpha 0.011
+   seed 203 step  32000 | VAL 1.58 (best 1.79) | alpha 0.011
+   seed 203 step  36000 | VAL 1.95 (best 1.95) | alpha 0.011
+   seed 203 step  40000 | VAL -4.36 (best 1.95) | alpha 0.014
+   seed 203 step  44000 | VAL -2.18 (best 1.95) | alpha 0.017
+   seed 203 step  48000 | VAL -2.78 (best 1.95) | alpha 0.018
+   seed 203 step  52000 | VAL -1.65 (best 1.95) | alpha 0.018
+   seed 203 step  56000 | VAL -2.16 (best 1.95) | alpha 0.018
+   seed 203 step  60000 | VAL -0.02 (best 1.95) | alpha 0.017
+   seed 203 step  64000 | VAL 0.16 (best 1.95) | alpha 0.017
+   seed 203 step  68000 | VAL 0.51 (best 1.95) | alpha 0.018
+   seed 203 step  72000 | VAL 1.05 (best 1.95) | alpha 0.017
+   seed 203 step  76000 | VAL 1.31 (best 1.95) | alpha 0.018
+   seed 203 step  80000 | VAL 1.81 (best 1.95) | alpha 0.017
+   seed 203 step  84000 | VAL 1.81 (best 1.95) | alpha 0.017
+   seed 203 step  88000 | VAL 2.30 (best 2.30) | alpha 0.017
+   seed 203 step  92000 | VAL 1.78 (best 2.30) | alpha 0.018
+   seed 203 step  96000 | VAL 2.29 (best 2.30) | alpha 0.018
+   seed 203 step 100000 | VAL 2.45 (best 2.45) | alpha 0.018
+=== seed 203 done: VAL 2.45  TEST 2.15  (CEM TEST 0.12)  [81 min]
+
+   seed 204 warm-start(expert) VAL 2.33
+   seed 204 critic-warmup done, VAL 2.33
+   seed 204 step   4000 | VAL -9.07 (best 2.33) | alpha 0.479
+   seed 204 step   8000 | VAL 1.97 (best 2.33) | alpha 0.210
+   seed 204 step  12000 | VAL 1.40 (best 2.33) | alpha 0.096
+   seed 204 step  16000 | VAL 2.08 (best 2.33) | alpha 0.046
+   seed 204 step  20000 | VAL 2.57 (best 2.57) | alpha 0.026
+   seed 204 step  24000 | VAL 2.02 (best 2.57) | alpha 0.024
+   seed 204 step  28000 | VAL 2.25 (best 2.57) | alpha 0.021
+   seed 204 step  32000 | VAL 1.75 (best 2.57) | alpha 0.011
+   seed 204 step  36000 | VAL 1.81 (best 2.57) | alpha 0.012
+   seed 204 step  40000 | VAL -4.96 (best 2.57) | alpha 0.017
+   seed 204 step  44000 | VAL -1.74 (best 2.57) | alpha 0.020
+   seed 204 step  48000 | VAL -1.51 (best 2.57) | alpha 0.020
+   seed 204 step  52000 | VAL -0.93 (best 2.57) | alpha 0.019
+   seed 204 step  56000 | VAL 1.65 (best 2.57) | alpha 0.018
+   seed 204 step  60000 | VAL 2.04 (best 2.57) | alpha 0.018
+   seed 204 step  64000 | VAL 2.00 (best 2.57) | alpha 0.018
+   seed 204 step  68000 | VAL 1.76 (best 2.57) | alpha 0.018
+   seed 204 step  72000 | VAL 2.38 (best 2.57) | alpha 0.018
+   seed 204 step  76000 | VAL 2.61 (best 2.61) | alpha 0.018
+   seed 204 step  80000 | VAL 2.61 (best 2.61) | alpha 0.018
+   seed 204 step  84000 | VAL 2.48 (best 2.61) | alpha 0.018
+   seed 204 step  88000 | VAL 2.46 (best 2.61) | alpha 0.018
+   seed 204 step  92000 | VAL 2.53 (best 2.61) | alpha 0.018
+   seed 204 step  96000 | VAL 2.47 (best 2.61) | alpha 0.018
+   seed 204 step 100000 | VAL 2.49 (best 2.61) | alpha 0.018
+=== seed 204 done: VAL 2.61  TEST 2.56  (CEM TEST 0.12)  [108 min]
+
+   seed 205 warm-start(expert) VAL 1.69
+   seed 205 critic-warmup done, VAL 1.69
+   seed 205 step   4000 | VAL -5.40 (best 1.69) | alpha 0.454
+   seed 205 step   8000 | VAL 0.93 (best 1.69) | alpha 0.203
+   seed 205 step  12000 | VAL 1.63 (best 1.69) | alpha 0.092
+   seed 205 step  16000 | VAL 2.04 (best 2.04) | alpha 0.042
+   seed 205 step  20000 | VAL 1.66 (best 2.04) | alpha 0.020
+   seed 205 step  24000 | VAL 1.50 (best 2.04) | alpha 0.010
+   seed 205 step  28000 | VAL 1.43 (best 2.04) | alpha 0.011
+   seed 205 step  32000 | VAL 2.22 (best 2.22) | alpha 0.011
+   seed 205 step  36000 | VAL 1.93 (best 2.22) | alpha 0.011
+   seed 205 step  40000 | VAL -5.38 (best 2.22) | alpha 0.014
+   seed 205 step  44000 | VAL -2.26 (best 2.22) | alpha 0.018
+   seed 205 step  48000 | VAL -2.16 (best 2.22) | alpha 0.017
+   seed 205 step  52000 | VAL -2.16 (best 2.22) | alpha 0.015
+   seed 205 step  56000 | VAL -1.97 (best 2.22) | alpha 0.014
+   seed 205 step  60000 | VAL -2.09 (best 2.22) | alpha 0.015
+   seed 205 step  64000 | VAL -1.14 (best 2.22) | alpha 0.015
+   seed 205 step  68000 | VAL -0.31 (best 2.22) | alpha 0.015
+   seed 205 step  72000 | VAL 0.24 (best 2.22) | alpha 0.015
+   seed 205 step  76000 | VAL 0.29 (best 2.22) | alpha 0.015
+   seed 205 step  80000 | VAL 0.73 (best 2.22) | alpha 0.015
+   seed 205 step  84000 | VAL 0.95 (best 2.22) | alpha 0.015
+   seed 205 step  88000 | VAL 0.97 (best 2.22) | alpha 0.015
+   seed 205 step  92000 | VAL 1.58 (best 2.22) | alpha 0.015
+   seed 205 step  96000 | VAL 1.87 (best 2.22) | alpha 0.015
+   seed 205 step 100000 | VAL 1.81 (best 2.22) | alpha 0.015
+=== seed 205 done: VAL 2.22  TEST 2.30  (CEM TEST 0.12)  [135 min]
+
+   seed 206 warm-start(expert) VAL 2.03
+   seed 206 critic-warmup done, VAL 2.03
+   seed 206 step   4000 | VAL -12.98 (best 2.03) | alpha 0.459
+   seed 206 step   8000 | VAL 1.95 (best 2.03) | alpha 0.204
+   seed 206 step  12000 | VAL 1.23 (best 2.03) | alpha 0.093
+   seed 206 step  16000 | VAL 0.67 (best 2.03) | alpha 0.043
+   seed 206 step  20000 | VAL 1.25 (best 2.03) | alpha 0.021
+   seed 206 step  24000 | VAL -1.18 (best 2.03) | alpha 0.011
+   seed 206 step  28000 | VAL 0.72 (best 2.03) | alpha 0.011
+   seed 206 step  32000 | VAL 0.91 (best 2.03) | alpha 0.011
+   seed 206 step  36000 | VAL 0.41 (best 2.03) | alpha 0.012
+   seed 206 step  40000 | VAL -6.98 (best 2.03) | alpha 0.016
+   seed 206 step  44000 | VAL -1.86 (best 2.03) | alpha 0.020
+   seed 206 step  48000 | VAL -0.83 (best 2.03) | alpha 0.020
+   seed 206 step  52000 | VAL -0.62 (best 2.03) | alpha 0.019
+   seed 206 step  56000 | VAL -0.91 (best 2.03) | alpha 0.018
+   seed 206 step  60000 | VAL -0.31 (best 2.03) | alpha 0.017
+   seed 206 step  64000 | VAL 0.44 (best 2.03) | alpha 0.017
+   seed 206 step  68000 | VAL 0.51 (best 2.03) | alpha 0.017
+   seed 206 step  72000 | VAL 1.81 (best 2.03) | alpha 0.018
+   seed 206 step  76000 | VAL 2.16 (best 2.16) | alpha 0.018
+   seed 206 step  80000 | VAL 2.09 (best 2.16) | alpha 0.018
+   seed 206 step  84000 | VAL 2.40 (best 2.40) | alpha 0.018
+   seed 206 step  88000 | VAL 2.14 (best 2.40) | alpha 0.018
+   seed 206 step  92000 | VAL 2.03 (best 2.40) | alpha 0.018
+   seed 206 step  96000 | VAL 2.51 (best 2.51) | alpha 0.018
+   seed 206 step 100000 | VAL 2.48 (best 2.51) | alpha 0.017
+=== seed 206 done: VAL 2.51  TEST 2.52  (CEM TEST 0.12)  [163 min]
+
+   seed 207 warm-start(expert) VAL 2.12
+   seed 207 critic-warmup done, VAL 2.12
+   seed 207 step   4000 | VAL -1.10 (best 2.12) | alpha 0.461
+   seed 207 step   8000 | VAL -1.10 (best 2.12) | alpha 0.205
+   seed 207 step  12000 | VAL 0.37 (best 2.12) | alpha 0.093
+   seed 207 step  16000 | VAL 1.08 (best 2.12) | alpha 0.043
+   seed 207 step  20000 | VAL 1.46 (best 2.12) | alpha 0.020
+   seed 207 step  24000 | VAL 2.29 (best 2.29) | alpha 0.010
+   seed 207 step  28000 | VAL 1.32 (best 2.29) | alpha 0.010
+   seed 207 step  32000 | VAL 2.27 (best 2.29) | alpha 0.010
+   seed 207 step  36000 | VAL 2.09 (best 2.29) | alpha 0.012
+   seed 207 step  40000 | VAL -2.56 (best 2.29) | alpha 0.017
+   seed 207 step  44000 | VAL -0.25 (best 2.29) | alpha 0.021
+   seed 207 step  48000 | VAL -0.27 (best 2.29) | alpha 0.019
+   seed 207 step  52000 | VAL 0.49 (best 2.29) | alpha 0.019
+   seed 207 step  56000 | VAL 1.01 (best 2.29) | alpha 0.018
+   seed 207 step  60000 | VAL 0.45 (best 2.29) | alpha 0.017
+   seed 207 step  64000 | VAL 0.62 (best 2.29) | alpha 0.017
+   seed 207 step  68000 | VAL 0.94 (best 2.29) | alpha 0.017
+   seed 207 step  72000 | VAL 1.20 (best 2.29) | alpha 0.018
+   seed 207 step  76000 | VAL 2.04 (best 2.29) | alpha 0.018
+   seed 207 step  80000 | VAL 2.21 (best 2.29) | alpha 0.018
+   seed 207 step  84000 | VAL 2.21 (best 2.29) | alpha 0.018
+   seed 207 step  88000 | VAL 2.37 (best 2.37) | alpha 0.018
+   seed 207 step  92000 | VAL 2.18 (best 2.37) | alpha 0.018
+   seed 207 step  96000 | VAL 2.26 (best 2.37) | alpha 0.019
+   seed 207 step 100000 | VAL 2.27 (best 2.37) | alpha 0.019
+=== seed 207 done: VAL 2.37  TEST 2.47  (CEM TEST 0.12)  [190 min]
+
+   seed 208 warm-start(expert) VAL 1.35
+   seed 208 critic-warmup done, VAL 1.35
+   seed 208 step   4000 | VAL -11.48 (best 1.35) | alpha 0.459
+   seed 208 step   8000 | VAL 1.35 (best 1.35) | alpha 0.204
+   seed 208 step  12000 | VAL 0.08 (best 1.35) | alpha 0.093
+   seed 208 step  16000 | VAL 1.26 (best 1.35) | alpha 0.043
+   seed 208 step  20000 | VAL 1.56 (best 1.56) | alpha 0.021
+   seed 208 step  24000 | VAL 1.17 (best 1.56) | alpha 0.011
+   seed 208 step  28000 | VAL 1.21 (best 1.56) | alpha 0.012
+   seed 208 step  32000 | VAL 0.45 (best 1.56) | alpha 0.012
+   seed 208 step  36000 | VAL 1.48 (best 1.56) | alpha 0.013
+   seed 208 step  40000 | VAL -10.06 (best 1.56) | alpha 0.018
+   seed 208 step  44000 | VAL -2.31 (best 1.56) | alpha 0.022
+   seed 208 step  48000 | VAL -3.89 (best 1.56) | alpha 0.021
+   seed 208 step  52000 | VAL -3.17 (best 1.56) | alpha 0.019
+   seed 208 step  56000 | VAL -1.67 (best 1.56) | alpha 0.017
+   seed 208 step  60000 | VAL -1.49 (best 1.56) | alpha 0.016
+   seed 208 step  64000 | VAL -2.15 (best 1.56) | alpha 0.016
+   seed 208 step  68000 | VAL -1.88 (best 1.56) | alpha 0.017
+   seed 208 step  72000 | VAL 0.93 (best 1.56) | alpha 0.017
+   seed 208 step  76000 | VAL 0.92 (best 1.56) | alpha 0.016
+   seed 208 step  80000 | VAL 1.28 (best 1.56) | alpha 0.016
+   seed 208 step  84000 | VAL 2.23 (best 2.23) | alpha 0.016
+   seed 208 step  88000 | VAL 1.62 (best 2.23) | alpha 0.017
+   seed 208 step  92000 | VAL 1.73 (best 2.23) | alpha 0.017
+   seed 208 step  96000 | VAL 2.46 (best 2.46) | alpha 0.017
+   seed 208 step 100000 | VAL 2.19 (best 2.46) | alpha 0.017
+=== seed 208 done: VAL 2.46  TEST 2.11  (CEM TEST 0.12)  [217 min]
+
+   seed 209 warm-start(expert) VAL 0.74
+   seed 209 critic-warmup done, VAL 0.74
+   seed 209 step   4000 | VAL -3.99 (best 0.74) | alpha 0.477
+   seed 209 step   8000 | VAL 2.25 (best 2.25) | alpha 0.196
+   seed 209 step  12000 | VAL 1.05 (best 2.25) | alpha 0.090
+   seed 209 step  16000 | VAL 0.68 (best 2.25) | alpha 0.042
+   seed 209 step  20000 | VAL 1.77 (best 2.25) | alpha 0.020
+   seed 209 step  24000 | VAL 1.09 (best 2.25) | alpha 0.011
+   seed 209 step  28000 | VAL 2.11 (best 2.25) | alpha 0.011
+   seed 209 step  32000 | VAL 2.37 (best 2.37) | alpha 0.012
+   seed 209 step  36000 | VAL 1.91 (best 2.37) | alpha 0.013
+   seed 209 step  40000 | VAL 1.59 (best 2.37) | alpha 0.017
+   seed 209 step  44000 | VAL 2.07 (best 2.37) | alpha 0.021
+   seed 209 step  48000 | VAL 2.02 (best 2.37) | alpha 0.020
+   seed 209 step  52000 | VAL 2.25 (best 2.37) | alpha 0.018
+   seed 209 step  56000 | VAL 2.60 (best 2.60) | alpha 0.018
+   seed 209 step  60000 | VAL 2.50 (best 2.60) | alpha 0.017
+   seed 209 step  64000 | VAL 2.64 (best 2.64) | alpha 0.017
+   seed 209 step  68000 | VAL 2.45 (best 2.64) | alpha 0.017
+   seed 209 step  72000 | VAL 2.41 (best 2.64) | alpha 0.017
+   seed 209 step  76000 | VAL 1.89 (best 2.64) | alpha 0.016
+   seed 209 step  80000 | VAL 2.43 (best 2.64) | alpha 0.017
+   seed 209 step  84000 | VAL 2.37 (best 2.64) | alpha 0.016
+   seed 209 step  88000 | VAL 2.59 (best 2.64) | alpha 0.017
+   seed 209 step  92000 | VAL 2.57 (best 2.64) | alpha 0.016
+   seed 209 step  96000 | VAL 2.69 (best 2.69) | alpha 0.016
+   seed 209 step 100000 | VAL 2.19 (best 2.69) | alpha 0.016
+=== seed 209 done: VAL 2.69  TEST 2.62  (CEM TEST 0.12)  [244 min]
+
+   seed 210 warm-start(expert) VAL 2.09
+   seed 210 critic-warmup done, VAL 2.09
+   seed 210 step   4000 | VAL -9.14 (best 2.09) | alpha 0.458
+   seed 210 step   8000 | VAL 1.43 (best 2.09) | alpha 0.203
+   seed 210 step  12000 | VAL 1.61 (best 2.09) | alpha 0.093
+   seed 210 step  16000 | VAL 0.85 (best 2.09) | alpha 0.043
+   seed 210 step  20000 | VAL 1.26 (best 2.09) | alpha 0.020
+   seed 210 step  24000 | VAL 1.76 (best 2.09) | alpha 0.011
+   seed 210 step  28000 | VAL 1.60 (best 2.09) | alpha 0.011
+   seed 210 step  32000 | VAL 2.38 (best 2.38) | alpha 0.011
+   seed 210 step  36000 | VAL 2.34 (best 2.38) | alpha 0.012
+   seed 210 step  40000 | VAL -2.34 (best 2.38) | alpha 0.015
+   seed 210 step  44000 | VAL -1.67 (best 2.38) | alpha 0.020
+   seed 210 step  48000 | VAL -1.27 (best 2.38) | alpha 0.019
+   seed 210 step  52000 | VAL -1.39 (best 2.38) | alpha 0.017
+   seed 210 step  56000 | VAL -0.56 (best 2.38) | alpha 0.017
+   seed 210 step  60000 | VAL 0.55 (best 2.38) | alpha 0.017
+   seed 210 step  64000 | VAL 1.49 (best 2.38) | alpha 0.017
+   seed 210 step  68000 | VAL 2.14 (best 2.38) | alpha 0.019
+   seed 210 step  72000 | VAL 2.07 (best 2.38) | alpha 0.019
+   seed 210 step  76000 | VAL 2.42 (best 2.42) | alpha 0.020
+   seed 210 step  80000 | VAL 1.14 (best 2.42) | alpha 0.020
+   seed 210 step  84000 | VAL 2.54 (best 2.54) | alpha 0.020
+   seed 210 step  88000 | VAL 2.41 (best 2.54) | alpha 0.020
+   seed 210 step  92000 | VAL 2.61 (best 2.61) | alpha 0.019
+   seed 210 step  96000 | VAL 2.64 (best 2.64) | alpha 0.019
+   seed 210 step 100000 | VAL 2.65 (best 2.65) | alpha 0.019
+=== seed 210 done: VAL 2.65  TEST 2.52  (CEM TEST 0.12)  [271 min]
+
+   seed 211 warm-start(expert) VAL 2.29
+   seed 211 critic-warmup done, VAL 2.29
+   seed 211 step   4000 | VAL -11.32 (best 2.29) | alpha 0.455
+   seed 211 step   8000 | VAL 0.57 (best 2.29) | alpha 0.203
+   seed 211 step  12000 | VAL -0.25 (best 2.29) | alpha 0.093
+   seed 211 step  16000 | VAL 0.68 (best 2.29) | alpha 0.043
+   seed 211 step  20000 | VAL 2.27 (best 2.29) | alpha 0.020
+   seed 211 step  24000 | VAL 2.28 (best 2.29) | alpha 0.011
+   seed 211 step  28000 | VAL 1.33 (best 2.29) | alpha 0.010
+   seed 211 step  32000 | VAL 0.75 (best 2.29) | alpha 0.011
+   seed 211 step  36000 | VAL 0.63 (best 2.29) | alpha 0.012
+   seed 211 step  40000 | VAL -4.49 (best 2.29) | alpha 0.014
+   seed 211 step  44000 | VAL -0.52 (best 2.29) | alpha 0.019
+   seed 211 step  48000 | VAL 0.46 (best 2.29) | alpha 0.017
+   seed 211 step  52000 | VAL -0.83 (best 2.29) | alpha 0.016
+   seed 211 step  56000 | VAL 1.02 (best 2.29) | alpha 0.017
+   seed 211 step  60000 | VAL 0.95 (best 2.29) | alpha 0.016
+   seed 211 step  64000 | VAL 1.50 (best 2.29) | alpha 0.017
+   seed 211 step  68000 | VAL 1.79 (best 2.29) | alpha 0.017
+   seed 211 step  72000 | VAL 1.82 (best 2.29) | alpha 0.016
+   seed 211 step  76000 | VAL 1.57 (best 2.29) | alpha 0.016
+   seed 211 step  80000 | VAL 2.04 (best 2.29) | alpha 0.016
+   seed 211 step  84000 | VAL 2.18 (best 2.29) | alpha 0.016
+   seed 211 step  88000 | VAL 2.36 (best 2.36) | alpha 0.016
+   seed 211 step  92000 | VAL 2.53 (best 2.53) | alpha 0.016
+   seed 211 step  96000 | VAL 2.32 (best 2.53) | alpha 0.017
+   seed 211 step 100000 | VAL 2.55 (best 2.55) | alpha 0.017
+=== seed 211 done: VAL 2.55  TEST 2.50  (CEM TEST 0.12)  [298 min]
+
+   seed 212 warm-start(expert) VAL 2.36
+   seed 212 critic-warmup done, VAL 2.36
+   seed 212 step   4000 | VAL -10.88 (best 2.36) | alpha 0.458
+   seed 212 step   8000 | VAL 2.11 (best 2.36) | alpha 0.204
+   seed 212 step  12000 | VAL 1.96 (best 2.36) | alpha 0.093
+   seed 212 step  16000 | VAL 2.00 (best 2.36) | alpha 0.043
+   seed 212 step  20000 | VAL 1.34 (best 2.36) | alpha 0.021
+   seed 212 step  24000 | VAL 1.49 (best 2.36) | alpha 0.011
+   seed 212 step  28000 | VAL 1.49 (best 2.36) | alpha 0.011
+   seed 212 step  32000 | VAL 1.30 (best 2.36) | alpha 0.011
+   seed 212 step  36000 | VAL 1.50 (best 2.36) | alpha 0.012
+   seed 212 step  40000 | VAL -5.22 (best 2.36) | alpha 0.016
+   seed 212 step  44000 | VAL -3.32 (best 2.36) | alpha 0.020
+   seed 212 step  48000 | VAL -4.15 (best 2.36) | alpha 0.020
+   seed 212 step  52000 | VAL -2.07 (best 2.36) | alpha 0.019
+   seed 212 step  56000 | VAL -2.68 (best 2.36) | alpha 0.018
+   seed 212 step  60000 | VAL -2.78 (best 2.36) | alpha 0.018
+   seed 212 step  64000 | VAL -1.80 (best 2.36) | alpha 0.017
+   seed 212 step  68000 | VAL -0.39 (best 2.36) | alpha 0.018
+   seed 212 step  72000 | VAL 0.75 (best 2.36) | alpha 0.017
+   seed 212 step  76000 | VAL 0.90 (best 2.36) | alpha 0.017
+   seed 212 step  80000 | VAL 1.70 (best 2.36) | alpha 0.017
+   seed 212 step  84000 | VAL 1.66 (best 2.36) | alpha 0.017
+   seed 212 step  88000 | VAL 1.65 (best 2.36) | alpha 0.017
+   seed 212 step  92000 | VAL 2.23 (best 2.36) | alpha 0.017
+   seed 212 step  96000 | VAL 1.34 (best 2.36) | alpha 0.017
+   seed 212 step 100000 | VAL 1.57 (best 2.36) | alpha 0.016
+=== seed 212 done: VAL 2.36  TEST 2.19  (CEM TEST 0.12)  [324 min]
+
+   seed 213 warm-start(expert) VAL 2.14
+   seed 213 critic-warmup done, VAL 2.14
+   seed 213 step   4000 | VAL -7.78 (best 2.14) | alpha 0.458
+   seed 213 step   8000 | VAL 0.65 (best 2.14) | alpha 0.204
+   seed 213 step  12000 | VAL 0.51 (best 2.14) | alpha 0.093
+   seed 213 step  16000 | VAL 2.18 (best 2.18) | alpha 0.043
+   seed 213 step  20000 | VAL 2.44 (best 2.44) | alpha 0.021
+   seed 213 step  24000 | VAL 2.43 (best 2.44) | alpha 0.011
+   seed 213 step  28000 | VAL 0.82 (best 2.44) | alpha 0.011
+   seed 213 step  32000 | VAL 0.82 (best 2.44) | alpha 0.011
+   seed 213 step  36000 | VAL 1.10 (best 2.44) | alpha 0.011
+   seed 213 step  40000 | VAL -3.16 (best 2.44) | alpha 0.015
+   seed 213 step  44000 | VAL -3.13 (best 2.44) | alpha 0.017
+   seed 213 step  48000 | VAL -1.45 (best 2.44) | alpha 0.017
+   seed 213 step  52000 | VAL -1.87 (best 2.44) | alpha 0.016
+   seed 213 step  56000 | VAL -5.99 (best 2.44) | alpha 0.016
+   seed 213 step  60000 | VAL -2.09 (best 2.44) | alpha 0.016
+   seed 213 step  64000 | VAL -1.62 (best 2.44) | alpha 0.016
+   seed 213 step  68000 | VAL -1.12 (best 2.44) | alpha 0.016
+   seed 213 step  72000 | VAL -1.24 (best 2.44) | alpha 0.016
+   seed 213 step  76000 | VAL -0.60 (best 2.44) | alpha 0.015
+   seed 213 step  80000 | VAL 0.41 (best 2.44) | alpha 0.015
+   seed 213 step  84000 | VAL 0.77 (best 2.44) | alpha 0.015
+   seed 213 step  88000 | VAL 1.68 (best 2.44) | alpha 0.016
+   seed 213 step  92000 | VAL 1.62 (best 2.44) | alpha 0.016
+   seed 213 step  96000 | VAL 2.00 (best 2.44) | alpha 0.016
+   seed 213 step 100000 | VAL 2.13 (best 2.44) | alpha 0.016
+=== seed 213 done: VAL 2.44  TEST 2.24  (CEM TEST 0.12)  [351 min]
+
+   seed 214 warm-start(expert) VAL 1.61
+   seed 214 critic-warmup done, VAL 1.61
+   seed 214 step   4000 | VAL -6.37 (best 1.61) | alpha 0.457
+   seed 214 step   8000 | VAL 1.54 (best 1.61) | alpha 0.204
+   seed 214 step  12000 | VAL 1.31 (best 1.61) | alpha 0.093
+   seed 214 step  16000 | VAL 1.53 (best 1.61) | alpha 0.043
+   seed 214 step  20000 | VAL 0.69 (best 1.61) | alpha 0.021
+   seed 214 step  24000 | VAL 1.76 (best 1.76) | alpha 0.011
+   seed 214 step  28000 | VAL 0.99 (best 1.76) | alpha 0.009
+   seed 214 step  32000 | VAL 1.60 (best 1.76) | alpha 0.009
+   seed 214 step  36000 | VAL 0.98 (best 1.76) | alpha 0.009
+   seed 214 step  40000 | VAL -2.22 (best 1.76) | alpha 0.013
+   seed 214 step  44000 | VAL -1.86 (best 1.76) | alpha 0.016
+   seed 214 step  48000 | VAL -0.50 (best 1.76) | alpha 0.016
+   seed 214 step  52000 | VAL 0.03 (best 1.76) | alpha 0.017
+   seed 214 step  56000 | VAL 0.51 (best 1.76) | alpha 0.018
+   seed 214 step  60000 | VAL 0.63 (best 1.76) | alpha 0.018
+   seed 214 step  64000 | VAL 1.43 (best 1.76) | alpha 0.017
+   seed 214 step  68000 | VAL 0.44 (best 1.76) | alpha 0.017
+   seed 214 step  72000 | VAL 1.08 (best 1.76) | alpha 0.018
+   seed 214 step  76000 | VAL 1.20 (best 1.76) | alpha 0.017
+   seed 214 step  80000 | VAL 1.16 (best 1.76) | alpha 0.017
+   seed 214 step  84000 | VAL 1.19 (best 1.76) | alpha 0.017
+   seed 214 step  88000 | VAL 1.41 (best 1.76) | alpha 0.017
+   seed 214 step  92000 | VAL 1.26 (best 1.76) | alpha 0.016
+   seed 214 step  96000 | VAL 1.32 (best 1.76) | alpha 0.016
+   seed 214 step 100000 | VAL 1.82 (best 1.82) | alpha 0.016
+=== seed 214 done: VAL 1.82  TEST 1.73  (CEM TEST 0.12)  [377 min]
+
+   seed 215 warm-start(expert) VAL 1.94
+   seed 215 critic-warmup done, VAL 1.94
+   seed 215 step   4000 | VAL -14.15 (best 1.94) | alpha 0.460
+   seed 215 step   8000 | VAL 1.49 (best 1.94) | alpha 0.204
+   seed 215 step  12000 | VAL 0.80 (best 1.94) | alpha 0.093
+   seed 215 step  16000 | VAL 0.90 (best 1.94) | alpha 0.043
+   seed 215 step  20000 | VAL 2.36 (best 2.36) | alpha 0.020
+   seed 215 step  24000 | VAL 1.52 (best 2.36) | alpha 0.011
+   seed 215 step  28000 | VAL 2.02 (best 2.36) | alpha 0.010
+   seed 215 step  32000 | VAL 2.10 (best 2.36) | alpha 0.011
+   seed 215 step  36000 | VAL 2.18 (best 2.36) | alpha 0.012
+   seed 215 step  40000 | VAL -5.31 (best 2.36) | alpha 0.017
+   seed 215 step  44000 | VAL -1.80 (best 2.36) | alpha 0.020
+   seed 215 step  48000 | VAL -1.49 (best 2.36) | alpha 0.019
+   seed 215 step  52000 | VAL -1.87 (best 2.36) | alpha 0.018
+   seed 215 step  56000 | VAL -1.37 (best 2.36) | alpha 0.017
+   seed 215 step  60000 | VAL -1.86 (best 2.36) | alpha 0.017
+   seed 215 step  64000 | VAL -0.81 (best 2.36) | alpha 0.017
+   seed 215 step  68000 | VAL 1.19 (best 2.36) | alpha 0.018
+   seed 215 step  72000 | VAL 1.81 (best 2.36) | alpha 0.019
+   seed 215 step  76000 | VAL 1.77 (best 2.36) | alpha 0.020
+   seed 215 step  80000 | VAL 2.06 (best 2.36) | alpha 0.019
+   seed 215 step  84000 | VAL 2.37 (best 2.37) | alpha 0.019
+   seed 215 step  88000 | VAL 2.68 (best 2.68) | alpha 0.018
+   seed 215 step  92000 | VAL 2.65 (best 2.68) | alpha 0.018
+   seed 215 step  96000 | VAL 2.36 (best 2.68) | alpha 0.018
+   seed 215 step 100000 | VAL 2.69 (best 2.69) | alpha 0.018
+=== seed 215 done: VAL 2.69  TEST 2.61  (CEM TEST 0.12)  [404 min]
+
+  Activating project at `~/Documents/trabajo/academia/unam/proyectos investigacion/bio/invernaderos/invernaderosV3.0/GreenhouseControl`
+
+=========================== MPC-DISTILL CAMPAIGN SUMMARY ===========================
+15 seeds in 6.7 h | steps/seed 100000
+CEM constant   : VAL 0.12  TEST 0.12
+SAC-MPC        : TEST 2.35 +/- 0.30  (best seed TEST 2.83)
+beats CEM on TEST in 15 / 15 seeds ; median 2.47 worst 1.73
+per-seed TEST: 1.83, 2.83, 2.15, 2.56, 2.30, 2.52, 2.47, 2.11, 2.62, 2.52, 2.50, 2.19, 2.24, 1.73, 2.61
+
+per-TEST-year profit (best-VAL seed 202):
+1990   CEM  -1.17   SAC-MPC   1.78
+1997   CEM   0.67   SAC-MPC   3.18
+2003   CEM  -1.50   SAC-MPC   1.95
+2009   CEM   0.33   SAC-MPC   2.91
+2014   CEM   1.94   SAC-MPC   4.35
+2015   CEM   0.44   SAC-MPC   2.83
+mean   CEM   0.12   SAC-MPC   2.83
+
+best -> test/sac_actor_mpc_best.jls ; pool -> test/campaign_actors_mpc/ ; manifest -> campaign_manifest_mpc.csv

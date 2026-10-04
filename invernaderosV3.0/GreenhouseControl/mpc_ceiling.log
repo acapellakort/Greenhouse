@@ -1,0 +1,12 @@
+  year  CEM-const        SAC SAC-blockavg   MPC-ceil gap SAC->ceil
+  1990      -1.17       0.40         0.64       2.45       2.05
+  1997       0.67       1.76         1.70       3.34       1.58
+  2003      -1.50       1.20         0.76       2.96       1.76
+  2009       0.33       1.99         2.19       3.81       1.82
+  2014       1.94       2.98         3.65       5.37       2.38
+  2015       0.44       1.60         1.98       3.66       2.06
+  Activating project at `~/Documents/trabajo/academia/unam/proyectos investigacion/bio/invernaderos/invernaderosV3.0/GreenhouseControl`
+  mean       0.12       1.66         1.82       3.60       1.94
+
+Notes: SAC-blockavg near SAC => 10-day blocks retain the agent's detail (ceiling is fair).
+gap SAC->ceil small => SAC near the perfect-foresight frontier; large => headroom remains.

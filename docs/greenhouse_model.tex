@@ -1,0 +1,1046 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage[version=4]{mhchem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=teal,urlcolor=blue!60!black]{hyperref}
+\usepackage{enumitem}
+\usepackage{mathtools}
+\usepackage{fancyhdr}
+
+\newcommand{\dd}[2]{\frac{\mathrm{d}#1}{\mathrm{d}#2}}
+\newcommand{\pd}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\Tcan}{T_{1}}
+\newcommand{\Tair}{T_{2}}
+\newcommand{\Cair}{C_{1}}
+\newcommand{\Vair}{V_{1}}
+\newcommand{\Tflo}{T_{5}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Greenhouse--Cucumber Digital Twin}
+\lhead{Model description}
+\cfoot{\thepage}
+
+\title{\textbf{A Mechanistic Greenhouse--Cucumber Digital Twin}\\[4pt]
+\large Climate, Photosynthesis and Crop--Growth Subsystems:\\ Governing Equations, Variables and Control}
+\author{Greenhouses Project --- Model Reference}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent This document is a complete, self-contained specification of the mechanistic
+greenhouse--cucumber model that constitutes the \emph{digital twin}. The model couples three
+subsystems on two time scales: a fast \textbf{climate} subsystem (a system of ordinary
+differential equations for the greenhouse micro-climate, integrated within each day), a
+\textbf{photosynthesis} subsystem (a Farquhar--von~Caemmerer--Berry biochemical leaf model scaled
+to the canopy), and a daily \textbf{crop-growth} subsystem (a source--sink carbon-allocation map
+with organ pools, thermal-time development, carbohydrate-regulated flowering and fruit cohorts).
+Every differential equation is given with its complete right-hand side; every state variable,
+input and control is defined where it first appears; and the physical, biochemical and
+physiological principles behind each block are explained. Numerical values of all constants are
+collected in the appendices. Parameter-inference and reinforcement-learning layers built on top
+of this model are intentionally \emph{out of scope} here.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+%======================================================================
+\section{Overview and modelling philosophy}\label{sec:overview}
+%======================================================================
+
+\paragraph{What this section contains.} A bird's-eye view of the model: the three subsystems,
+the variables they exchange, the two-time-scale coupling, and the notation used throughout.
+
+\subsection{The three subsystems and their coupling}
+The digital twin predicts how a greenhouse cucumber crop develops under a given weather series and
+a given control (setpoint) programme. It is organised as three coupled subsystems:
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item \textbf{Climate} (Section~\ref{sec:climate}). A lumped-parameter energy- and mass-balance
+  model of the greenhouse compartment. Its state is the vector
+  \begin{equation}
+    \mathbf{x}_{\text{clim}} = \big(\,\Tcan,\ \Tair,\ \Cair,\ \Vair,\ \Tflo\,\big),
+  \end{equation}
+  the canopy temperature $\Tcan$, the greenhouse-air temperature $\Tair$, the air
+  \ce{CO2} concentration $\Cair$, the air vapour pressure $\Vair$, and a floor/soil thermal-mass
+  temperature $\Tflo$. These obey the ODEs of Section~\ref{sec:climate}, driven by outside weather
+  and by the actuators.
+  \item \textbf{Photosynthesis} (Section~\ref{sec:photo}). A biochemical model that converts the
+  instantaneous canopy light, temperature and \ce{CO2} into a gross assimilation rate $A$. It is
+  evaluated \emph{inside} the climate ODE (it both consumes \ce{CO2} in the air balance and,
+  integrated over the day, feeds the crop).
+  \item \textbf{Crop growth} (Section~\ref{sec:growth}). A daily map that spends the day's
+  assimilate on maintenance respiration and organ growth, advances development in thermal time,
+  sets and grows fruit, harvests mature fruit, and updates the leaf area index (LAI).
+\end{enumerate}
+
+\subsection{Two time scales}
+The climate and photosynthesis subsystems live on a \emph{fast} (sub-daily) scale: within one day
+the ODE of Section~\ref{sec:climate} is integrated over $[0,\SI{86400}{s}]$ at a \emph{fixed} LAI,
+and the assimilation rate $A$ is accumulated,
+\begin{equation}
+  P_g \;=\; \Big(\!\int_{0}^{\SI{86400}{s}}\! A(t)\,\mathrm{d}t\Big)\cdot 10^{-3}\cdot\frac{30}{44}
+  \qquad [\si{g\,CH_2O.m^{-2}.d^{-1}}],
+  \label{eq:Pg}
+\end{equation}
+where the factor $10^{-3}$ converts \si{mg\to g} and $30/44$ converts assimilated \ce{CO2}
+(molar mass \SI{44}{g/mol}) to carbohydrate \ce{CH2O} (molar mass \SI{30}{g/mol}). The crop-growth
+subsystem lives on the \emph{slow} (daily) scale: once per day it receives $P_g$ and the daily-mean
+air temperature $\overline{\Tair}$, updates the crop state, and returns the new LAI, which becomes
+the fixed LAI for the next day's climate integration. This one-way-per-day hand-off (LAI $\to$
+climate/photosynthesis $\to$ $P_g$ $\to$ crop $\to$ LAI) is the backbone of the twin.
+
+\subsection{Notation}
+Throughout, $\Tcan,\Tair,\Tflo$ are absolute temperatures in kelvin; the crop model works with the
+daily-mean air temperature in \si{\degreeCelsius}. Symbols beginning with $I$ (with numeric
+subscripts $I_1,\dots,I_{11}$) are \emph{inputs} to the climate right-hand side --- either weather
+drivers or quantities supplied by the controller (Table~\ref{tab:inputs}); symbols
+$U_1,\dots,U_{12}$ are the \emph{control actuators} (Table~\ref{tab:controls}). Greek-letter
+constants ($\alpha_i,\beta_i,\gamma_i,\dots$) are fixed physical parameters listed in
+Appendix~\ref{app:climate}. Intermediate flux quantities are named by a letter and index
+($h_i$ sensible-heat fluxes, $l_i$ latent-heat fluxes, $r_i$ radiative fluxes, $f_i$ ventilation
+exchange rates, $o_i$ \ce{CO2} fluxes, $p_i$ vapour fluxes, $q_i$ transpiration auxiliaries); they
+are all defined in Section~\ref{sec:climate}.
+
+%======================================================================
+\section{Climate subsystem}\label{sec:climate}
+%======================================================================
+
+\paragraph{What this section contains.} The complete micro-climate model: the five state
+equations (canopy temperature, air temperature, \ce{CO2}, vapour pressure and floor thermal mass),
+followed by the submodels that define their right-hand-side terms --- shortwave (PAR/NIR) and
+longwave (FIR) radiation, natural ventilation, canopy transpiration and its stomatal control,
+condensation, and psychrometrics. The underlying principle throughout is the \textbf{lumped
+energy and mass balance}: each compartment (canopy, air, floor) is treated as spatially uniform,
+and its temperature/concentration changes at a rate equal to the net flux into it divided by its
+heat capacity or the compartment volume. The formulation follows the Vanthoor greenhouse model.
+
+\subsection{Governing state equations}
+
+\paragraph{Canopy temperature $\Tcan$.} The canopy leaves store heat with capacity
+$\alpha_1 I_1$ per unit ground area, where $I_1=\mathrm{LAI}$. Their temperature responds to
+absorbed short-wave radiation ($r_1$, PAR, and $r_5$, NIR + lamp), long-wave exchange with the
+heating pipe ($r_6$) and with sky/floor ($r_7,r_{14}$), sensible-heat convection to the air
+($h_1$) and latent-heat loss by transpiration ($l_1$):
+\begin{equation}
+  \dd{\Tcan}{t} \;=\; \frac{1}{\alpha_1 I_1}\Big(\,r_1 + r_5 + r_6 - h_1 - l_1 - r_7 - r_{14}\,\Big).
+  \label{eq:dT1}
+\end{equation}
+
+\paragraph{Greenhouse-air temperature $\Tair$.} The air (mean height $\phi_2$, density $\rho_3$,
+specific heat $\alpha_5$) is heated by convection from the canopy ($h_1$), by the fan--pad/forced
+inlet ($h_2$), by the heating pipe ($h_4$) and the lamps' direct/reflector heat ($h_{12}$), and by
+absorbed radiation on building elements ($r_8$); it loses heat by ventilation to outside ($h_7$),
+by conduction through the soil path ($h_{11}$), by the net long-wave balance ($r_{10}$) and by fog
+evaporation ($l_2$). A separate floor-exchange term $\dot{T}_{2,\text{floor}}$
+(Section~\ref{sec:floor}) couples it to the thermal mass:
+\begin{equation}
+  \dd{\Tair}{t} \;=\; \frac{1}{\phi_2\,\rho_3\,\alpha_5}
+     \Big(\,h_1 + h_2 + h_4 - h_7 - h_{11} + h_{12} + r_8 - r_{10} - l_2\,\Big)
+     \;+\; \dot{T}_{2,\text{floor}}.
+  \label{eq:dT2}
+\end{equation}
+
+\paragraph{Air \ce{CO2} concentration $\Cair$.} Mass balance of \ce{CO2} (in \si{mg.m^{-3}}) over
+the air column of height $\phi_2$: sources are the direct air-heater combustion ($o_1$) and the
+external \ce{CO2} dosing valve ($o_2$); exchange with outside occurs through the fan--pad ($o_3$)
+and through ventilation + leakage ($o_5$); the canopy removes \ce{CO2} by photosynthesis at the
+assimilation rate $o_4=A$:
+\begin{equation}
+  \dd{\Cair}{t} \;=\; \frac{1}{\phi_2}\Big(\,o_1 + o_2 + o_3 - o_4 - o_5\,\Big).
+  \label{eq:dC1}
+\end{equation}
+
+\paragraph{Air vapour pressure $\Vair$.} Water-vapour balance (in \si{Pa}): the canopy adds vapour
+by transpiration ($p_1$), the fan--pad ($p_2$), the fog system ($p_3$) and the air heater ($p_4$);
+vapour is removed by ventilation ($p_5$), the fan--pad outflow ($p_6$) and condensation on the
+mechanical cooler ($p_7$), the thermal screen ($p_8$) and the cover ($p_9$). The capacity factor
+$\kappa_3=\psi_1\phi_2/(\omega_2 \Tair)$ converts the vapour mass balance to a pressure rate through
+the ideal-gas law:
+\begin{equation}
+  \dd{\Vair}{t} \;=\; \frac{1}{\kappa_3}
+     \Big(\,p_1 + p_2 + p_3 + p_4 - p_5 - p_6 - p_7 - p_8 - p_9\,\Big).
+  \label{eq:dV1}
+\end{equation}
+
+\paragraph{Floor / soil thermal mass $\Tflo$.} See Section~\ref{sec:floor}.
+
+\medskip
+The auxiliary flux terms in Eqs.~\eqref{eq:dT1}--\eqref{eq:dV1} are defined in
+Sections~\ref{sec:rad}--\ref{sec:psychro}. We first list the transpiration auxiliaries $q_i$,
+because several balances use $q_1$ (the vapour-exchange coefficient) and $q_2=\mathrm{Pws}(\Tcan)$
+(saturated vapour pressure at leaf temperature).
+
+\subsection{Transpiration coefficient and stomatal control}\label{sec:transp}
+Canopy transpiration is a diffusion process: water vapour flows from the saturated interior of the
+leaf (vapour pressure $q_2=\mathrm{Pws}(\Tcan)$) to the drier greenhouse air (vapour pressure
+$\Vair$), across the sum of a stomatal resistance $q_3$ and a fixed boundary-layer resistance. The
+coupling coefficient is
+\begin{equation}
+  q_1 \;=\; \frac{2\,\rho_3\,\alpha_5\,I_1}{\gamma\,\gamma_2\,(\gamma_3 + q_3)},
+\end{equation}
+so that the transpiration vapour flux is $q_1(q_2-\Vair)$ and the associated latent-heat loss is
+$l_1=\gamma_2 q_1 (q_2-\Vair)$, with $\gamma_2$ the latent heat of vaporisation and $\gamma$ the
+psychrometric constant. The \textbf{stomatal resistance} $q_3$ increases when the plant closes its
+stomata --- in the dark, at high \ce{CO2}, and under large vapour-pressure deficit --- following the
+Vanthoor switch functions:
+\begin{align}
+  q_7 &= \big(1 + e^{(I_9-\delta_1)/\gamma_5}\big)^{-1}, &
+  q_8 &= \delta_4 + (\delta_5-\delta_4)\,q_7, \\
+  q_9 &= \delta_6 + (\delta_7-\delta_6)\,q_7, &
+  q_{10} &= \frac{I_9+\delta_2}{I_9+\delta_3}, \\
+  q_4 &= 1 + q_8\,(\Cair-200)^2, &
+  q_5 &= 1 + q_9\,(q_2-\Vair)^2, \\
+  q_3 &= \gamma_4\, q_{10}\, q_4\, q_5. &&
+\end{align}
+Here $I_9$ is the PAR above the canopy (a radiation input, Section~\ref{sec:rad}); $q_7$ is a smooth
+day/night switch centred at the light level $\delta_1$; $q_{10}$ is the radiation dependence of the
+minimum resistance $\gamma_4$; $q_4$ and $q_5$ inflate the resistance far from
+$\ce{CO2}=\SI{200}{ppm}$ and at large leaf-to-air vapour deficit, respectively. The quantity
+$q_6=\mathrm{Pws}(I_6)$ (saturation pressure at the mechanical-cooler temperature $I_6$) is used by
+the condensation terms.
+
+\subsection{Radiation submodel}\label{sec:rad}
+\paragraph{Principle.} Radiative transfer is split by wavelength band: \emph{PAR}
+(photosynthetically active, $\SI{400}{}$--$\SI{700}{nm}$), \emph{NIR} (near-infrared, solar heat),
+and \emph{FIR} (far-infrared, thermal emission). Short-wave (PAR+NIR) penetration into the canopy
+follows the \textbf{Beer--Lambert law}: a beam is attenuated as $e^{-\beta\,\mathrm{LAI}}$ with an
+extinction coefficient $\beta$ specific to the band. Long-wave exchange between surfaces follows the
+\textbf{Stefan--Boltzmann law}, net flux $\propto \sigma(T_a^4-T_b^4)$, weighted by emissivities and
+view factors.
+
+\paragraph{Canopy fractions.} With $I_1=\mathrm{LAI}$,
+\begin{align}
+  g_1 &= 0.49\,\big(1-e^{-\beta_3 I_1}\big), &
+  g_2 &= 1 - U_1(1-\tau_3), &
+  g_3 &= \tau_1\,g_2\,\big(1-0.49\pi\gamma_1\phi_1\big)e^{-\beta_3 I_1},
+\end{align}
+where $g_1$ is the NIR-absorbing canopy fraction, $g_2$ the FIR transmission through the (possibly
+deployed, $U_1$) thermal screen of transmissivity $\tau_3$, and $g_3$ a combined cover--screen--canopy
+FIR factor.
+
+\paragraph{PAR absorbed by the canopy.} The transmitted outside PAR reaching the top of the canopy is
+$r_4=(1-\eta_1)\tau_1\eta_2 I_2$ ($I_2$ = outside global radiation, $\eta_2$ its PAR fraction,
+$\tau_1$ cover PAR transmissivity, $\eta_1$ the building-absorbed fraction). Direct and
+floor-reflected PAR absorbed by the canopy are
+\begin{align}
+  r_2 &= r_4\,(1-\rho_1)\big(1-e^{-\beta_1 I_1}\big), \\
+  r_3 &= r_4\,e^{-\beta_1 I_1}\,\rho_2\,(1-\rho_1)\big(1-e^{-\beta_2 I_1}\big), \\
+  r_1 &= r_2 + r_3,
+\end{align}
+with $\rho_1$ the canopy PAR reflectance, $\rho_2$ the floor PAR reflectance, and
+$\beta_1,\beta_2$ the extinction coefficients for downward and floor-reflected PAR.
+
+\paragraph{NIR and lamp short-wave to canopy and building.}
+\begin{align}
+  r_5 &= (1-\eta_1)\,\alpha_2\,\big(\eta_3 I_2 + \eta_{14}\,\alpha_{12}\,U_{12}\big), \\
+  r_8 &= I_2\Big(\eta_1\big(\tau_1\eta_2 + (\alpha_2+\alpha_7)\eta_3\big) + \big(\alpha_8\eta_2 + \alpha_9\eta_3\big)\Big),
+\end{align}
+where $\alpha_2$ is the canopy NIR absorptance, $\eta_3$ the NIR fraction of global radiation,
+$\alpha_{12}U_{12}$ the lamp radiation ($U_{12}$ the lamp on/off actuator) and $\eta_{14}$ its NIR
+share; $r_8$ collects short-wave absorbed by building/floor/cover.
+
+\paragraph{Long-wave (FIR) exchange.} With the sky-directed Stefan--Boltzmann kernel
+$B_{\text{sky}}=\epsilon_3\sigma(\Tair^4-I_4^4)$ ($I_4$ = sky temperature, Section~\ref{sec:sky}),
+\begin{align}
+  r_{11} &= \epsilon_4\,g_3\,\epsilon_3\,\sigma\,(I_7^4 - I_4^4), &
+  r_{12} &= \epsilon_{scr}\,(U_1\tau_2)\,B_{\text{sky}}, \\
+  r_{13} &= \epsilon_6\,B_{\text{sky}}, &
+  r_{10} &= r_{11}+r_{12}+r_{13},\\
+  r_{14} &= \epsilon_4\,\epsilon_2\,\big(1-0.49\pi\gamma_1\phi_1\big)\sigma\,(\Tair^4 - I_7^4), &
+  r_{15} &= \epsilon_2\,\epsilon_5\,\big(1-e^{-\beta_2 I_1}\big)g_2\,\sigma\,(\Tcan^4 - I_4^4).
+\end{align}
+$r_{10}$ is the net FIR loss of the air/cover system to the sky ($r_{13}$ through the cover of
+emissivity $\epsilon_6$, $r_{12}$ through the deployed screen of \emph{energy-screen} emissivity
+$\epsilon_{scr}$, $r_{11}$ the floor--sky path via $I_7$). $r_{14}$ is air$\leftrightarrow$floor FIR;
+$r_{15}$ the canopy--sky FIR. The heating-pipe and canopy--sky canopy terms are
+\begin{align}
+  r_6 &= \alpha_3\,\epsilon_1\,\epsilon_2\,g_1\,\sigma\,(I_3^4 - \Tcan^4), &
+  r_7 &= \frac{g_1}{0.49}\,\epsilon_2\,\epsilon_3\,g_2\,\sigma\,(\Tcan^4 - I_4^4),
+\end{align}
+with $I_3$ the heating-pipe temperature and $\alpha_3,\epsilon_1$ the pipe area and emissivity.
+
+\subsection{Ventilation submodel}\label{sec:vent}
+\paragraph{Principle.} Natural ventilation exchanges air with the outside through roof and side
+vents. Two mechanisms drive it: \emph{wind} (dynamic pressure $\propto I_8^2$, $I_8$ = wind speed)
+and \emph{buoyancy} (the stack effect, $\propto g\,\Delta T/\overline{T}$). A ventilation rate is a
+non-negative air-exchange rate; the \emph{direction} of any heat/\ce{CO2}/vapour transport is carried
+by the corresponding concentration or temperature difference in the balance, not by the rate.
+
+\paragraph{Aperture-dependent rates.} With $U_6$ the side-vent and $U_8$ the roof-vent apertures,
+\begin{align}
+  n_1 &= \nu_1(1-\eta_{10}U_5), & n_2 &= \nu_3 U_6, & n_3 &= \nu_2(1-\eta_{11}U_5),\\
+  f_5 &= \frac{n_1\,n_2\,I_8\,\sqrt{n_3}}{2\alpha_6}, &
+  f_{7t} &= \max\!\Big(\omega_1\nu_6\frac{\Tair-I_5}{\Tair+I_5} + n_3 I_8^2,\ 0\Big), &
+  f_7 &= \frac{U_8\,\nu_5\,n_1}{2\alpha_6}\sqrt{f_{7t}},
+\end{align}
+where $f_5$ is the wind-driven side-vent exchange, $f_7$ the roof-vent exchange combining buoyancy
+(the $\omega_1\nu_6(\Tair-I_5)/(\Tair+I_5)$ stack term, $\omega_1=g$, $I_5$ = outside temperature)
+and wind ($n_3 I_8^2$), and $\alpha_6$ the floor area. The infiltration/leakage rate has a wind
+dependence with a floor at low wind,
+\begin{equation}
+  f_6 = \begin{cases} 0.25\,\nu_4, & I_8<0.25\\ \nu_4\,I_8, & I_8\ge0.25\end{cases}
+  \qquad
+  f_{6,\text{CO2}} = \begin{cases} 0.25\,\nu_{4\text{CO2}}, & I_8<0.25\\ \nu_{4\text{CO2}}\,I_8, & I_8\ge0.25,\end{cases}
+\end{equation}
+with separate heat ($\nu_4$) and \ce{CO2} ($\nu_{4\text{CO2}}$) leakage coefficients. The total
+exchange rates entering the balances are
+\begin{align}
+  f_2 &= \eta_6\,f_5 \ \ \text{(if } \eta_7\ge\eta_8\text{) or } \eta_6 U_1 f_5, &
+  f_3 &= \frac{U_7\,\phi_8}{\alpha_6}\ \text{(forced fans)}, &
+  f_4 &= \eta_6\,f_7,
+\end{align}
+with $\eta_6$ the ventilation power-reduction factor and $U_7$ the forced-ventilation actuator.
+
+\paragraph{Sensible-heat loss by ventilation.}
+\begin{equation}
+  h_7 \;=\; \rho_3\,\alpha_5\,\big(f_2 + f_4 + f_3 + \tfrac12 f_6\big)\,(\Tair - I_5).
+\end{equation}
+The roof term $f_4$ is included on the same footing as the side ($f_2$), forced ($f_3$) and
+half-leakage ($\tfrac12 f_6$) terms: any air-exchange rate carries sensible heat regardless of what
+drives it. (Omitting $f_4$ here makes a calm, sunny greenhouse unable to shed its solar load.)
+
+\subsection{Sensible-heat and latent-heat fluxes of the air}\label{sec:heatfluxes}
+\begin{align}
+  h_1 &= 2\,\alpha_4\,I_1\,(\Tcan - \Tair) &&\text{(canopy}\to\text{air convection)},\\
+  h_2 &= \frac{U_2\phi_7}{\alpha_6}\Big(\rho_3\alpha_5 I_5 - \gamma_2\rho_3\,\eta_5(\phi_5-\phi_6)\Big) &&\text{(fan--pad inlet)},\\
+  h_4 &= n_{\text{pipes}}\,\big(1.99\,\pi\,\phi_1\,\gamma_1\,|I_3-\Tair|^{0.32}\big)(I_3-\Tair) &&\text{(heating pipe)},\\
+  h_{11} &= \frac{2\,\nu_7\,(\Tair - I_7)}{\phi_2+\nu_8} &&\text{(soil-path conduction)},\\
+  h_{12} &= (\eta_{15}+\eta_{16})\,\alpha_{12}\,U_{12} &&\text{(lamp reflector + direct heat)},\\
+  l_2 &= \frac{\gamma_2\,U_9\,\phi_9}{\alpha_6} &&\text{(fog evaporation, latent)}.
+\end{align}
+$h_4$ is the natural-convection pipe--air exchange (a $|\Delta T|^{0.32}$ Nusselt correlation),
+$U_2$ the pad actuator, $U_9$ the fog actuator.
+
+\subsection{\ce{CO2} and vapour fluxes}\label{sec:co2vap}
+\ce{CO2} fluxes (\si{mg.m^{-2}.s^{-1}}):
+\begin{align}
+  o_1 &= \frac{\eta_{13}\,U_4\,\lambda_4}{\alpha_6}, &
+  o_2 &= \frac{U_{10}\,\psi_2}{\alpha_6}, &
+  o_3 &= \frac{U_2\phi_7}{\alpha_6}(\Cair-I_{10}),\\
+  o_4 &= A, &
+  o_5 &= (\Cair-I_{10})\,\big(f_2+f_3+f_4+f_{6,\text{CO2}}\big), &&
+\end{align}
+with $I_{10}$ the outside \ce{CO2}, $U_4$ the air-heater actuator, $\lambda_4$ its capacity,
+$\eta_{13}$ the \ce{CO2} produced per joule of combustion, $U_{10}$ the dosing valve and $\psi_2$
+its capacity. Vapour fluxes (\si{Pa}-rate contributions, before $\kappa_3$):
+\begin{align}
+  p_1 &= q_1(q_2-\Vair), & p_2 &= \rho_3\frac{U_2\phi_7}{\alpha_6}\big(\eta_5(\phi_5-\phi_6)+\phi_6\big),\\
+  p_3 &= \frac{U_9\phi_9}{\alpha_6}, & p_4 &= \frac{\eta_{12}\,U_4\,\lambda_4}{\alpha_6},\\
+  p_5 &= \frac{\psi_1}{\omega_2}\Big(\frac{\Vair}{\Tair}-\frac{I_{11}}{I_5}\Big)\big(f_2+f_3+f_4+f_6\big),
+      & p_6 &= \frac{U_2\phi_7}{\alpha_6}\frac{\psi_1}{\omega_2}\frac{\Vair}{\Tair},
+\end{align}
+with $I_{11}$ the outside vapour pressure. Condensation occurs only when the air is supersaturated
+relative to the receiving surface (a one-sided switch):
+\begin{align}
+  p_7 &= \begin{cases}0,&\Vair<q_6\\ 6.4\!\times\!10^{-9}(\Vair-q_6),&\text{else}\end{cases} &&\text{(cooler)},\\
+  p_8 &= \begin{cases}0,&\Vair<\mathrm{Pws}(T_{\text{scr}})\\ 6.4\!\times\!10^{-9}\!\cdot\!1.7\,|\Tair-\mathrm{Pws}(T_{\text{scr}})|^{0.33}(\Vair-\mathrm{Pws}(T_{\text{scr}})),&\text{else}\end{cases} &&\text{(screen)},\\
+  p_9 &= \begin{cases}0,&\Vair<\mathrm{Pws}(\Tair)\\ 6.4\!\times\!10^{-9}\!\cdot\!1.2\!\cdot\!10^{3}\,|\Tcan-\Tair|^{0.33}(\Vair-\mathrm{Pws}(\Tair)),&\text{else}\end{cases} &&\text{(cover)},
+\end{align}
+where $T_{\text{scr}}=\tfrac12(I_5+\Tair)$ is the screen temperature.
+
+\subsection{Floor / soil thermal mass}\label{sec:floor}
+\paragraph{Principle.} The greenhouse floor and the top soil layer form a large \emph{thermal
+buffer}: they absorb heat by day and release it at night, damping the air-temperature swing. We
+model this with a single lumped floor temperature $\Tflo$ of areal heat capacity $C_{\text{soil}}$,
+exchanging with the air above (conductance $k_{\text{ground}}$) and with a fixed deep-soil
+temperature $T_{\text{deep}}$ below (same conductance):
+\begin{align}
+  Q_{af} &= k_{\text{ground}}(\Tair - \Tflo), &
+  Q_{fg} &= k_{\text{ground}}(\Tflo - T_{\text{deep}}),\\
+  \dot{T}_{2,\text{floor}} &= -\frac{Q_{af}}{\phi_2\rho_3\alpha_5}, &
+  \dd{\Tflo}{t} &= \frac{Q_{af}-Q_{fg}}{C_{\text{soil}}}.
+  \label{eq:floor}
+\end{align}
+The first equation returns the extra air-temperature rate added in Eq.~\eqref{eq:dT2}; the second is
+the floor state equation. A single conductance $k_{\text{ground}}$ (rather than a separate
+air--floor and floor--deep pair) is used because only the combination is identifiable from data.
+
+\subsection{Psychrometrics and sky temperature}\label{sec:psychro}\label{sec:sky}
+\paragraph{Saturation vapour pressure (Arden Buck).} For air/leaf temperature $T$ in kelvin, with
+$t_c=T-273.15$ in \si{\degreeCelsius},
+\begin{equation}
+  \mathrm{Pws}(T)=\begin{cases}
+    611.21\,\exp\!\Big[\big(18.678-\tfrac{t_c}{234.5}\big)\tfrac{t_c}{257.14+t_c}\Big], & t_c>0,\\[4pt]
+    611.15\,\exp\!\Big[\big(23.036-\tfrac{t_c}{333.7}\big)\tfrac{t_c}{279.82+t_c}\Big], & t_c\le 0.
+  \end{cases}
+\end{equation}
+Relative humidity and vapour-pressure deficit follow as
+\begin{equation}
+  \mathrm{RH}=100\,\frac{\Vair}{\mathrm{Pws}(\Tair)}\ [\%], \qquad
+  \mathrm{VPD}=\mathrm{Pws}(\Tair)-\Vair\ [\si{Pa}].
+\end{equation}
+\paragraph{Effective sky temperature (Berdahl--Martin).} The radiative sky temperature $I_4$ is
+colder than the air on clear nights and approaches the air temperature under overcast skies. From
+air temperature $t_c$ [\si{\degreeCelsius}], relative humidity $\mathrm{RH}$ [\%] and total cloud
+cover $c\in[0,1]$, the dew point (Magnus) and clear-sky emissivity are
+\begin{align}
+  \gamma_m &= \frac{a\,t_c}{b+t_c}+\ln\frac{\mathrm{RH}}{100}, \quad
+  T_{\text{dew}} = \frac{b\,\gamma_m}{a-\gamma_m}, \quad (a=17.27,\ b=237.7),\\
+  \epsilon_{\text{clear}} &= \mathrm{clip}\!\Big(0.711 + 0.56\tfrac{T_{\text{dew}}}{100} + 0.73\big(\tfrac{T_{\text{dew}}}{100}\big)^2,\ 0.6,\ 1\Big),\\
+  \epsilon_{\text{sky}} &= \epsilon_{\text{clear}} + (1-\epsilon_{\text{clear}})\,c, \qquad
+  I_4 = (t_c+273.15)\,\epsilon_{\text{sky}}^{1/4}.
+\end{align}
+This replaces a fixed cold sky and is the dominant control on night-time radiative loss.
+
+%======================================================================
+\section{Photosynthesis subsystem}\label{sec:photo}
+%======================================================================
+
+\paragraph{What this section contains.} The biochemical leaf photosynthesis model
+(Farquhar--von~Caemmerer--Berry, FvCB), the temperature dependence of its parameters, and the
+\textbf{canopy light-extinction model} that scales the leaf rate up to the whole canopy. The output
+is the canopy gross assimilation rate $A$ that appears as $o_4$ in the \ce{CO2} balance
+Eq.~\eqref{eq:dC1} and, integrated over the day (Eq.~\eqref{eq:Pg}), as the crop's carbon supply.
+We place the light-extinction (Beer's-law canopy) model \emph{here}, because it is the bridge from
+leaf biochemistry to the canopy source term; the same extinction physics also governs the PAR/NIR
+absorption in the climate radiation submodel (Section~\ref{sec:rad}).
+
+\subsection{The FvCB biochemical model}
+\paragraph{Principle.} In C$_3$ plants (cucumber included) carbon fixation is limited by the slower
+of three processes: (i) the maximum rate of the Rubisco enzyme, $W_c$; (ii) the rate at which the
+light reactions regenerate RuBP, i.e.\ the electron-transport-limited rate $W_j$; and (iii) the rate
+at which triose phosphates are used, $W_p$. The net assimilation is the minimum of the three,
+corrected for photorespiration (through the \ce{CO2} compensation point $\Gamma^{\!*}$) and dark
+respiration $R_d$. The inputs are leaf temperature $T$ (here the air temperature $\Tair$),
+intercellular \ce{CO2} (taken proportional to the air \ce{CO2} $\Cair$) and absorbed irradiance
+(from the canopy PAR $I_9$).
+
+\paragraph{Inputs and conversions.} With incident radiation $I_w$ [\si{W.m^{-2}}] and air \ce{CO2}
+$C$ [\si{mg.m^{-3}}],
+\begin{equation}
+  I = 4.6\times10^{-6}\,I_w \quad[\si{mol\,photons.m^{-2}.s^{-1}}], \qquad
+  C_i = 0.509\times10^{-6}\,C \quad[\si{mol.m^{-3}}].
+\end{equation}
+\paragraph{\ce{CO2} compensation point and electron transport.}
+\begin{align}
+  \Gamma^{\!*} &= \frac{0.5\,O_a}{S_{c/o,25}\,\exp\!\big[\tfrac{T-298.15}{T}\cdot\tfrac{E_{S_{c/o}}}{298.15\,R}\big]},\\
+  J &= \frac{(\alpha I + J_{\max}) - \sqrt{(\alpha I + J_{\max})^2 - 4\,\theta\,\alpha I\,J_{\max}}}{2\,\theta},
+\end{align}
+where $O_a$ is the \ce{O2} mole fraction, $S_{c/o,25}$ the Rubisco specificity and $E_{S_{c/o}}$ its
+activation energy; $\alpha$ is the initial quantum-yield slope, $J_{\max}$ the maximum electron
+transport rate and $\theta$ the curvature of the non-rectangular hyperbola relating $J$ to light.
+\paragraph{Temperature-adjusted Rubisco kinetics.}
+\begin{align}
+  V_{c\max} &= V_{c\max,25}\,\frac{Q_{10,Vc}^{\,0.1(T-298.15)}}{1+\exp[0.128\,(T-315.15)]}, \\
+  K_C &= K_{C,25}\,Q_{10,KC}^{\,0.1(T-298.15)}, \qquad
+  K_O = K_{O,25}\,Q_{10,KO}^{\,0.1(T-298.15)},
+\end{align}
+with a peaked (deactivating) temperature response for $V_{c\max}$ and Michaelis constants $K_C,K_O$
+for \ce{CO2} and \ce{O2}. The effective (stomatal+mesophyll) conductance is held at the constant
+Bush (2023) value
+\begin{equation}
+  g_{\text{eff}} = \frac{0.3\cdot 0.25}{0.3+0.25} \approx 0.1364 \quad[\si{mol.m^{-2}.s^{-1}}].
+\end{equation}
+\paragraph{The three limiting rates.} Each limitation gives a quadratic in the assimilation rate
+$A_r$; the physically admissible (lower) root is taken:
+\begin{align}
+  \text{Rubisco:}\quad & p_c = -\big(V_{c\max} + g_{\text{eff}}(C_i + K_C(1+O_a/K_O)) - R_d\big),\notag\\
+  & q_c = g_{\text{eff}}\big(V_{c\max}\max(C_i-\Gamma^{\!*},0) - (C_i+K_C(1+O_a/K_O))R_d\big),\notag\\
+  & A_{r,c} = \tfrac12\big(-p_c-\sqrt{p_c^2-4q_c}\big),\\[3pt]
+  \text{Light:}\quad & p_j = -0.25\,J + R_d - g_{\text{eff}}(C_i+2\Gamma^{\!*}),\notag\\
+  & q_j = 0.25\,g_{\text{eff}}\max(C_i-\Gamma^{\!*},0)\,J - g_{\text{eff}}(C_i+2\Gamma^{\!*})R_d,\notag\\
+  & A_{r,j} = \tfrac12\big(-p_j-\sqrt{p_j^2-4q_j}\big),\\[3pt]
+  \text{Product:}\quad & A_{r,p} = 1.5\,V_{c\max} - R_d.
+\end{align}
+The \textbf{leaf-level} net assimilation (per unit \emph{leaf} area) is $A_{\text{leaf}} =
+\min(A_{r,j},A_{r,c},A_{r,p})$, and the \textbf{canopy} assimilation returned to the balances is
+\begin{equation}
+  A \;=\; 44010\;\cdot\;L_{\text{eff}}\;\cdot\;\min(A_{r,j},A_{r,c},A_{r,p}) \quad[\si{mg\,CO_2.m^{-2}.s^{-1}}],
+  \label{eq:Acanopy}
+\end{equation}
+where the factor $44010$ converts \si{mol}$\to$\si{mg} of \ce{CO2}, and $L_{\text{eff}}$ is the
+light-intercepting effective LAI defined next. For the cucumber crop under \ce{CO2} enrichment the
+canopy operates predominantly in the \emph{light-limited} regime ($A_{r,j}$ smallest), so radiation
+--- solar plus supplemental lamp PAR --- is the limiting resource.
+
+\subsection{Canopy light-extinction model}\label{sec:lightext}
+\paragraph{Principle (Beer--Lambert).} Leaves higher in the canopy shade those below, so irradiance
+decays with cumulative leaf area $\ell$ (LAI measured from the top) as $I(\ell)=I_0\,e^{-k\ell}$,
+with $k$ the canopy extinction coefficient ($k\approx0.7$ for cucumber). Two canopy-scaling schemes
+are used.
+
+\paragraph{(a) Big-leaf (effective-LAI) scaling.} The leaf rate is evaluated once at the
+top-of-canopy light $I_0$ and multiplied by the \emph{light-intercepting effective LAI}
+\begin{equation}
+  L_{\text{eff}}(\mathrm{LAI}) \;=\; \frac{1-e^{-k\,\mathrm{LAI}}}{k},
+  \label{eq:laieff}
+\end{equation}
+which is the vertical integral of the interception profile and \emph{saturates} at $1/k$ as
+LAI$\to\infty$ (extra leaf intercepts almost no additional light). This $L_{\text{eff}}$ is the
+factor used in Eq.~\eqref{eq:Acanopy} and, with the corresponding $\beta_1,\beta_2,\beta_3$
+coefficients, underlies the PAR/NIR absorption of Section~\ref{sec:rad}.
+
+\paragraph{(b) Layered (vertical-profile) scaling.} A more faithful scheme integrates the
+\emph{leaf} rate down the light gradient. Discretising the canopy into leaf layers of area $a_i$ at
+cumulative depth $\ell_i$ (mid-layer),
+\begin{equation}
+  A \;=\; 44010\;\sum_i a_i\; A_{\text{leaf}}\!\big(I_0\,e^{-k\,\ell_i}\big).
+  \label{eq:layered}
+\end{equation}
+When the leaf response is linear in light (the light-limited regime) Eq.~\eqref{eq:layered} reduces
+exactly to the big-leaf form~\eqref{eq:Acanopy}--\eqref{eq:laieff}; when upper leaves are
+light-saturated it correctly predicts a \emph{higher} canopy assimilation, because shaded lower
+leaves operate at their more efficient (steeper) part of the light-response curve. Scheme (b) is the
+one used by the leaf-cohort crop model (Section~\ref{sec:cohort}), where the layers are the leaf-age
+cohorts; scheme (a) is used by the single-pool crop model (Section~\ref{sec:biggrow}).
+
+%======================================================================
+\section{Crop-growth subsystem}\label{sec:growth}
+%======================================================================
+
+\paragraph{What this section contains.} The daily crop model: how the day's assimilate $P_g$ is
+partitioned into maintenance, organ growth and fruit; how development proceeds in thermal time; the
+\textbf{flowering / fruit-set equations}; fruit growth and harvest; and the leaf-area update. Two
+variants share the same physiology and differ only in how the canopy is represented: a
+\emph{single-pool} model (Section~\ref{sec:biggrow}) and a \emph{leaf-age-cohort / vertical-canopy}
+model (Section~\ref{sec:cohort}). The \textbf{planting density} and its role are defined in
+Section~\ref{sec:density}. The governing biological principle is \textbf{source--sink carbon
+partitioning}: a common assimilate pool (the source) is distributed among competing organs (the
+sinks) in proportion to their potential growth (sink strength), limited by supply when the source is
+scarce.
+
+\subsection{State variables and thermal time}\label{sec:cropstate}
+The single-pool crop state is
+\begin{equation}
+  \big(W_{\text{leaf}},\ W_{\text{stem}},\ W_{\text{root}},\ \mathrm{LAI},\ \{\text{fruit cohorts}\},\ Y_{DW},\ Y_{FW},\ n_{\text{node}}\big),
+\end{equation}
+with organ dry weights $W_\bullet$ [\si{g.m^{-2}}], leaf area index LAI, a list of fruit cohorts, the
+cumulative harvested fruit dry ($Y_{DW}$, \si{g.m^{-2}}) and fresh ($Y_{FW}$, \si{kg.m^{-2}}) weight,
+and the main-stem node number $n_{\text{node}}$. Each \textbf{fruit cohort} carries a development
+stage $\mathrm{dev}\in[0,1]$ (its thermal age), a dry weight $W$ [\si{g.m^{-2}}] and a number of
+fruits $n$ [\si{fruits.m^{-2}}].
+
+\paragraph{Thermal time.} Development is driven by temperature above a base $T_{\text{base}}$
+(\textbf{degree-days}): with daily-mean air temperature $\overline{\Tair}$ [\si{\degreeCelsius}],
+\begin{equation}
+  \Delta T \;=\; \max\!\big(\overline{\Tair}-T_{\text{base}},\,0\big).
+\end{equation}
+Nodes appear on the growing head at rate $r_{\text{node}}$ until \emph{topping} on day
+$d_{\text{top}}$, and each fruit cohort ages by $\Delta\mathrm{dev}=\Delta T/\mathrm{DD}_{\text{fruit}}$
+per day, where $\mathrm{DD}_{\text{fruit}}$ is the degree-days from set to ripe:
+\begin{equation}
+  n_{\text{node}} \mathrel{+}= r_{\text{node}}\,\Delta T \ \ (\text{if } d<d_{\text{top}}),\qquad
+  \mathrm{dev} \mathrel{+}= \frac{\Delta T}{\mathrm{DD}_{\text{fruit}}}\ \ \text{(all cohorts)}.
+\end{equation}
+
+\subsection{Respiration, supply and growth conversion}\label{sec:resp}
+\paragraph{Maintenance respiration.} Living tissue consumes carbohydrate to maintain itself at a
+rate that doubles roughly every \SI{10}{\degreeCelsius} (a $Q_{10}$ law):
+\begin{align}
+  q_{10} &= Q_{10,\text{resp}}^{\,(\overline{\Tair}-25)/10},\\
+  R_m &= q_{10}\big(k_{m,\text{leaf}}W_{\text{leaf}} + k_{m,\text{stem}}W_{\text{stem}} + k_{m,\text{root}}W_{\text{root}} + k_{m,\text{fruit}}W_{\text{fruit}}\big),
+\end{align}
+with organ-specific maintenance coefficients $k_{m,\bullet}$ [\si{g\,CH_2O.g^{-1}.d^{-1}}] and
+$W_{\text{fruit}}=\sum_{\text{cohorts}}W$. \paragraph{Assimilate available for growth.} What remains
+of the day's gross assimilate after maintenance is converted to structural dry matter with a growth
+(conversion) efficiency $1/\mathrm{asrq}$:
+\begin{equation}
+  C_{\text{av}} = \max(P_g - R_m,\,0), \qquad
+  \Delta \mathrm{DM}_{\text{pot}} = \frac{C_{\text{av}}}{\mathrm{asrq}} \quad[\si{g\,DM.m^{-2}.d^{-1}}],
+  \label{eq:supply}
+\end{equation}
+where $\mathrm{asrq}$ (assimilate required per unit dry matter, $>1$) accounts for growth
+respiration. $\Delta\mathrm{DM}_{\text{pot}}$ is the potential (source-side) dry-matter increment.
+
+\subsection{Sinks, source/sink limitation and allocation}\label{sec:alloc}
+\paragraph{Sink strengths.} The vegetative sink fills the canopy toward a density-dependent cap
+$L_{\text{cap}}$ and switches off as the cap is approached; each fruit cohort's sink follows a
+bell-shaped growth curve. With the density factor $\mathrm{d}=\mathrm{stem\_density}/\mathrm{d}_{\text{ref}}$
+(Section~\ref{sec:density}),
+\begin{align}
+  L_{\text{cap}} &= \mathrm{LAI}_{\max}\,\mathrm{d}, &
+  S_{\text{veg}} &= \max\!\Big(\mathrm{veg\_sink}_{\max}\,\mathrm{d}\,\big(1-\tfrac{\mathrm{LAI}}{L_{\text{cap}}}\big),\,0\Big),\\
+  S_{\text{fruit},i} &= n_i\,W_{f\max}\,\varsigma(\mathrm{dev}_i)\,\Delta\mathrm{dev}, &
+  \varsigma(\mathrm{dev}) &= 6\,\mathrm{dev}\,(1-\mathrm{dev}),
+\end{align}
+where $W_{f\max}$ is the potential mature fruit dry weight and the \emph{sink-shape}
+$\varsigma(\mathrm{dev})=6\,\mathrm{dev}(1-\mathrm{dev})$ (the derivative of the smoothstep
+$\mathrm{dev}^2(3-2\mathrm{dev})$) integrates to unity over $\mathrm{dev}\in[0,1]$, so a cohort's
+lifetime potential growth totals $n\,W_{f\max}$. \paragraph{Allocation.} The total demand is
+$S_{\text{tot}}=S_{\text{veg}}+\sum_i S_{\text{fruit},i}$. The realised increment is
+\emph{source-limited} when supply is scarce and \emph{sink-limited} when supply is ample:
+\begin{equation}
+  \Delta\mathrm{DM} = \min\big(\Delta\mathrm{DM}_{\text{pot}},\,S_{\text{tot}}\big),
+\end{equation}
+and is split among organs in proportion to their sink share:
+\begin{align}
+  \Delta\mathrm{DM}_{\text{veg}} &= \Delta\mathrm{DM}\,\frac{S_{\text{veg}}}{S_{\text{tot}}}, &
+  W_{\text{leaf}} &\mathrel{+}= f_{\text{leaf}}\,\Delta\mathrm{DM}_{\text{veg}},\\
+  W_{\text{stem}} &\mathrel{+}= f_{\text{stem}}\,\Delta\mathrm{DM}_{\text{veg}}, &
+  W_{\text{root}} &\mathrel{+}= f_{\text{root}}\,\Delta\mathrm{DM}_{\text{veg}},\\
+  W_i &\mathrel{+}= \Delta\mathrm{DM}\,\frac{S_{\text{fruit},i}}{S_{\text{tot}}} \quad\text{(each fruit cohort)}, &&
+\end{align}
+with vegetative partitioning fractions $f_{\text{leaf}}+f_{\text{stem}}+f_{\text{root}}=1$.
+
+\subsection{Flowering: carbohydrate-regulated fruit set}\label{sec:flowering}
+\paragraph{Principle.} New fruits are set continuously once the plant is old enough
+($d\ge d_{\text{set,start}}$), but the \emph{rate} of setting is regulated by the plant's
+carbohydrate status: when the standing fruit load already demands more carbon than the source can
+supply, further set is suppressed (young fruit abort / fail to set); once those fruits are harvested
+and the load drops, set resumes. Combined with the $\sim$2-week fruit-growth delay
+($\mathrm{DD}_{\text{fruit}}$), this supply/demand feedback produces the characteristic weekly
+harvest \emph{flushes}. Define the instantaneous supply/demand ratio
+\begin{equation}
+  s \;=\; \frac{\Delta\mathrm{DM}_{\text{pot}}}{S_{\text{tot,pre}} + 10^{-9}},
+  \qquad S_{\text{tot,pre}} = S_{\text{veg}} + \textstyle\sum_i S_{\text{fruit},i},
+\end{equation}
+evaluated \emph{before} the new cohort is added. The set fraction is a clipped linear ramp between a
+lower and upper carbohydrate threshold,
+\begin{equation}
+  f_{\text{set}} \;=\; \mathrm{clip}\!\Big(\frac{s - s_{\text{low}}}{s_{\text{high}} - s_{\text{low}}},\,0,\,1\Big),
+  \label{eq:setfrac}
+\end{equation}
+so that below $s_{\text{low}}$ no fruit sets and above $s_{\text{high}}$ set is maximal. On each day
+with $d_{\text{set,start}}\le d<d_{\text{top}}$ a new fruit cohort is created with number
+\begin{equation}
+  n_{\text{set}} \;=\; \mathrm{set\_rate}\,\cdot\,\mathrm{d}\,\cdot\, f_{\text{set}}
+  \qquad(\text{single-pool model}),
+  \label{eq:nset}
+\end{equation}
+where $\mathrm{set\_rate}$ is the potential fruits per unit area per day and $\mathrm{d}$ the density
+factor. (In the cohort model, Section~\ref{sec:cohort}, set is driven by node appearance rather than
+calendar day; see Eq.~\eqref{eq:nset_cohort}.)
+
+\subsection{Fruit growth, harvest and leaf-area update}\label{sec:harvest}
+A cohort is harvested when it reaches $\mathrm{dev}\ge1$; its dry weight is banked and converted to
+fresh weight through the fruit dry-matter content $\mathrm{DMC}_{\text{fruit}}$:
+\begin{equation}
+  Y_{DW}\mathrel{+}=W, \qquad
+  Y_{FW}\mathrel{+}=\frac{W/\mathrm{DMC}_{\text{fruit}}}{1000}\ \ [\si{kg\,FW.m^{-2}}].
+\end{equation}
+Finally the leaf area is refreshed from the leaf dry weight through the specific leaf area (SLA,
+leaf area per unit leaf dry weight) and capped (see pruning, Section~\ref{sec:pruning}):
+\begin{equation}
+  \mathrm{LAI} = \mathrm{SLA}\cdot W_{\text{leaf}}.
+  \label{eq:lai_sla}
+\end{equation}
+
+\subsection{Single-pool canopy model}\label{sec:biggrow}
+The model of Sections~\ref{sec:cropstate}--\ref{sec:harvest} \emph{is} the single-pool model: leaves
+form one lumped pool $W_{\text{leaf}}$, the canopy source uses the big-leaf light scaling
+(Eq.~\eqref{eq:laieff}), and pruning is a cap on total leaf area (Section~\ref{sec:pruning}). It is
+compact and fast, but cannot represent the vertical age/light structure of a real high-wire cucumber
+canopy --- which motivates the cohort model.
+
+\subsection{Leaf-age-cohort (vertical-canopy) model}\label{sec:cohort}
+\paragraph{Principle.} A high-wire cucumber produces new leaves at the head while old leaves at the
+base become deeply shaded, senesce, and are periodically removed by the grower. The cohort model
+represents the canopy as a stack of \textbf{leaf-age cohorts}, each with an area and a thermal age,
+so that (i) photosynthesis is integrated layer-by-layer down the light gradient
+(Eq.~\eqref{eq:layered}), (ii) each cohort's maintenance respiration is charged on its own mass, and
+(iii) de-leafing removes the oldest, most-shaded cohorts. This yields a physically meaningful
+optimal LAI and a faithful account of de-leafing that the single pool cannot provide.
+
+\paragraph{Leaf production (node-driven).} Rather than filling a cap, leaf area is produced in step
+with node appearance. With leaf area demanded per node $\ell_{\text{node}}$ and $\Delta n_{\text{node}}
+= r_{\text{node}}\Delta T$ the day's new nodes,
+\begin{equation}
+  \text{leaf-area demand} = \ell_{\text{node}}\,\mathrm{d}\,\Delta n_{\text{node}},\qquad
+  S_{\text{veg}} = \frac{\ell_{\text{node}}\,\mathrm{d}\,\Delta n_{\text{node}}/\mathrm{SLA}}{f_{\text{leaf}}},
+\end{equation}
+the new top cohort receiving $f_{\text{leaf}}\,\Delta\mathrm{DM}_{\text{veg}}\,\mathrm{SLA}$ of area.
+\paragraph{Node-driven flowering.} Fruit set is triggered per node flush rather than per day, with the
+same carbohydrate regulation $f_{\text{set}}$ of Eq.~\eqref{eq:setfrac}:
+\begin{equation}
+  n_{\text{set}} = \mathrm{set\_rate}\,\cdot\,\mathrm{d}\,\cdot\,\Delta n_{\text{node}}\,\cdot\, f_{\text{set}}
+  \qquad(\text{cohort model}).
+  \label{eq:nset_cohort}
+\end{equation}
+\paragraph{Senescence and de-leafing.} A cohort is dropped by natural senescence once its thermal age
+exceeds the leaf lifespan $\mathrm{life}_{\text{leaf}}$ [degree-days]. Management de-leafing removes
+the \emph{oldest} cohorts down to a working target LAI $L_{\text{deleaf}}$: with
+$\mathrm{LAI}=\sum_i a_i$, cohorts are trimmed oldest-first until $\mathrm{LAI}\le L_{\text{deleaf}}$.
+Because the removed leaves are the deepest and most shaded, they contribute almost no assimilation
+(Eq.~\eqref{eq:layered}) yet still respired, so their removal is close to cost-free in carbon and
+sheds their maintenance load.
+
+\subsection{Planting density}\label{sec:density}
+\paragraph{Where it lives and what it does.} Planting density (stems per \si{m^2}) is a
+\emph{crop-structural / management} parameter, so it is defined here, in the growth subsystem; it is
+also a control decision, discussed in Section~\ref{sec:cropmgmt}. All the per-area capacities of the
+growth model (the vegetative sink $\mathrm{veg\_sink}_{\max}$, the fruit-set rate $\mathrm{set\_rate}$,
+the leaf-area cap $\mathrm{LAI}_{\max}$ and the per-node leaf demand $\ell_{\text{node}}$) are defined
+at a \emph{reference} density $\mathrm{d}_{\text{ref}}$ and scale linearly with the actual density
+through the factor
+\begin{equation}
+  \mathrm{d} \;=\; \frac{\mathrm{stem\_density}}{\mathrm{d}_{\text{ref}}},
+\end{equation}
+which appears in the sink and set equations above. At $\mathrm{stem\_density}=\mathrm{d}_{\text{ref}}$
+the factor is unity, so all reference calibrations are recovered exactly. A denser stand closes the
+canopy (raises LAI) faster and intercepts light earlier; because interception saturates
+(Eq.~\eqref{eq:laieff}) while maintenance respiration keeps growing with leaf mass, there is a
+finite \emph{optimal} density, and its value is governed primarily by the light-extinction
+coefficient $k$ (Section~\ref{sec:lightext}). The initial canopy is also scaled by density,
+$\mathrm{LAI}_0\!\leftarrow\!\mathrm{LAI}_0\,\mathrm{d}$.
+
+%======================================================================
+\section{Control variables and management strategies}\label{sec:control}
+%======================================================================
+
+\paragraph{What this section contains.} The actuators that drive the model, the setpoint
+programme that a grower (or an automatic controller) specifies, the low-level feedback controllers
+that translate setpoints into actuator positions, and the discrete crop-management strategies
+(pruning/de-leafing, topping, density scheduling). The controlled variable is the greenhouse
+\emph{air} temperature $\Tair$ (the physically measured quantity), not the canopy temperature.
+
+\subsection{Actuators}
+Twelve actuators $U_1,\dots,U_{12}$ enter the climate right-hand side (Table~\ref{tab:controls}).
+In the closed-loop twin only a subset is active: the thermal/energy screen $U_1$, the side vent
+$U_6$, the roof vent $U_8$, the fog $U_9$, the \ce{CO2} valve $U_{10}$ and the lamps $U_{12}$; the
+heating pipe enters as its temperature $I_3$. The pad/heater/forced-ventilation actuators
+($U_2,U_3,U_4,U_5,U_7$) are available but set to zero in the reference configuration.
+
+\subsection{Setpoint programme (the action surface)}
+A control programme is a set of within-day setpoint schedules:
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+  \item day and night \textbf{air-temperature} setpoints $T_{\text{set}}$ (a day/night step schedule);
+  \item \textbf{\ce{CO2}} setpoint $C_{\text{set}}$;
+  \item \textbf{lamp} on/off schedule (start hour, duration $\Rightarrow$ end hour);
+  \item ventilation \textbf{proportional band} $p_{\text{band}}$ and dead-band \emph{offset} above
+  the temperature setpoint;
+  \item the outside-temperature threshold $T_{\text{out,max}}$ (screen-closing) and radiation
+  threshold $\mathrm{Rad}_{\text{scr}}$;
+  \item the \textbf{VPD floor} $\mathrm{VPD}_{\min}$ for humidity control.
+\end{itemize}
+
+\subsection{Heating controller (PI $\to$ pipe temperature)}
+A leaky-integral proportional--integral controller on the temperature error
+$e_T=T_{\text{set}}-\Tair$ sets a heating fraction $U_{\text{heat}}\in[0,1]$, which blends the
+maximum pipe temperature $T_{\text{pipe}}^{\max}$ with the air temperature to give the pipe
+temperature $I_3$:
+\begin{equation}
+  U_{\text{heat}} = \mathrm{clip}\big(K_p^{T} e_T + K_i^{T} e_T^{\text{int}},\,0,\,1\big), \qquad
+  I_3 = U_{\text{heat}}\,T_{\text{pipe}}^{\max} + (1-U_{\text{heat}})\,\Tair,
+\end{equation}
+where the integral state obeys $\dot{e}_T^{\text{int}} = e_T - \lambda_T e_T^{\text{int}}$ (a
+\emph{leaky} integrator with decay $\lambda_T$), \emph{frozen} under actuator saturation
+(anti-windup, Section~\ref{sec:windup}). $I_3$ then drives the pipe heat flux $h_4$
+(Section~\ref{sec:heatfluxes}) and the pipe FIR $r_6$.
+
+\subsection{\ce{CO2} dosing controller (PI $\to$ valve)}
+Analogously, on the error $e_C=C_{\text{set}}-\Cair$,
+\begin{equation}
+  U_{10} = \mathrm{clip}\big(K_p^{C} e_C + K_i^{C} e_C^{\text{int}},\,0,\,1\big),
+\end{equation}
+opening the external \ce{CO2} valve (source $o_2=U_{10}\psi_2/\alpha_6$), with the same leaky-integral
+and anti-windup treatment.
+
+\subsection{Ventilation controller (proportional band $\to$ side/roof)}
+Ventilation opens on a proportional band above the temperature setpoint plus a dead-band offset:
+\begin{equation}
+  U_{\text{vent}}=\begin{cases}
+    0, & \Tair < T_{\text{set}}+\text{ofs},\\[2pt]
+    \dfrac{\Tair - T_{\text{set}} - \text{ofs}}{p_{\text{band}}}, & T_{\text{set}}+\text{ofs}\le \Tair < T_{\text{set}}+\text{ofs}+p_{\text{band}},\\[6pt]
+    1, & \text{otherwise},
+  \end{cases}
+\end{equation}
+split so the side vent opens first and the roof vent follows:
+\begin{equation}
+  U_6 = 2\min(U_{\text{vent}},0.5), \qquad U_8 = 2\max(0,\,U_{\text{vent}}-0.5).
+\end{equation}
+
+\subsection{Thermal / energy-screen controller}
+The screen is deployed to retain heat when it is dark (radiation $I_2<\mathrm{Rad}_{\text{scr}}$) or
+cold outside ($I_5<T_{\text{out,max}}$), and is cracked open to shed moisture when the air is too
+humid (VPD below the floor):
+\begin{equation}
+  U_1 = \begin{cases}
+    0.85, & \text{closed and } \mathrm{VPD}<\mathrm{VPD}_{\min}\ \text{(crack to dehumidify)},\\
+    1, & \text{closed (dark or cold) and not too humid},\\
+    0, & \text{open (day)}.
+  \end{cases}
+\end{equation}
+The screen's FIR emissivity is the low-emissivity \emph{energy-screen} value $\epsilon_{scr}$
+(Section~\ref{sec:rad}), distinct from a full-emissivity shade screen, so that deploying it genuinely
+retains long-wave heat.
+
+\subsection{Humidity control by vapour-pressure deficit}
+Humidity is regulated on the \textbf{VPD} (Section~\ref{sec:psychro}), not relative humidity, because
+VPD is the physiologically and physically meaningful driver of transpiration and condensation and is
+temperature-independent. When $\mathrm{VPD}=(\mathrm{Pws}(\Tair)-\Vair)/1000$ [\si{kPa}] falls below
+the floor $\mathrm{VPD}_{\min}$ (air too close to saturation, condensation/disease risk), a
+proportional dehumidification demand is added to the vents (and the screen is cracked as above):
+\begin{equation}
+  U_{\text{hv}} = \mathrm{clip}\!\Big(\frac{\mathrm{VPD}_{\min}-\mathrm{VPD}}{\text{band}},\,0,\,1\Big)\,v_{\max},
+  \qquad U_6\leftarrow\max(U_6,U_{\text{hv}}),\ \ U_8\leftarrow\max(U_8,U_{\text{hv}}).
+\end{equation}
+
+\subsection{Supplemental lighting}
+The lamps contribute PAR to photosynthesis (added to the canopy light $I_w$ in the layered source,
+Section~\ref{sec:lightext}), NIR heat to the canopy ($r_5$, via $\eta_{14}$), and reflector/direct
+heat to the air ($h_{12}$, via $\eta_{15},\eta_{16}$), at an electrical intensity $\alpha_{12}$ per
+unit area when on ($U_{12}=1$). Because lamp electricity is the dominant operating cost and its value
+depends on the free solar light available and on time-of-use tariffs, the lamp \emph{schedule}
+(start hour and duration) is a primary management lever.
+
+\subsection{Crop-management strategies}\label{sec:cropmgmt}
+\paragraph{Pruning / de-leafing.}\label{sec:pruning} Leaf area is limited to the smaller of the
+density cap $L_{\text{cap}}$ and a management de-leaf target $L_{\text{deleaf}}$. In the single-pool
+model this caps $W_{\text{leaf}}$ (Eq.~\eqref{eq:lai_sla}); in the cohort model it removes the oldest,
+most-shaded cohorts down to $L_{\text{deleaf}}$ (Section~\ref{sec:cohort}). De-leafing sheds the
+maintenance-respiration burden of leaves that intercept little light, without touching stems or fruit.
+\paragraph{Topping.} Node appearance (vegetative growth of the head) stops at the topping day
+$d_{\text{top}}$, after which the plant only ripens its existing fruit load.
+\paragraph{Density scheduling (interplanting / plant separation).} The planting density
+(Section~\ref{sec:density}) may be changed during the season: planted densely for fast early canopy
+closure, then thinned (stems pulled) later. A density reduction on a given day scales the standing
+leaf area and the standing (unharvested) fruit load by the ratio of new-to-old density (the pulled
+stems leave with their leaves and green fruit), and all subsequent per-area production runs at the
+reduced density.
+
+\subsection{Anti-windup}\label{sec:windup}
+Because the PI integrators are ODE states, they can \emph{wind up} while an actuator is saturated. The
+integral is therefore frozen (its accumulation term set to the leak only) whenever the actuator is at
+a bound \emph{and} the error would push it further into saturation:
+\begin{equation}
+  \dot{e}^{\text{int}} = \begin{cases}
+    -\lambda\,e^{\text{int}}, & \text{saturated in the driving direction},\\
+    e - \lambda\,e^{\text{int}}, & \text{otherwise},
+  \end{cases}
+\end{equation}
+for both the temperature ($e_T,\lambda_T$) and \ce{CO2} ($e_C,\lambda_C$) loops. This prevents the
+runaway that windup causes once the leakage $\nu_4,\nu_{4\text{CO2}}$ is set to its physical value.
+\appendix
+
+
+\section{Climate-model constants}\label{app:climate}
+Physical parameters of the climate subsystem (Section~\ref{sec:climate}). Values as configured in the reference twin; symbols follow the Vanthoor convention ($\alpha_i,\beta_i,\dots$).
+\begin{longtable}{@{}p{0.16\textwidth} p{0.16\textwidth} p{0.20\textwidth} p{0.42\textwidth}@{}}
+\toprule
+\textbf{Name} & \textbf{Value} & \textbf{Units} & \textbf{Description}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Name} & \textbf{Value} & \textbf{Units} & \textbf{Description}\\
+\midrule
+\endhead
+\texttt{alpha1} & 1500 & J * K\textasciicircum\{\}-1 * m\textasciicircum\{\}-2 & Heat capacity of one square meter of the canopy\\
+\texttt{alpha12} & 74 & W * m\textasciicircum\{\}-2 & Total lamp radiation per square meter \\
+\texttt{alpha2} & 0.35 &  & Global NIR absorption coefficient of the canopy\\
+\texttt{alpha3} & 0.3 & m\textasciicircum\{\}2*m\textasciicircum\{\}-2 & Surface of the heating pipe\\
+\texttt{alpha4} & 5 & W * m\textasciicircum\{\}-2 * K\textasciicircum\{\}-1 & Convection heat exchange coefficient of canopy leaf to greenhouse air\\
+\texttt{alpha5} & 1500 & J * K\textasciicircum\{\}-1 * kg\textasciicircum\{\}-1 & Specific heat capacity of greenhouse air\\
+\texttt{alpha6} & 10000 & m\textasciicircum\{\}2 & Greenhouse floor surface area\\
+\texttt{alpha7} & 0.5 &  & Global NIR absorption coefficient of the floor\\
+\texttt{alpha8} & 1 &  & PAR absorption coefficient of the cover\\
+\texttt{alpha9} & 1 &  & NIR absorption coefficient of the cover\\
+\texttt{beta1} & 0.7 &  & Canopy extinction coefficient for PAR radiation\\
+\texttt{beta2} & 0.7 &  & Extinction coefficient for PAR radiation reflected from the floor to the canopy\\
+\texttt{beta3} & 0.27 &  & Canopy extinction coefficient for NIR radiation\\
+\texttt{C\_soil} & 150000 & J m\textasciicircum\{\}-2 K\textasciicircum\{\}-1 & Heat capacity per floor area of the active soil/floor layer (thermal mass)\\
+\texttt{delta1} & 5 & W * m\textasciicircum\{\}-2 & Radiation above the canopy that defines sunrise and sunset\\
+\texttt{delta2} & 4.3 & W * m\textasciicircum\{\}-2 & Empirically determined parameter\\
+\texttt{delta3} & 0.54 & W * m\textasciicircum\{\}-2 & Empirically determined parameter\\
+\texttt{delta4} & 6.1e-07 & ppm\textasciicircum\{\}-2 & Coefficient of the CO2 transpiration in the day\\
+\texttt{delta5} & 1.1e-11 & ppm\textasciicircum\{\}-2 & Coefficient of the CO2 transpiration in the night\\
+\texttt{delta6} & 4.3e-06 & Pa\textasciicircum\{\}-2 & Coefficient of the vapour pressure in the day\\
+\texttt{delta7} & 5.2e-06 & Pa\textasciicircum\{\}-2 & Coefficient of the vapour pressure in the night\\
+\texttt{eps\_screen} & 0.4 &  & Energy-screen FIR emissivity to sky (aluminized/low-e). Separate from epsil5 so it only affects the screen-sky term r12 when the screen is deployed (U1>0); U1=0 on the venting calibration day, so calibration-safe.\\
+\texttt{epsil1} & 0.88 &  & FIR emission coefficient of the heating pipe\\
+\texttt{epsil2} & 1 &  & Canopy FIR emission coefficient\\
+\texttt{epsil3} & 1 &  & Sky FIR emission coefficient\\
+\texttt{epsil4} & 1 &  & Floor FIR emission coefficient\\
+\texttt{epsil5} & 1 &  & Thermal screen FIR emission coefficient\\
+\texttt{epsil6} & 0.44 &  & External cover FIR emission coefficient\\
+\texttt{eta1} & 0.1 &  & Proportion of global radiation that is absorbed by greenhouse building elements\\
+\texttt{eta10} & 0 &  & Shadow effect on the discharge coefficient\\
+\texttt{eta11} & 0 &  & Effect of shadow on the global wind pressure coefficient\\
+\texttt{eta12} & 4.43e-08 & kg\_vapour * J\textasciicircum\{\}-1 & Amount of vapor that is released when a joule of sensible energy is produced by the direct air heater\\
+\texttt{eta13} & 0.057 & mg\_CO2 * J\textasciicircum\{\}-1 & Amount of CO2 that is released when a joule of sensible energy is produced by the direct air heater\\
+\texttt{eta14} & 0.18 &  & Percentage lamps radiation that is NIR\\
+\texttt{eta15} & 0.0074 &  & Porcentaje de la radiacion de las lamparas que es calor en el reflector\\
+\texttt{eta16} & 0.39 &  & Porcentaje de la radiacion de las lamparas que es calor directo al aire del invernadero\\
+\texttt{eta17} & 0.3626 &  & Percentage lamps radiation that is PAR\\
+\texttt{eta2} & 0.5 &  & Ratio between PAR radiation and external global radiation\\
+\texttt{eta3} & 0.5 &  & Ratio between NIR radiation and global external radiation\\
+\texttt{eta4} & 0.554 & ppm * mg\textasciicircum\{\}-1 * m\textasciicircum\{\}3 & Conversion factor for CO2 of mg*m**-3 to ppm\\
+\texttt{eta5} & 0.5 &  & Fan-pad system efficiency\\
+\texttt{eta6} & 0.551 &  & Ventilation power reduction factor\\
+\texttt{eta7} & 0.8 &  & Ratio between ceiling ventilation area and total ventilation area\\
+\texttt{eta8} & 0.9 &  & Ratio between ceiling and total ventilation area, if there is no chimney effect\\
+\texttt{gamma} & 65.8 & Pa * K\textasciicircum\{\}-1 & Psychometric constan\\
+\texttt{gamma1} & 1.25 & m * m\textasciicircum\{\}-2 & Length of the heating pipe\\
+\texttt{gamma2} & 2.45e+06 & J * kg\_water\textasciicircum\{\}-1 & Latent heat of water evaporation\\
+\texttt{gamma3} & 275 & s * m\textasciicircum\{\}-1 & Strength of boundary layer of canopy for vapor transport\\
+\texttt{gamma4} & 82 & s * m\textasciicircum\{\}-1 & Minimum stomatal resistance of the canopy\\
+\texttt{gamma5} & -1 & W * m\textasciicircum\{\}-2 & Inverse of slope of the differentiable switch for the stomatal resistance model\\
+\texttt{h\_soil} & 4 & W m\textasciicircum\{\}-2 K\textasciicircum\{\}-1 & Effective air<->floor convective heat-exchange coefficient (thermal-mass buffer)\\
+\texttt{HEAT\_PIPE} & 363.15 &  & Temperatura del tubo de calentamiento\\
+\texttt{k\_deep} & 2 & W m\textasciicircum\{\}-2 K\textasciicircum\{\}-1 & Conductance from the active floor layer to the fixed deep-soil temperature\\
+\texttt{k\_ground} & 4.33 & W m\textasciicircum\{\}-2 K\textasciicircum\{\}-1 & Effective air<->ground conductance via the floor thermal-mass state (single, identifiable)\\
+\texttt{lamb1} & 0 &  & Performance coefficient of the mechanical cooling system\\
+\texttt{lamb2} & 0 & W & Electrical capacity of the mechanical cooling system\\
+\texttt{lamb3} & 1 & W * m\textasciicircum\{\}-2 * K\textasciicircum\{\}-1 & Convective heat exchange coefficient between soil and greenhouse air\\
+\texttt{lamb4} & 500000 & W & Heat capacity of direct air heater\\
+\texttt{lamb5} & 18000 & m\textasciicircum\{\}2 & Cover surface\\
+\texttt{lamb6} & 2.8 & W * m\_cover\textasciicircum\{\}-2 * K\textasciicircum\{\}-1 & Variable of heat exchange by convection between the roof and the outside air\\
+\texttt{lamb7} & 1 & J * m\textasciicircum\{\}-3 * K\textasciicircum\{\}-1 & Variable of heat exchange by convection between the roof and the outside air\\
+\texttt{lamb8} & 2 &  & Variable of heat exchange by convection between the roof and the outside air\\
+\texttt{lamb9} & 0.05 &  & eficiencia del intercambio de calor entre las capas de aire\\
+\texttt{n\_pipes} & 2 &  & Numero de tuberias de calentamiento\\
+\texttt{nu1} & 1 &  & Shadowless discharge coefficient\\
+\texttt{nu2} & 0.1 &  & Global wind pressure coefficient without shadow\\
+\texttt{nu3} & 2352.9 & m\textasciicircum\{\}2 & Side surface of the greenhouse\\
+\texttt{nu4} & 0.0001 &  & Heat leakage coefficient\\
+\texttt{nu4CO2} & 0.0001 &  & CO2 leakage coefficient\\
+\texttt{nu5} & 2000 & m\textasciicircum\{\}2 & Maximum ceiling ventilation area\\
+\texttt{nu6} & 1 & m & Vertical dimension of a single open respirator\\
+\texttt{nu7} & 0.85 & W * m\textasciicircum\{\}-1 * K\textasciicircum\{\}-1 & Soil thermal conductivity\\
+\texttt{nu8} & 0.64 & m & Floor to ground distance\\
+\texttt{omega1} & 9.81 & m * s\textasciicircum\{\}-2 & Gravity acceleration constant\\
+\texttt{omega2} & 8314 & J * kmol\textasciicircum\{\}-1 * K\textasciicircum\{\}-1 & Molar gas constant\\
+\texttt{omega3} & 0.0075 &  & Percentage of CO2 absorbed by the canopy\\
+\texttt{phi1} & 0.051 & m & External diameter of the heating pipe\\
+\texttt{phi2} & 4 & m & Average height of greenhouse air\\
+\texttt{phi3} & 28.9647 & kg * kmol\textasciicircum\{\}-1 & Masa molar del aire\\
+\texttt{phi4} & 0 & metros & Altitud del invernadero\\
+\texttt{phi5} & 0.014 & kg\_water * kg\_air\textasciicircum\{\}-1 & Water vapor contained in the fan-pad system\\
+\texttt{phi6} & 0.0079 & kg\_water * kg\_air\textasciicircum\{\}-1 & Water vapor contained in the outside air\\
+\texttt{phi7} & 16.7 & m\textasciicircum\{\}3 * s\textasciicircum\{\}-1 & Capacity of air flow through the pad\\
+\texttt{phi8} & 666.6 & m\textasciicircum\{\}3 * s\textasciicircum\{\}-1 & Air flow capacity of forced ventilation system\\
+\texttt{phi9} & 0.916 & kg * s\textasciicircum\{\}-1 & Fog system capacity\\
+\texttt{psi1} & 18 & kg * kmol\textasciicircum\{\}-1 & Molar mass of water\\
+\texttt{psi2} & 13300 & mg * s\textasciicircum\{\}-1 & Capacity of the external CO2 source\\
+\texttt{psi3} & 30.031 & g * mol\_CH2O\textasciicircum\{\}-1 & Molar mass of the CH2O\\
+\texttt{rho1} & 0.07 &  & PAR reflection coefficient of the cannopy\\
+\texttt{rho2} & 0.65 &  & Floor reflection coefficient PAR\\
+\texttt{rho3} & 1.2 & kg * m\textasciicircum\{\}-3 & Air density\\
+\texttt{rho4} & 1.2 & kg * m\textasciicircum\{\}-3 & Air density see level\\
+\texttt{sigma} & 5.67e-08 & W * m\textasciicircum\{\}-2 * K\textasciicircum\{\}-4 & Stefan-Boltzmann constant\\
+\texttt{tau1} & 0.77 &  & PAR transmission coefficient of the Cover\\
+\texttt{tau2} & 1 &  & FIR transmission coefficient of the Cover\\
+\texttt{tau3} & 0.11 &  & FIR transmission coefficient of the thermal screen\\
+\bottomrule
+\end{longtable}
+
+
+\section{Photosynthesis constants}\label{app:photo}
+Parameters of the FvCB leaf model and its temperature responses (Section~\ref{sec:photo}).
+\begin{longtable}{@{}p{0.16\textwidth} p{0.16\textwidth} p{0.20\textwidth} p{0.42\textwidth}@{}}
+\toprule
+\textbf{Name} & \textbf{Value} & \textbf{Units} & \textbf{Description}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Name} & \textbf{Value} & \textbf{Units} & \textbf{Description}\\
+\midrule
+\endhead
+\texttt{ab} & 0.85 &  & Leaf absorbance\\
+\texttt{alpha} & 0.35 &  & Product of the leaf absrovance, the fraction of light directed to PSII and the maximum quantum effiuciency of PSII; initial slope of an J/Iin curve\\
+\texttt{C\_ev1} & 4.97685e-11 & mol\_phot * m\textasciicircum\{\}-2 * s\textasciicircum\{\}-1 & Constant in the formula of f\_R\\
+\texttt{C\_ev2} & 6.25e-12 & mol\_phot * m\textasciicircum\{\}-2 * s\textasciicircum\{\}-1 & Constant in the formula of f\_R\\
+\texttt{C\_ev3d} & 0.61 & mol\_air * mol\_CO2\textasciicircum\{\}-1 & Constant in the formula of f\_C\\
+\texttt{C\_ev3n} & 1.1e-05 & mol\_air * mol\_CO2\textasciicircum\{\}-1 & Constant in the formula of f\_C\\
+\texttt{C\_ev4d} & 4.3e-06 & Pa\textasciicircum\{\}-2 & Constant in the formula of f\_C\\
+\texttt{C\_ev4n} & 5.2e-06 & Pa\textasciicircum\{\}-2 & Constant in the formula of f\_C\\
+\texttt{E\_Soc} & -24460 & kg * m\textasciicircum\{\}2 * s\textasciicircum\{\}-2 * mol\textasciicircum\{\}-1 & Sco activation energy\\
+\texttt{f} & 0.15 &  & Correction factor for the spectral quality of the light\\
+\texttt{fc} & 2.95331e+10 & g * s * mol\_CO2\textasciicircum\{\}-1 & Factor to transform \(\mu\)mol\_CO2/sec to grams\_CH20/day\\
+\texttt{J\_max} & 0.0002 & mol\_phot * m\textasciicircum\{\}-2 * s\textasciicircum\{\}-1 & Maximum electron transport rate\\
+\texttt{k\_Ag} & 1e-06 & m\textasciicircum\{\}3 * g\textasciicircum\{\}-1 * s\textasciicircum\{\}-1 * mol\_CO2 * mol\_air\textasciicircum\{\}-1 & Constant for units transformation\\
+\texttt{K\_C25} & 0.0003 & mol\_CO2 * mol\_air\textasciicircum\{\}-1 & Michaelis-Menten constant for CO2\\
+\texttt{k\_d} & 86400 &  & Factor to transform s\textasciicircum\{\}-1 into d\textasciicircum\{\}-1\\
+\texttt{k\_fc} & 1e-06 & mol\_CO2 * mol\_air\textasciicircum\{\}-1 & Constant for units completion\\
+\texttt{k\_JV} & 1 &  & Auxiliary constant which transforms the units of the electron transport rate J to those of the maximum Rubisco rate V\_cmax\\
+\texttt{K\_O25} & 0.3 & mol\_O2 * mol\_air\textasciicircum\{\}-1 & Michaelis-Menten constant for O2\\
+\texttt{k\_T} & 1 & C & Auxiliary constant to add temperature units\\
+\texttt{ks} & 0.5 &  & Stomatal ratio\\
+\texttt{O\_a} & 0.21 & mol\_O2 * mol\_air\textasciicircum\{\}-1 & O2 concentration in the environment\\
+\texttt{phi} & 2 & mol\_O2 * mol\_CO2\textasciicircum\{\}-1 & Ratio of oxygenation to carboxylation rates\\
+\texttt{Q10\_KC} & 2.1 &  & Temperature response of Michaelis-Menten constant for CO2\\
+\texttt{Q10\_KO} & 1.2 &  & Temperature response of Michaelis-Menten constant for O2\\
+\texttt{Q10\_tau} & 2.1 &  & Temperature response of specificity factor\\
+\texttt{Q10\_Vcmax} & 2.4 &  & V\_cmax value at 25C\\
+\texttt{r\_m} & 100 & s * m\textasciicircum\{\}-1 & Minimal stomatal resistance\\
+\texttt{Rb} & 711 & s * m\textasciicircum\{\}-1 & Stomatal resistance of the canopy boundary layer\\
+\texttt{Rd\_day} & 1e-06 & mol * m\textasciicircum\{\}-2 * s\textasciicircum\{\}-1 & Rate of respiratory CO2 released from the mitocondria\\
+\texttt{Rgas} & 8.31447 & m\textasciicircum\{\}2 * kg * s\textasciicircum\{\}-2 * K\textasciicircum\{\}-1 * mol\textasciicircum\{\}-1 & Universal Gas constant\\
+\texttt{Rs} & 5e-06 & mol\_phot * m\textasciicircum\{\}-2 * s\textasciicircum\{\}-1 & Radiation setpoint to switch day and night\\
+\texttt{S} & -86400 & m\textasciicircum\{\}2 * s * mol\_phot\textasciicircum\{\}-1 & Constant in the formula of Sr\\
+\texttt{Sco25} & 2800 & Pa * Pa\textasciicircum\{\}-1 & Rubisco CO2/O2 specificity factor (Sc/o) at 25C\\
+\texttt{tau\_25} & 2600 & mol * mol\textasciicircum\{\}-1 & Specificity factor\\
+\texttt{theta} & 0.7 &  & Empirical curvature factor\\
+\texttt{V\_cmax25} & 0.00015 & mol\_CO2 * m\textasciicircum\{\}-2 * s\textasciicircum\{\}-1 & Maximum Rubisco Rate, per unit area\\
+\bottomrule
+\end{longtable}
+
+
+\section{Crop-growth constants}\label{app:growth}
+Parameters of the cucumber source--sink growth model, including flowering, fruit and the leaf-cohort canopy (Sections~\ref{sec:growth}).
+\begin{longtable}{@{}p{0.16\textwidth} p{0.16\textwidth} p{0.20\textwidth} p{0.42\textwidth}@{}}
+\toprule
+\textbf{Name} & \textbf{Value} & \textbf{Units} & \textbf{Description}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Name} & \textbf{Value} & \textbf{Units} & \textbf{Description}\\
+\midrule
+\endhead
+
+\bottomrule
+\end{longtable}
+
+
+\section{State variables, inputs and controls}\label{app:glossary}
+
+\begin{longtable}{@{}p{0.12\textwidth} p{0.20\textwidth} p{0.62\textwidth}@{}}
+\caption{Dynamic state variables (climate ODE).}\label{tab:state}\\
+\toprule \textbf{Symbol} & \textbf{Units} & \textbf{Meaning}\\ \midrule \endfirsthead
+\toprule \textbf{Symbol} & \textbf{Units} & \textbf{Meaning}\\ \midrule \endhead
+$T_1$ & K & Canopy (leaf) temperature\\
+$T_2$ & K & Greenhouse-air temperature (the controlled variable)\\
+$C_1$ & mg m$^{-3}$ & Greenhouse-air \ce{CO2} concentration\\
+$V_1$ & Pa & Greenhouse-air vapour pressure\\
+$T_5$ & K & Floor / soil thermal-mass temperature\\
+\bottomrule
+\end{longtable}
+
+\begin{longtable}{@{}p{0.10\textwidth} p{0.22\textwidth} p{0.62\textwidth}@{}}
+\caption{Inputs to the climate right-hand side (weather drivers and controller-supplied quantities).}\label{tab:inputs}\\
+\toprule \textbf{Symbol} & \textbf{Units} & \textbf{Meaning}\\ \midrule \endfirsthead
+\toprule \textbf{Symbol} & \textbf{Units} & \textbf{Meaning}\\ \midrule \endhead
+$I_1$ & m$^2$ m$^{-2}$ & Leaf area index (LAI), from the growth model\\
+$I_2$ & W m$^{-2}$ & Outside global (short-wave) radiation\\
+$I_3$ & K & Heating-pipe temperature (from the heating controller)\\
+$I_4$ & K & Effective sky temperature (Berdahl--Martin)\\
+$I_5$ & K & Outside air temperature\\
+$I_6$ & K & Mechanical-cooling temperature\\
+$I_7$ & K & Floor temperature seen by the FIR/conduction terms ($=T_5$)\\
+$I_8$ & m s$^{-1}$ & Outside wind speed\\
+$I_9$ & W m$^{-2}$ & PAR reaching the canopy $=(1-\eta_1)\tau_1\eta_2\,I_{docel}$\\
+$I_{10}$ & mg m$^{-3}$ & Outside \ce{CO2} concentration\\
+$I_{11}$ & Pa & Outside vapour pressure\\
+$T_{deep}$ & K & Deep-soil (anchor) temperature, from weather\\
+\bottomrule
+\end{longtable}
+
+\begin{longtable}{@{}p{0.10\textwidth} p{0.30\textwidth} p{0.54\textwidth}@{}}
+\caption{Control actuators $U_1$--$U_{12}$ (each in $[0,1]$ unless noted).}\label{tab:controls}\\
+\toprule \textbf{Symbol} & \textbf{Actuator} & \textbf{Role / entry point}\\ \midrule \endfirsthead
+\toprule \textbf{Symbol} & \textbf{Actuator} & \textbf{Role / entry point}\\ \midrule \endhead
+$U_1$ & Thermal / energy screen & FIR terms $r_{12}$, screen transmission $g_2,g_3$; deploy/crack\\
+$U_2$ & Fan--pad (evaporative) inlet & $h_2,p_2,p_6,o_3$ (0 in reference config)\\
+$U_3$ & Mechanical cooling & (0 in reference config)\\
+$U_4$ & Direct air heater & $o_1,p_4$ (0 in reference config)\\
+$U_5$ & Shade/black-out screen & modifies vent discharge $n_1,n_3$ (0 in ref.)\\
+$U_6$ & Side (roll-up) ventilation & wind-driven exchange $f_5$\\
+$U_7$ & Forced ventilation (fans) & $f_3$ (0 in reference config)\\
+$U_8$ & Roof (ridge) ventilation & buoyancy+wind exchange $f_7$\\
+$U_9$ & Fogging / misting & $p_3$ (latent) and $l_2$\\
+$U_{10}$ & External \ce{CO2} dosing valve & source $o_2$\\
+$U_{11}$ & (reserved / measurement) & --\\
+$U_{12}$ & Supplemental lamps (on/off) & PAR to canopy; $r_5$ (NIR), $h_{12}$ (heat)\\
+\bottomrule
+\end{longtable}
+
+\end{document}

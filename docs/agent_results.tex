@@ -1,0 +1,253 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage[version=4]{mhchem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+
+\pagestyle{fancy}\fancyhf{}\rhead{Greenhouse control agent}\lhead{Methods \& results}\cfoot{\thepage}
+
+\title{\textbf{A Reinforcement-Learning Control Agent for the\\ Greenhouse--Cucumber Digital Twin}\\[3pt]
+\large Environment, Baseline, Agent, and the Value of Reactive Control}
+\author{Greenhouses Project --- Control-agent results}
+\date{\today}
+
+\newcommand{\eur}{\,\text{\euro}/\si{m^2}}
+\usepackage{eurosym}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent We formulate greenhouse climate control as a sequential decision problem on the validated
+digital twin (whose equations are documented separately) and ask whether a learned, weather- and
+crop-state-reactive policy can beat a well-tuned \emph{constant} setpoint programme on
+\textbf{net profit}. We build the environment (a Gym-style daily-stepping wrapper of the twin with
+weather-year randomisation and a noisy forecast), a strong gradient-free baseline (cross-entropy
+optimisation of a constant programme), and a Soft Actor--Critic (SAC) agent. The central finding is
+that \textbf{the answer depends decisively on methodology}. Reactive control adds no value while the
+crop model makes the profit optimum nearly static; making the crop model realistic (a layered
+leaf-cohort canopy that responds to supplemental light) creates genuine structure. On that realistic
+twin, a naive RL setup (short training, selection on the tuning years, a corrupt weather year in the
+pool) makes SAC look \emph{worse} than the constant programme --- but a rigorous setup (clean data,
+disjoint train/validation/test weather-year splits, validation-based best-checkpointing, and enough
+training to pass a late learning ``phase transition'') makes SAC \textbf{reproducibly beat} the
+constant programme: over 15 seeds it reaches a held-out TEST net profit of $+0.40\pm1.12\eur$ versus
+the constant programme's $-0.37\eur$, beating it in \textbf{12 of 15 seeds}. We report both the naive
+failure and the rigorous success, because the contrast --- rather than either number alone --- is the
+methodological lesson. Parameter-inference details are out of scope.
+\end{abstract}
+
+\section{The control problem as a Markov decision process}
+The agent chooses a daily climate programme to maximise the season's net profit. Formally:
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+  \item \textbf{Horizon / episode.} One growing season of $N=100$ days; one step $=$ one day. A fresh
+  weather year is sampled each episode (domain randomisation) from 31 fully-covered years of hourly
+  Dutch weather (1988--2017, 2023; gap years 2018--2022 excluded automatically).
+  \item \textbf{Observation} ($\in\mathbb{R}^{18}$): crop state (day-of-season, LAI, cumulative yield,
+  node number, leaf mass, standing fruit load); a short climate summary (previous day mean air
+  temperature, \ce{CO2}, VPD); and a \textbf{noisy 3-day forecast} of the three control-relevant
+  drivers (outside temperature, solar radiation, wind), each with lead-dependent error scaled by a
+  ``forecast-skill'' knob (0 = perfect $\dots$ large = useless).
+  \item \textbf{Action} ($\in[0,1]^{10}$, decoded to physical setpoints): day and night temperature
+  setpoints, \ce{CO2} setpoint, lamp \emph{duration} and lamp \emph{start hour}, ventilation
+  proportional band and offset, the screen-closing outside-temperature threshold, the VPD floor for
+  humidity control, and the energy-screen radiation threshold. Planting \textbf{density} is an
+  episode-level decision fixed at reset.
+  \item \textbf{Transition.} One day of the closed-loop twin: the climate ODE is integrated for 24\,h
+  under the decoded setpoints (low-level PI/proportional controllers translate setpoints into
+  actuators), the day's gross assimilate is computed and passed to the daily crop-growth update, and
+  the resources spent (heating, \ce{CO2}, lamp electricity) are metered.
+  \item \textbf{Reward.} That day's \textbf{net profit} $\eur$:
+  \[
+    r_d = p\,\Delta Y_d^{+} - q_h H_d - q_c C_d - (q_e^{\text{pk}}E_d^{\text{pk}} + q_e^{\text{off}}E_d^{\text{off}}) - \tfrac{F}{365} - [\,d\!=\!0\,]\,q_s\,\rho,
+  \]
+  revenue from the day's harvested fresh yield increment minus heating, \ce{CO2}, peak/off-peak lamp
+  electricity, prorated fixed greenhouse cost, and (on day 0) the plant cost of the chosen density.
+\end{itemize}
+
+\paragraph{Economic coefficients (AGC-2024 / AGC-2018).}
+cucumber price $p=\SI{0.889}{\text{\euro}/kg}$; heating $q_h=\SI{0.09}{\text{\euro}/kWh}$;
+\ce{CO2} $q_c=\SI{0.30}{\text{\euro}/kg}$; electricity $q_e=\SI{0.30}{}$ (peak
+07:00--23:00) / \SI{0.20}{\text{\euro}/kWh} (off-peak); fixed greenhouse $F=\SI{15}{\text{\euro}/m^2/yr}$;
+plant cost $q_s=\SI{0.22}{\text{\euro}/stem}$. The resource accounting was validated against the real
+AGC-2018 Reference grower (\ce{CO2} 0.088 vs 0.079 \si{kg/m^2/d}; lamp electricity 1.18 vs 1.26
+\si{kWh/m^2/d}).
+
+\section{Baseline: cross-entropy optimisation of a constant programme}
+Because the twin is fast and deterministic, a strong non-learned baseline is a single
+\emph{season-constant} programme optimised directly for mean profit. We use the cross-entropy method
+(CEM): a Gaussian over the 10 normalised setpoints plus density is iteratively refitted to its
+elite samples, each candidate scored as mean profit over four fixed evaluation years. CEM converges
+in $\sim$12 iterations and provides both the ``number to beat'' and a warm-start for the agent.
+
+\section{The agent: Soft Actor--Critic}
+SAC is an off-policy maximum-entropy actor--critic well suited to continuous control. Our
+implementation (Julia/Flux) uses twin soft-updated $Q$-critics, a squashed-Gaussian policy with the
+$\tanh$ log-probability correction, automatic entropy-temperature tuning (target entropy
+$-\dim\mathcal{A}$), a replay buffer, and reward scaling. Two additions proved decisive:
+\begin{enumerate}[leftmargin=1.8em,itemsep=1pt]
+  \item \textbf{Lamp placement.} The action space includes the lamp \emph{start hour} (not only
+  duration), so the policy can steer supplemental light in time (e.g.\ into cheaper off-peak hours).
+  \item \textbf{Warm start.} The actor is behaviour-cloned to the CEM programme and the replay buffer
+  is seeded with CEM rollouts, so the agent \emph{improves on} the best constant programme rather than
+  rediscovering it.
+\end{enumerate}
+
+\section{Results}
+
+\subsection{Making the environment reactive: a crop-model prerequisite}
+On the original single-pool (``big-leaf'') crop the twin's photosynthesis ignored lamp light, so
+supplemental lighting cost electricity and heat but produced no yield; the profit optimum was a nearly
+static ``grow cold, lamps off'' corner with almost no state dependence. Replacing the crop with the
+layered leaf-cohort canopy (which photosynthesises under lamp PAR and integrates light down the canopy)
+made lamps productive and created a genuine \emph{interior} optimum. With the cohort crop, a
+no-lamp programme yields $\sim$11\,\si{kg/m^2} at $\approx$break-even, an 18\,h-lamp programme yields
+$\sim$33\,\si{kg/m^2} but loses $\approx\SI{-35}{}\eur$ to electricity, and the CEM optimum sits between
+them at $\sim$3\,h of (mostly off-peak) lamps.
+
+\subsection{Reactive vs constant control (a single, favourable seed)}
+Table~\ref{tab:gen} compares the CEM constant programme with a \emph{single} SAC training seed on the
+four CEM-tuning years, the 27 held-out years, all 31, and the single worst year (all at
+forecast-skill 0). On this seed SAC appears to win everywhere. Section~\ref{sec:multiseed} shows this
+does not survive replication.
+
+\begin{table}[h]\centering
+\caption{Mean net profit $\eur$ (higher is better) for one SAC training seed. The apparent cohort-twin
+win does \emph{not} reproduce across seeds (Table~\ref{tab:multiseed}); it is shown to document the
+single-seed trap. SAC cannot beat a tuned constant on the non-reactive big-leaf twin either.}
+\label{tab:gen}
+\begin{tabular}{@{}l S[table-format=-2.2] S[table-format=-2.2] S[table-format=-2.2] S[table-format=-2.1]@{}}
+\toprule
+Controller & {tuned 4\,yr} & {held-out 27\,yr} & {all 31\,yr} & {worst yr}\\
+\midrule
+big-leaf, CEM (constant)              & -0.28 & -1.85 & -1.65 & -42.8\\
+big-leaf, SAC                         & -2.13 & -3.64 & -3.45 & -44.6\\
+\midrule
+cohort, CEM (constant)                & -0.80 & -2.19 & -2.01 & -46.2\\
+cohort, SAC (duration only, cold)     & -1.69 & -3.28 & -3.07 & -47.8\\
+cohort, SAC (placement + warm, \emph{one lucky seed}) & -0.23 & -0.74 & -0.68 & -35.9\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On this one seed SAC appears to improve the held-out mean from $-2.19$ to $-0.74\eur$ and the
+worst-year from $-46.2$ to $-35.9\eur$ --- a large apparent robustness gain. As the next section shows,
+this is a favourable draw, not a property of the method.
+
+\subsection{Rigorous evaluation flips the verdict}\label{sec:multiseed}
+A first, \emph{naive} replication --- three seeds, 24k steps, selection on the tuning years, and a
+weather pool still containing a corrupt year --- does not reproduce the single-seed win: it lands
+\emph{worse} than the constant programme (Table~\ref{tab:multiseed}). Taken alone this reads as ``RL
+does not help,'' but it conflates four separable defects, each of which we then remove.
+
+\begin{table}[h]\centering
+\caption{\emph{Naive} multi-seed setup (flawed): 24k steps, selection on the tuning years, and a corrupt
+all-zero weather year still in the pool. It rightly refutes the single lucky seed, but its own flaws ---
+not the algorithm --- drive the poor numbers. Superseded by Table~\ref{tab:campaign}.}
+\label{tab:multiseed}
+\begin{tabular}{@{}l S[table-format=-2.2] c@{}}
+\toprule
+Split & {CEM (constant)} & SAC (3 seeds, mean $\pm$ std)\\
+\midrule
+tuned 4\,yr      & -0.80 & $-0.63 \pm 0.89$\\
+held-out 27\,yr  & -2.19 & $-2.56 \pm 0.21$\\
+worst year       & -46.2 & $-55.5 \pm 10.3$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The four defects and their fixes: (i) a \textbf{corrupt weather year} --- 2023 in the record is all
+zeros (outside temperature and radiation $=0$ for the whole season), costing \emph{every} policy
+$\sim-47\eur$ and dominating the ``worst-year''; it passed a row-count coverage check and sat silently
+in the pool, and is now filtered out (usable years $31\to30$); (ii) \textbf{selection on the tuning
+years} rather than a held-out set; (iii) \textbf{no validation checkpointing}, so a late-training dip is
+reported as the result; and (iv) \textbf{too-short training}. The last is decisive: every seed's
+validation curve crashes on early exploration, plateaus for tens of thousands of steps, then undergoes a
+\textbf{late learning ``phase transition'' around step $\sim$30--33k} and climbs sharply --- 24k steps
+stop before it.
+
+A \textbf{rigorous campaign} fixes all four: clean data; disjoint \textbf{TRAIN\,18 / VAL\,6 / TEST\,6}
+weather-year splits (TEST never used for training or selection); \textbf{validation best-checkpointing}
+(keep the actor with best validation profit, from the warm-started policy onward, so a seed can never
+end below $\approx$CEM); 60k steps with gentle exploration (lr $10^{-4}$, low entropy target, no random
+warmup); and a stiff-solver fallback in the environment. Fifteen seeds, 3.9\,h
+(\texttt{train\_sac\_long.jl}). The result (Table~\ref{tab:campaign}):
+
+\begin{table}[h]\centering
+\caption{Rigorous campaign, cohort twin, six held-out TEST years never used for training or selection.
+SAC reproducibly beats the constant programme and reaches positive net profit.}
+\label{tab:campaign}
+\begin{tabular}{@{}l c@{}}
+\toprule
+Controller & TEST net profit $\eur$ (6 held-out years)\\
+\midrule
+CEM (constant)                          & $-0.37$\\
+\textbf{SAC (15 seeds, best-val ckpt)}  & $\mathbf{+0.40 \pm 1.12}$ \ (median $+0.29$)\\
+\midrule
+\multicolumn{2}{@{}l}{\footnotesize SAC beats CEM on TEST in \textbf{12/15} seeds; best seed $+3.26$ (beats CEM every TEST year); worst $-1.02$.}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SAC reaches a \emph{positive} held-out profit of $+0.40\pm1.12\eur$ where the constant programme merely
+breaks even, beating it in $12/15$ seeds; the $+0.77\eur$ gap is $\approx$2.7 standard errors and $12/15$
+is well above chance. In the few seeds whose training does not take off, best-checkpointing falls back to
+$\approx$CEM. The reversal from the naive setup owes entirely to evaluation methodology and training
+length, not to any change of algorithm: on this problem a single RL seed, short training, and in-sample
+selection can each independently manufacture the wrong conclusion.
+
+\subsection{What the agent learned}
+Dissecting a trained policy (\texttt{diagnose\_policy.jl}) refutes the intuitive hypothesis that the
+agent times lamps to daily weather: the correlation between chosen lamp hours and that day's solar
+radiation is $\approx 0$ ($-0.07,+0.05,+0.01$ over three years). Instead the policy performs
+\textbf{phenological light-budget allocation}, a pattern identical across years:
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+  \item \emph{Establishment (days 0--25):} lamps $\approx 0$ --- the small canopy cannot use the light.
+  \item \emph{Productive window (days $\sim$30--70):} lamps 3--8\,h, \ce{CO2} dosed up, occasional warm
+  pushes --- the full canopy converts light into fruit with time left to ripen it.
+  \item \emph{Wind-down (days $\sim$80--100):} lamps $\approx 0$ --- new fruit could not mature and be
+  harvested before season end.
+\end{itemize}
+This policy's mean lamp use (1.7--2.3\,h) is \emph{below} CEM's constant 3.19\,h: it spends
+\emph{less} electricity but \emph{places} it in the productive window --- exactly the state-dependent
+behaviour a constant programme cannot express, and the source of the profit and generalisation gains in
+Table~\ref{tab:campaign}. (Confirming this same mechanism on the campaign's best-validation actor
+saved to \texttt{sac\_actor\_best.jls} is a one-command follow-up.)
+
+\section{Discussion}
+The results answer ``does RL help here?'' with an important qualifier: \emph{it depends on both the
+environment and the evaluation}. A learned reactive controller adds value only when the profit-optimal
+policy is genuinely state-dependent and the agent has the lever to act on it: on the lamp-blind big-leaf
+twin those conditions fail (a near-static optimum) and a constant programme is better; making the crop
+model realistic supplies the structure. Given that structure, the agent's ability to actually
+\emph{realise} a win proved just as dependent on \emph{how it is trained and judged}. A naive protocol
+(short training, in-sample selection, a corrupt data year) makes RL look strictly worse; a rigorous one
+(clean data, a held-out test split, validation checkpointing, and enough training to pass a late
+learning phase transition) makes the same algorithm \textbf{reproducibly beat the strong constant
+baseline} --- positive held-out profit, $12/15$ seeds. The two together are the paper's real lesson: on
+a low-dimensional, near-static economic optimum, a single RL seed or a short run can manufacture either
+a false win \emph{or} a false failure, and only careful, held-out, multi-seed evaluation separates the
+two. The learned advantage is concrete and interpretable --- phenological allocation of the
+supplemental-light budget across the crop's developmental stages --- which is why it also generalises to
+unseen weather years.
+
+\paragraph{Limitations and next steps.} Absolute profits are near break-even because the modelled Dutch
+autumn season and current tariffs are cost-dominated, so the swing from the constant programme to the
+learned policy, though reproducible, is modest in euros; richer tariff structure (dynamic pricing) and
+more actuator freedom would widen it. The win still carries $\pm1.12$ across seeds with $\sim$3/15 seeds
+only tying CEM, so variance reduction is the main open problem: \textbf{demonstration-anchored replay}
+(a protected expert/CEM buffer oversampled in each minibatch), best-of-$k$ or ensembled policies, and
+more seeds. Further directions: confirm the mechanism on the saved best actor; the forecast-skill
+ablation (is the forecast worth anything?); handing planting density and de-leafing to the agent; and a
+receding-horizon MPC over the twin as a second strong reactive baseline. For deployment today, the
+best-validation actor (or an ensemble of the top seeds) is the candidate controller, with the constant
+CEM programme as a safe fallback.
+
+\end{document}

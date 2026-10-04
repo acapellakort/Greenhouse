@@ -1,0 +1,12 @@
+{
+    "U7_c": {
+        "val": 0.30,
+        "units": "meters",
+        "desc": "End point for control U7"
+    },
+    "U8_c": {
+        "val": 0.45,
+        "units": "seconds",
+        "desc": "End point for control U8"
+    }
+}

@@ -1,0 +1,34 @@
+# ── Large data / legacy directories ──────────────────────────────────────────
+version 1.0/
+version 2.0 Challenge/
+GreenHouse_3.0/code/data/
+GreenHouse_3.0/data/
+
+# ── Generated / scratch ──────────────────────────────────────────────────────
+Claude outputs/
+skills/
+greenhouse-conventions.zip
+
+# ── Backup files created by Claude editing sessions ──────────────────────────
+*.bak_*
+
+# ── Inference artefacts (large, reproducible by running the scripts) ──────────
+**/test/figures/
+**/test/posteriors/
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+__MACOSX/
+
+# ── Julia ────────────────────────────────────────────────────────────────────
+*.jl.cov
+*.jl.mem
+/Manifest.toml          # root-level only; sub-project Manifests are kept
+.julia/
+
+# ── Editors ──────────────────────────────────────────────────────────────────
+.vscode/
+*.swp
+*~

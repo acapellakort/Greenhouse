@@ -1,0 +1,279 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{siunitx}
+
+\newcommand{\eurpm}{\,\text{EUR/m}^2}
+\title{\textbf{Reinforcement-Learning Control of a Cucumber\\Greenhouse Digital Twin: Results and Assessment}}
+\author{Greenhouses project --- control-agent line}
+\date{September 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+We report the development and honest assessment of a reinforcement-learning (RL)
+control agent for a calibrated cucumber greenhouse digital twin. Starting from a
+constant-program baseline (net profit $0.12\eurpm$ over held-out autumn weather
+years), a reactive Soft Actor--Critic (SAC) agent reaches $1.66\eurpm$, and an
+agent \emph{distilled from a perfect-foresight optimizer} (MPC~$\to$~RL) reaches
+$2.83\eurpm$ --- about $78\%$ of the perfect-foresight ceiling ($\sim 3.65\eurpm$).
+Against the six real growers of the 2018 Autonomous Greenhouse Challenge (AGC),
+scored on identical economics and a matched crop, the agent is the only
+net-positive controller at present-day electricity prices, but a price sweep shows
+this advantage is regime-dependent: the crossover sits near
+$0.10\text{--}0.12$\,EUR/kWh, and under 2018-era cheap power the best human growers
+out-earn the agent. The agent \emph{out-economizes} rather than \emph{out-grows}.
+We conclude the RL line at this point and lay out next steps, foremost among them
+\emph{price-adaptive agents} that observe and respond to energy and CO\textsubscript{2}
+prices.
+\end{abstract}
+
+\section{Context and scope}
+The Greenhouses project has two goals: (i) a parameter-adjustable
+greenhouse~$+$~crop~$+$~photosynthesis model usable as a digital twin, and
+(ii) an AI agent that controls it. This report covers goal (ii) --- the control
+agent --- and its assessment against real data. The twin itself (climate physics,
+FvCB photosynthesis, and a leaf-cohort cucumber growth model) is documented
+separately; here we summarize only what bears on control.
+
+\section{The digital twin (summary)}
+The twin couples a Vanthoor-type greenhouse climate model (canopy and air
+temperature, CO\textsubscript{2}, vapour, and a floor thermal mass, solved as a stiff ODE per
+day) to a Farquhar--von~Caemmerer--Berry C3 photosynthesis model and a
+leaf-age-cohort cucumber growth model with per-organ sink strengths, senescence,
+and thermal-age fruit cohorts. It was calibrated by t-walk MCMC against all six
+AGC-2018 growers and reproduces their seasonal yields within about $10\%$
+(e.g.\ Reference grower: model $48.6$ vs.\ observed $49.4$\,kg/m$^2$).
+
+\paragraph{Twin realism increment (responsive stomata).}
+We added an opt-in environment-dependent stomatal conductance (Jarvis form, in
+series with a fixed mesophyll conductance) and a diurnal-corrected maintenance
+respiration term, both defaulting off so the frozen engine stays bit-for-bit
+reproducible. A diagnostic established that the autumn scenario is
+\emph{light-limited}: raising the CO\textsubscript{2} setpoint from $400$ to $1200$\,ppm lifts
+seasonal gross assimilation by only $\sim 7\%$ and \emph{reduces} net profit
+(dosing cost exceeds the gain). Consequently responsive stomata are a
+correct-but-second-order refinement for autumn, and CO\textsubscript{2} enrichment has low
+marginal value --- a fact the control results below repeatedly reflect.
+
+\section{Control problem}
+\paragraph{Actions.} The agent sets eleven daily setpoints that a low-level
+PI/proportional layer turns into the physical actuators: day and night temperature
+setpoints, CO\textsubscript{2} setpoint, photoperiod (lamp hours), lamp start time, continuous
+lamp intensity, ventilation proportional band, vent dead-band offset, an
+outside-temperature screen threshold, a radiation screen threshold, and a
+vapour-pressure-deficit floor for humidity control. Planting density is an
+episode-level action.
+
+\paragraph{Reward.} Daily net profit in $\eurpm$: fresh-weight revenue
+(\SI{0.889}{EUR/kg}) minus heating (\SI{0.09}{EUR/kWh}), electricity
+(\SI{0.30}{EUR/kWh} on-peak, \SI{0.20}{} off-peak), CO\textsubscript{2} (\SI{0.30}{EUR/kg}),
+and amortized fixed costs (\SI{15}{EUR/m^2/yr}). Flue-gas CO\textsubscript{2} from the boiler
+is credited as free while heating.
+
+\paragraph{Episodes and splits.} A 100-day autumn crop (plant mid-August) driven by
+30 clean historical Dutch weather years, split disjointly into 18 TRAIN, 6
+VALIDATION (checkpoint selection), and 6 TEST (never used for training or
+selection). All figures below are TEST-year net profit at deterministic policy
+evaluation.
+
+\section{Controllers}
+\begin{enumerate}[leftmargin=1.4em]
+\item \textbf{CEM constant program.} A cross-entropy-method search over the best
+\emph{fixed} season-long setpoints. The ``number to beat'' and a reward audit.
+\item \textbf{Reactive SAC.} A hand-rolled Soft Actor--Critic (twin Q-critics,
+squashed-Gaussian actor, automatic entropy temperature). Naive training was
+unstable and lost to CEM; the fix was a warm start behavior-cloned to CEM, a
+critic-only warmup on a demonstration buffer, a decaying behavior-cloning tether,
+and demonstration-anchored replay, trained $10^5$ steps over 15 seeds.
+\item \textbf{Perfect-foresight ceiling (MPC).} Because the twin is deterministic
+given a weather year, the best open-loop schedule with the weather revealed is
+that year's optimum --- an upper bound on any causal controller. Estimated per TEST
+year by CEM over a 10-day-block schedule, warm-started from the agent's trajectory.
+\item \textbf{MPC $\to$ RL distillation.} Forecast-driven expert demonstrations are
+generated by the open-loop optimizer on each TRAIN year; SAC is then retrained with
+\emph{state-conditioned} behavior cloning toward those demonstrations, so it
+imitates a foresightful expert instead of a forecast-blind constant program.
+\end{enumerate}
+
+\section{Results}
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Controller & TEST net profit ($\eurpm$) & vs.\ CEM & seeds beating CEM \\
+\midrule
+CEM constant program            & $0.12$              & ---     & --- \\
+Reactive SAC (deployed)         & $1.66$              & $+1.54$ & $14/15$ \\
+\textbf{MPC$\to$RL distilled (deployed)} & $\mathbf{2.83}$ & $\mathbf{+2.71}$ & $\mathbf{15/15}$ \\
+Perfect-foresight ceiling       & $\sim 3.65$         & ---     & --- \\
+\bottomrule
+\end{tabular}
+\caption{The control ladder on held-out autumn weather years. The distilled agent
+recovers $\sim 78\%$ of the perfect-foresight ceiling (the reactive agent, $45\%$).
+Per-seed variability also tightened (std $0.30$ vs.\ $0.58$).}
+\end{table}
+
+\noindent The distilled agent beats CEM on all six TEST years, turning the two
+loss-making years strongly positive (1990: $-1.17\to+1.78$; 2003:
+$-1.50\to+1.95$) and lifting the mean from $0.12$ to $2.83\eurpm$.
+
+\paragraph{The agent learned seasonal timing, not forecast-following.}
+Evaluating the agent across forecast accuracy (from perfect to noisy) leaves its
+profit essentially flat ($2.79$--$2.87\eurpm$): it does not condition on the
+weather forecast in its observation. Yet it reaches $78\%$ of a
+\emph{perfect-foresight} ceiling. The reconciliation is that the anticipatory value
+in this problem lives in structure the agent \emph{can} see without a forecast ---
+day-of-season, crop stage, current climate --- and the distillation taught it the
+climatologically optimal program shape. Short-term (3-day) weather foresight has
+little marginal value in a light-limited autumn; the residual gap to the ceiling is
+long-horizon perfect foresight that is unrealizable in practice.
+
+\section{Assessment against real growers (AGC-2018)}
+We compared the agent to the six real AGC-2018 cucumber growers, scoring both on
+\emph{our} economics and running the agent on a \emph{matched} crop (the Reference
+grower's calibrated parameters, density $2.5$) to isolate control quality. The
+season timing is comparable ($\sim$116 real days vs.\ our 100), but the real weather
+(Bleiswijk 2018) differs from our historical years, and running the agent on a
+higher-yield crop than it trained on is out-of-distribution --- so results are
+indicative.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+& yield & heat & elec & CO\textsubscript{2} & net profit \\
+& (kg/m$^2$) & (kWh) & (kWh) & (kg) & @\,0.25\,EUR/kWh \\
+\midrule
+AiCU            & 37.3 & 116.8 & 118.3 &  9.9 & $-15.19$ \\
+Croperators     & 48.0 & 233.9 & 183.3 & 14.2 & $-33.75$ \\
+DeepGreens      & 35.8 & 486.9 & 157.0 & 16.7 & $-61.59$ \\
+Reference       & 49.4 & 158.2 & 149.3 &  9.8 & $-15.88$ \\
+Sonoma          & 51.3 & 127.9 & 184.2 & 10.3 & $-20.41$ \\
+iGrow           & 46.8 & 137.3 & 145.9 &  9.2 & $-15.33$ \\
+\midrule
+\textbf{Agent (matched crop)} & 28.3 & 84.7 & 29.5 & 5.0 & $\mathbf{+4.03}$ \\
+Agent (native config)         & 22.8 & 63.2 & 31.6 & 1.2 & $+1.64$ \\
+\bottomrule
+\end{tabular}
+\caption{Real growers vs.\ agent, common economics. At present-day electricity
+prices the agent is the only net-positive controller --- but see the price sweep.}
+\end{table}
+
+\paragraph{The advantage is a price regime, not better growing.}
+Because the agent's trajectory is fixed, we swept the electricity price and
+re-scored everyone (Table~\ref{tab:sweep}). The agent's profit is nearly flat
+across price (it barely uses electricity); the growers' profit is steeply
+price-sensitive (they lit heavily). The crossover is near
+$0.10$--$0.12$\,EUR/kWh. Under 2018-era cheap power ($\sim 0.05$\,EUR/kWh) the best
+growers --- Sonoma $16.4$, Reference $14.0$, iGrow $13.9$ --- \emph{out-earn} the
+agent ($9.9$). The agent therefore does not grow better; it is price-robust and
+wins only where power is expensive, by correctly declining supplemental lighting
+that does not pay in a light-limited autumn.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+net profit ($\eurpm$) & 0.05 & 0.10 & 0.15 & 0.20 & 0.25 & 0.30 \\
+electricity (EUR/kWh) & & & & & & \\
+\midrule
+AiCU        &  8.47 &  2.55 & $-3.36$ & $-9.27$ & $-15.19$ & $-21.10$ \\
+Croperators &  2.92 & $-6.25$ & $-15.41$ & $-24.58$ & $-33.75$ & $-42.91$ \\
+DeepGreens  & $-30.19$ & $-38.04$ & $-45.89$ & $-53.74$ & $-61.59$ & $-69.44$ \\
+Reference   & 13.98 &  6.52 & $-0.95$ & $-8.42$ & $-15.88$ & $-23.35$ \\
+Sonoma      & 16.43 &  7.22 & $-1.99$ & $-11.20$ & $-20.41$ & $-29.62$ \\
+iGrow       & 13.85 &  6.55 & $-0.74$ & $-8.04$ & $-15.33$ & $-22.63$ \\
+\midrule
+\textbf{Agent (matched)} &  9.94 &  8.46 &  6.99 &  5.51 &  4.03 &  2.56 \\
+Agent (native)           &  7.96 &  6.38 &  4.80 &  3.22 &  1.64 &  0.06 \\
+\bottomrule
+\end{tabular}
+\caption{Electricity-price sweep. The agent's near-flat line crosses the growers'
+declining lines around $0.10$--$0.12$\,EUR/kWh. Caveat: the agent's policy was
+trained at high prices, so at cheap power it does not light more --- a fair
+cheap-power comparison would retrain it at that price.}
+\label{tab:sweep}
+\end{table}
+
+\paragraph{Out-of-distribution diagnostic.} The matched-crop comparison runs the
+agent on a crop it never trained on, and a trajectory plot exposes the cost: on the
+Reference grower's crop the agent is stable for roughly $80$ days and then, in the
+final weeks, emits incoherent setpoints (a night temperature setpoint jumping
+\emph{above} the day setpoint), a heating spike, and a temperature excursion, while
+cumulative yield flattens. Running the same agent on its \emph{native} crop under
+the identical weather year removes the anomaly entirely --- the climate is held
+smoothly to the end, through the same late-autumn cold spell --- confirming the
+cause is not the twin or the weather but the crop-state observations (cumulative
+yield in particular) leaving the agent's training range and driving policy
+extrapolation. The agent is therefore reliable in-distribution and degrades only
+when pushed outside it; the matched-crop yield ($28$\,kg/m$^2$) consequently
+\emph{understates} the agent's control quality on that crop, and a short fine-tune
+on the matched crop (a To-Do item) would remove the end-of-season instability.
+
+\section{Limitations}
+Autumn only (a light-limited regime); a 3-day forecast horizon; the matched-crop
+comparison runs the agent out-of-distribution; the ceiling assumes perfect,
+physically unrealizable long-horizon foresight; and the headline profit comparison
+uses present-day (crisis-era) electricity prices under which the growers'
+rational-for-2018 strategy looks unprofitable. None of these undercut the internal
+ladder (all controllers scored identically); they bound the external claims.
+
+\section{To-Do and future work}
+
+\paragraph{Price-adaptive agents (priority).} The single clearest lesson from the
+assessment is that a fixed policy is only optimal for the price regime it was
+trained on. The natural fix is to make \emph{prices part of the problem}: place the
+current electricity, natural-gas, and CO\textsubscript{2} prices (and, where available, their
+short-term forecasts) in the agent's observation, and train across a
+\emph{distribution} of price regimes via domain randomization. A single such policy
+would dial lighting, heating, and CO\textsubscript{2} dosing to the prices it faces --- lighting
+up under cheap power (to rejoin the top growers) and economizing under expensive
+power (as the current agent does) --- rather than committing to one strategy. Two
+worthwhile extensions: (i) condition on \emph{day-ahead energy-market} prices so the
+agent shifts lighting and heating into cheap/off-peak hours (temporal load
+shifting), and (ii) treat gas and electricity prices jointly, since heating and
+lighting trade off against each other and against CO\textsubscript{2} cost. This directly
+resolves the regime-dependence found above and turns a brittle single-price
+controller into a robust, economically rational one.
+
+\paragraph{Other near-term items.}
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Fair cheap-power comparison:} retrain the agent at $\sim 0.06$\,EUR/kWh
+and re-run the AGC comparison; test whether it then lights up and matches or beats
+the top growers at their own prices.
+\item \textbf{Other seasons:} repeat for spring/summer high-light crops, where
+CO\textsubscript{2}, supplemental light, and stomatal response regain leverage and the twin's
+responsive-stomata increment matters; recalibrate the stomatal model per season.
+\item \textbf{Physics:} add the second (blackout/energy) screen; a longer forecast
+horizon is low priority for autumn but may matter in high-light seasons.
+\item \textbf{Deployable MPC:} a receding-horizon controller with a realistic
+degrading forecast, both as a strong baseline and a shippable controller; the
+open-loop optimizer built here is its engine.
+\end{itemize}
+
+\paragraph{Beyond the control line (other project goals).}
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Inference and probabilistic forecasting:} t-walk inference of crop and
+climate parameters from real data, and a probabilistic 3--5 week production forecast
+with an explicit harvest/stopping-time decision and control assumptions.
+\item \textbf{User-friendly simulator:} a configurable, crop-agnostic simulation and
+training tool exposing the parameters a grower actually sets (climate computer,
+pruning, actuator configuration), which can also host the trained control agents.
+\end{itemize}
+
+\paragraph{Reproducibility.} All results come from the twin plus scripts under
+version control; we recommend consolidating the codebase into a single repository
+with a shared \texttt{GreenhouseCore} engine and separate \texttt{Inference},
+\texttt{Simulator}, and \texttt{Control} layers, replacing the current version-folder
+layout, and versioning milestones by git tag.
+
+\end{document}

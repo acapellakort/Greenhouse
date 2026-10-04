@@ -1,0 +1,842 @@
+{
+    "eps_screen": {
+        "val": 0.4,
+        "units": "1",
+        "desc": "Energy-screen FIR emissivity to sky (aluminized/low-e). Separate from epsil5 so it only affects the screen-sky term r12 when the screen is deployed (U1>0); U1=0 on the venting calibration day, so calibration-safe.",
+        "latex": "$\\epsilon_{scr}$",
+        "comment": "Added V2.2: makes the thermal screen a heat-retaining ENERGY screen. Was implicitly epsil5=1 (full-emissivity shade screen)."
+    },
+    "k_ground": {
+        "val": 4.33,
+        "units": "W m^-2 K^-1",
+        "desc": "Effective air<->ground conductance via the floor thermal-mass state (single, identifiable)",
+        "latex": "$k_{ground}$",
+        "comment": "Added V2.2: replaces the degenerate h_soil/k_deep pair. Charges the fixed-capacity floor from air and discharges to deep-soil Tsoil. Calibrated on venting-day data: k_ground=4.33 W/m2/K, 95% CI [1.45, 7.82] (run_inference_venting.jl)."
+    },
+    "h_soil": {
+        "val": 4.0,
+        "units": "W m^-2 K^-1",
+        "desc": "Effective air<->floor convective heat-exchange coefficient (thermal-mass buffer)",
+        "latex": "$h_{soil}$",
+        "comment": "Added V2.2: lumped air-floor coupling for the dynamic floor/soil state. Calibratable."
+    },
+    "C_soil": {
+        "val": 150000.0,
+        "units": "J m^-2 K^-1",
+        "desc": "Heat capacity per floor area of the active soil/floor layer (thermal mass)",
+        "latex": "$C_{soil}$",
+        "comment": "Added V2.2: floor heat capacity. ~0.15 m active soil layer. Calibratable."
+    },
+    "k_deep": {
+        "val": 2.0,
+        "units": "W m^-2 K^-1",
+        "desc": "Conductance from the active floor layer to the fixed deep-soil temperature",
+        "latex": "$k_{deep}$",
+        "comment": "Added V2.2: deep-soil anchor conductance; deep-soil temp = weather Tsoil. Calibratable."
+    },
+    "alpha1": {
+        "val": 1500.0,
+        "units": "J * K^-1 * m^-2",
+        "desc": "Heat capacity of one square meter of the canopy",
+        "latex": "$\u0007lpha_1$",
+        "comment": "Se regreso al valor original"
+    },
+    "alpha2": {
+        "val": 0.35,
+        "units": "1",
+        "desc": "Global NIR absorption coefficient of the canopy",
+        "latex": "$\u0007lpha_2$",
+        "comment": "ok"
+    },
+    "alpha3": {
+        "val": 0.3,
+        "units": "m^2*m^-2",
+        "desc": "Surface of the heating pipe",
+        "latex": "$\u0007lpha_3$",
+        "comment": "1"
+    },
+    "alpha4": {
+        "val": 5,
+        "units": "W * m^-2 * K^-1",
+        "desc": "Convection heat exchange coefficient of canopy leaf to greenhouse air",
+        "latex": "$\u0007lpha_4$",
+        "comment": "estaba 15, perp en Vanthor es 5"
+    },
+    "alpha5": {
+        "val": 1500.0,
+        "units": "J * K^-1 * kg^-1",
+        "desc": "Specific heat capacity of greenhouse air",
+        "latex": "$\u0007lpha_5$",
+        "comment": "ok"
+    },
+    "alpha6": {
+        "val": 10000.0,
+        "units": "m^2",
+        "desc": "Greenhouse floor surface area",
+        "latex": "$\u0007lpha_6$",
+        "comment": "ok"
+    },
+    "alpha7": {
+        "val": 0.5,
+        "units": "1",
+        "desc": "Global NIR absorption coefficient of the floor",
+        "latex": "$\u0007lpha_7$",
+        "comment": "ok"
+    },
+    "alpha8": {
+        "val": 1,
+        "units": "1",
+        "desc": "PAR absorption coefficient of the cover",
+        "latex": "$\u0007lpha_8$",
+        "comment": "no dan el valor"
+    },
+    "alpha9": {
+        "val": 1,
+        "units": "1",
+        "desc": "NIR absorption coefficient of the cover",
+        "latex": "$\u0007lpha_9$",
+        "comment": "no dan el valor"
+    },
+    "alpha12": {
+        "val": 74,
+        "units": "W * m^-2",
+        "desc": "Total lamp radiation per square meter ",
+        "latex": "$\u0007lpha_{12}$",
+        "comment": "Calculo Antonio"
+    },
+    "beta1": {
+        "val": 0.7,
+        "units": "1",
+        "desc": "Canopy extinction coefficient for PAR radiation",
+        "latex": "$\beta_1$",
+        "comment": "ok"
+    },
+    "beta2": {
+        "val": 0.7,
+        "units": "1",
+        "desc": "Extinction coefficient for PAR radiation reflected from the floor to the canopy",
+        "latex": "$\beta_2$",
+        "comment": "ok"
+    },
+    "beta3": {
+        "val": 0.27,
+        "units": "1",
+        "desc": "Canopy extinction coefficient for NIR radiation",
+        "latex": "$\beta_3$",
+        "comment": "ok"
+    },
+    "gamma": {
+        "val": 65.8,
+        "units": "Pa * K^-1",
+        "desc": "Psychometric constan",
+        "latex": "$\\gamma$",
+        "comment": "ok"
+    },
+    "gamma1": {
+        "val": 1.25,
+        "units": "m * m^-2",
+        "desc": "Length of the heating pipe",
+        "latex": "$\\gamma_1$",
+        "comment": "ok, us\u00e9 el valor de Texas"
+    },
+    "gamma2": {
+        "val": 2450000.0,
+        "units": "J * kg_water^-1",
+        "desc": "Latent heat of water evaporation",
+        "latex": "$\\gamma_2$",
+        "comment": "ok"
+    },
+    "gamma3": {
+        "val": 275,
+        "units": "s * m^-1",
+        "desc": "Strength of boundary layer of canopy for vapor transport",
+        "latex": "$\\gamma_3$",
+        "comment": "ok"
+    },
+    "gamma4": {
+        "val": 82.0,
+        "units": "s * m^-1",
+        "desc": "Minimum stomatal resistance of the canopy",
+        "latex": "$\\gamma_4$",
+        "comment": "ok"
+    },
+    "gamma5": {
+        "val": -1,
+        "units": "W * m^-2",
+        "desc": "Inverse of slope of the differentiable switch for the stomatal resistance model",
+        "latex": "$\\gamma_5$",
+        "comment": "ok"
+    },
+    "delta1": {
+        "val": 5,
+        "units": "W * m^-2",
+        "desc": "Radiation above the canopy that defines sunrise and sunset",
+        "latex": "$\\delta_1$",
+        "comment": "ok"
+    },
+    "delta2": {
+        "val": 4.3,
+        "units": "W * m^-2",
+        "desc": "Empirically determined parameter",
+        "latex": "$\\delta_2$",
+        "comment": "ok"
+    },
+    "delta3": {
+        "val": 0.54,
+        "units": "W * m^-2",
+        "desc": "Empirically determined parameter",
+        "latex": "$\\delta_3$",
+        "comment": "ok"
+    },
+    "delta4": {
+        "val": 6.1e-07,
+        "units": "ppm^-2",
+        "desc": "Coefficient of the CO2 transpiration in the day",
+        "latex": "$\\delta_4$",
+        "comment": "ok"
+    },
+    "delta5": {
+        "val": 1.1e-11,
+        "units": "ppm^-2",
+        "desc": "Coefficient of the CO2 transpiration in the night",
+        "latex": "$\\delta_5$",
+        "comment": "ok"
+    },
+    "delta6": {
+        "val": 4.3e-06,
+        "units": "Pa^-2",
+        "desc": "Coefficient of the vapour pressure in the day",
+        "latex": "$\\delta_6$",
+        "comment": "ok"
+    },
+    "delta7": {
+        "val": 5.2e-06,
+        "units": "Pa^-2",
+        "desc": "Coefficient of the vapour pressure in the night",
+        "latex": "$\\delta_7$",
+        "comment": "ok"
+    },
+    "epsil1": {
+        "val": 0.88,
+        "units": "1",
+        "desc": "FIR emission coefficient of the heating pipe",
+        "latex": "$\\epsilon_1$",
+        "comment": "ok"
+    },
+    "epsil2": {
+        "val": 1,
+        "units": "1",
+        "desc": "Canopy FIR emission coefficient",
+        "latex": "$\\epsilon_2$",
+        "comment": "ok"
+    },
+    "epsil3": {
+        "val": 1,
+        "units": "1",
+        "desc": "Sky FIR emission coefficient",
+        "latex": "$\\epsilon_3$",
+        "comment": "ok"
+    },
+    "epsil4": {
+        "val": 1,
+        "units": "1",
+        "desc": "Floor FIR emission coefficient",
+        "latex": "$\\epsilon_4$",
+        "comment": "ok"
+    },
+    "epsil5": {
+        "val": 1,
+        "units": "1",
+        "desc": "Thermal screen FIR emission coefficient",
+        "latex": "$\\epsilon_5$",
+        "comment": "?"
+    },
+    "epsil6": {
+        "val": 0.44,
+        "units": "1",
+        "desc": "External cover FIR emission coefficient",
+        "latex": "$\\epsilon_6$",
+        "comment": "ok,us\u00e9 el valor de Texas"
+    },
+    "eta1": {
+        "val": 0.1,
+        "units": "1",
+        "desc": "Proportion of global radiation that is absorbed by greenhouse building elements",
+        "latex": "$\\eta_1$",
+        "comment": "ok"
+    },
+    "eta2": {
+        "val": 0.5,
+        "units": "1",
+        "desc": "Ratio between PAR radiation and external global radiation",
+        "latex": "$\\eta_2$",
+        "comment": "ok"
+    },
+    "eta3": {
+        "val": 0.5,
+        "units": "1",
+        "desc": "Ratio between NIR radiation and global external radiation",
+        "latex": "$\\eta_3$",
+        "comment": "ok"
+    },
+    "eta4": {
+        "val": 0.554,
+        "units": "ppm * mg^-1 * m^3",
+        "desc": "Conversion factor for CO2 of mg*m**\u22123 to ppm",
+        "latex": "$\\eta_4$",
+        "comment": "ok"
+    },
+    "eta5": {
+        "val": 0.5,
+        "units": "1",
+        "desc": "Fan-pad system efficiency",
+        "latex": "$\\eta_5$",
+        "comment": "ok"
+    },
+    "eta6": {
+        "val": 0.551,
+        "units": "1",
+        "desc": "Ventilation power reduction factor",
+        "latex": "$\\eta_6$",
+        "comment": "Value computed from vanthorr´s thesis ec 8.70 with zeta = 0.33"
+    },
+    "eta7": {
+        "val": 0.8,
+        "units": "1",
+        "desc": "Ratio between ceiling ventilation area and total ventilation area",
+        "latex": "$\\eta_7$",
+        "comment": "no dan valor en el art\u00edculo"
+    },
+    "eta8": {
+        "val": 0.9,
+        "units": "1",
+        "desc": "Ratio between ceiling and total ventilation area, if there is no chimney effect",
+        "latex": "$\\eta_8$",
+        "comment": "ok"
+    },
+    "eta9": {
+        "val": 0,
+        "units": "1",
+        "desc": "",
+        "latex": "$\\eta_9$",
+        "comment": "No esta en el c\u00f3digo"
+    },
+    "eta10": {
+        "val": 0,
+        "units": "1",
+        "desc": "Shadow effect on the discharge coefficient",
+        "latex": "$\\eta_{10}$",
+        "comment": "Falta valor, en los ejemplos del art\u00edculo no se considera"
+    },
+    "eta11": {
+        "val": 0,
+        "units": "1",
+        "desc": "Effect of shadow on the global wind pressure coefficient",
+        "latex": "$\\eta_{11}$",
+        "comment": "falta valor"
+    },
+    "eta12": {
+        "val": 4.43e-08,
+        "units": "kg_vapour * J^-1",
+        "desc": "Amount of vapor that is released when a joule of sensible energy is produced by the direct air heater",
+        "latex": "$\\eta_{12}$",
+        "comment": "ok"
+    },
+    "eta13": {
+        "val": 0.057,
+        "units": "mg_CO2 * J^-1",
+        "desc": "Amount of CO2 that is released when a joule of sensible energy is produced by the direct air heater",
+        "latex": "$\\eta_{13}$",
+        "comment": "ok"
+    },
+    "eta14": {
+        "val": 0.18,
+        "units": "1",
+        "desc": "Percentage lamps radiation that is NIR",
+        "latex": "$\\eta_{14}$",
+        "comment": "Aaron dio el valor "
+    },
+    "eta15": {
+        "val": 0.0074,
+        "units": "1",
+        "desc": "Porcentaje de la radiacion de las lamparas que es calor en el reflector",
+        "latex": "$\\eta_{15}$",
+        "comment": "Aaron dio el valor "
+    },
+    "eta16": {
+        "val": 0.39,
+        "units": "1",
+        "desc": "Porcentaje de la radiacion de las lamparas que es calor directo al aire del invernadero",
+        "latex": "$\\eta_{16}$",
+        "comment": "Aaron dio el valor "
+    },
+    "eta17": {
+        "val": 0.3626,
+        "units": "1",
+        "desc": "Percentage lamps radiation that is PAR",
+        "latex": "$\\eta_{17}$",
+        "comment": "Aaron dio el valor "
+    },
+    "lamb1": {
+        "val": 0,
+        "units": "1",
+        "desc": "Performance coefficient of the mechanical cooling system",
+        "latex": "$\\lambda_1$",
+        "comment": "Falta valor, en los ejemplos del art\u00edculo no se considera"
+    },
+    "lamb2": {
+        "val": 0,
+        "units": "W",
+        "desc": "Electrical capacity of the mechanical cooling system",
+        "latex": "$\\lambda_2$",
+        "comment": "Falta valor, en los ejemplos del art\u00edculo no se considera"
+    },
+    "lamb3": {
+        "val": 1,
+        "units": "W * m^-2 * K^-1",
+        "desc": "Convective heat exchange coefficient between soil and greenhouse air",
+        "latex": "$\\lambda_3$",
+        "comment": "1 . Falta valor, en los ejemplos del art\u00edculo no se considera"
+    },
+    "lamb4": {
+        "val": 500000,
+        "units": "W",
+        "desc": "Heat capacity of direct air heater",
+        "latex": "$\\lambda_4$",
+        "comment": "Valor de la tesis de Vanthoor Pblow = 0.5 MW"
+    },
+    "lamb5": {
+        "val": 18000.0,
+        "units": "m^2",
+        "desc": "Cover surface",
+        "latex": "$\\lambda_5$",
+        "comment": "ok,tom\u00e9 el valor de Holanda, el de Texas es muy grande (9e4)"
+    },
+    "lamb6": {
+        "val": 2.8,
+        "units": "W * m_cover^-2 * K^-1",
+        "desc": "Variable of heat exchange by convection between the roof and the outside air",
+        "latex": "$\\lambda_6$",
+        "comment": " 2.8 ok, us\u00e9 el valor de Texas"
+    },
+    "lamb7": {
+        "val": 1,
+        "units": "J * m^-3 * K^-1",
+        "desc": "Variable of heat exchange by convection between the roof and the outside air",
+        "latex": "$\\lambda_7$",
+        "comment": " 1 ok, us\u00e9 el valor de Texas"
+    },
+    "lamb8": {
+        "val": 2,
+        "units": "1",
+        "desc": "Variable of heat exchange by convection between the roof and the outside air",
+        "latex": "$\\lambda_8$",
+        "comment": "ok,us\u00e9 el valor de Texas"
+    },
+    "lamb9": {
+        "val": 0.05,
+        "units": "1",
+        "desc": "eficiencia del intercambio de calor entre las capas de aire",
+        "latex": "$\\lambda_9$",
+        "comment": "ok"
+    },
+    "rho1": {
+        "val": 0.07,
+        "units": "1",
+        "desc": "PAR reflection coefficient of the cannopy",
+        "latex": "$\rho_1$",
+        "comment": "ok"
+    },
+    "rho2": {
+        "val": 0.65,
+        "units": "1",
+        "desc": "Floor reflection coefficient PAR",
+        "latex": "$\rho_2$",
+        "comment": "ok"
+    },
+    "rho3": {
+        "val": 1.2,
+        "units": "kg * m^-3",
+        "desc": "Air density",
+        "latex": "$\rho_3$",
+        "comment": "El valor es el de la densidad del aire al nivel del mar"
+    },
+    "rho4": {
+        "val": 1.2,
+        "units": "kg * m^-3",
+        "desc": "Air density see level",
+        "latex": "$\rho_4$",
+        "comment": "El valor es el de la densidad del aire al nivel del mar"
+    },
+    "tau1": {
+        "val": 0.77,
+        "units": "1",
+        "desc": "PAR transmission coefficient of the Cover",
+        "latex": "$\tau_1$",
+        "comment": "En el art\u00edculo no dan su valor"
+    },
+    "tau2": {
+        "val": 1,
+        "units": "1",
+        "desc": "FIR transmission coefficient of the Cover",
+        "latex": "$\tau_2$",
+        "comment": "En el art\u00edculo no dan su valor"
+    },
+    "tau3": {
+        "val": 0.11,
+        "units": "1",
+        "desc": "FIR transmission coefficient of the thermal screen",
+        "latex": "$\tau_3$",
+        "comment": "ok --> us\u00e9 el valor de Texas"
+    },
+    "nu1": {
+        "val": 1.0,
+        "units": "1",
+        "desc": "Shadowless discharge coefficient",
+        "latex": "$\nu_1$",
+        "comment": "Ne Vanthoor estaba Ventilation discharge coefficient depends o de 0.65 creo que esta mal "
+    },
+    "nu2": {
+        "val": 0.1,
+        "units": "1",
+        "desc": "Global wind pressure coefficient without shadow",
+        "latex": "$\nu_2$",
+        "comment": "ok"
+    },
+    "nu3": {
+        "val":  2352.9,
+        "units": "m^2",
+        "desc": "Side surface of the greenhouse",
+        "latex": "$\nu_3$",
+        "comment": "Usamos la proporcion dada en Vanthor "
+    },
+    "nu4": {
+        "val": 1e-4,
+        "units": "1",
+        "desc": "Heat leakage coefficient",
+        "latex": "$\nu_4$",
+        "comment": "Vanthoor value 1e-4. Data-validated: after the V2.2 vent-sign + roof-vent(h7) fixes the ODE is stable at 1e-4 (sweep_leakage.jl) and the venting-day MCMC posterior excludes 1e-2 (run_inference_venting.jl). Restored to physical."
+    },
+    "nu4CO2": {
+        "val": 1e-4,
+        "units": "1",
+        "desc": "CO2 leakage coefficient",
+        "latex": "$\nu_{4CO2}$",
+        "comment": "Este es iun invento propio para medir la diferencia entre las fugas de calor y de CO2"
+    },
+    "nu5": {
+        "val": 2000.0,
+        "units": "m^2",
+        "desc": "Maximum ceiling ventilation area",
+        "latex": "$\nu_5$",
+        "comment": " 0.2*alpha6 --> ok"
+    },
+    "nu6": {
+        "val": 1,
+        "units": "m",
+        "desc": "Vertical dimension of a single open respirator",
+        "latex": "$\nu_6$",
+        "comment": "ok"
+    },
+    "nu7": {
+        "val": 0.85,
+        "units": "W * m^-1 * K^-1",
+        "desc": "Soil thermal conductivity",
+        "latex": "$\nu_7$",
+        "comment": "ok"
+    },
+    "nu8": {
+        "val": 0.64,
+        "units": "m",
+        "desc": "Floor to ground distance",
+        "latex": "$\nu_8$",
+        "comment": "ok"
+    },
+    "phi1": {
+        "val": 0.051,
+        "units": "m",
+        "desc": "External diameter of the heating pipe",
+        "latex": "$\\phi_1$",
+        "comment": "ok"
+    },
+    "phi2": {
+        "val": 4,
+        "units": "m",
+        "desc": "Average height of greenhouse air",
+        "latex": "$\\phi_2$",
+        "comment": "Se regreso a valor original"
+    },
+    "phi3": {
+        "val": 28.9647,
+        "units": "kg * kmol^-1",
+        "desc": "Masa molar del aire",
+        "latex": "$\\phi_3$",
+        "comment": "ok"
+    },
+    "phi4": {
+        "val": 0,
+        "units": "metros",
+        "desc": "Altitud del invernadero",
+        "latex": "$\\phi_4$",
+        "comment": "ok"
+    },
+    "phi5": {
+        "val": 0.014,
+        "units": "kg_water * kg_air^-1",
+        "desc": "Water vapor contained in the fan-pad system",
+        "latex": "$\\phi_5$",
+        "comment": "ok"
+    },
+    "phi6": {
+        "val": 0.0079,
+        "units": "kg_water * kg_air^-1",
+        "desc": "Water vapor contained in the outside air",
+        "latex": "$\\phi_6$",
+        "comment": "este es el valor correcto a 21 grados C y 50 % de HR"
+    },
+    "phi7": {
+        "val": 16.7,
+        "units": "m^3 * s^-1",
+        "desc": "Capacity of air flow through the pad",
+        "latex": "$\\phi_7$",
+        "comment": "ok"
+    },
+    "phi8": {
+        "val": 666.6,
+        "units": "m^3 * s^-1",
+        "desc": "Air flow capacity of forced ventilation system",
+        "latex": "$\\phi_8$",
+        "comment": "https://farm-energy.extension.org/greenhouse-ventilation/"
+    },
+    "phi9": {
+        "val": 0.916,
+        "units": "kg * s^-1",
+        "desc": "Fog system capacity",
+        "latex": "$\\phi_9$",
+        "comment": "Como en Holanda"
+    },
+    "psi1": {
+        "val": 18,
+        "units": "kg * kmol^-1",
+        "desc": "Molar mass of water",
+        "latex": "$\\psi_1$",
+        "comment": "ok"
+    },
+    "psi2": {
+        "val": 13300,
+        "units": "mg * s^-1",
+        "desc": "Capacity of the external CO2 source",
+        "latex": "$\\psi_2$",
+        "comment": "se modifico para ajustarse a los datos de holanda Authonomous Greenhouse challenge. estaba en 13300, probably wrong"
+    },
+    "psi3": {
+        "val": 30.031,
+        "units": "g * mol_CH2O^-1",
+        "desc": "Molar mass of the CH2O",
+        "latex": "$\\psi_3$",
+        "comment": "ok"
+    },
+    "omega1": {
+        "val": 9.81,
+        "units": "m * s^-2",
+        "desc": "Gravity acceleration constant",
+        "latex": "$\\omega_1$",
+        "comment": "ok"
+    },
+    "omega2": {
+        "val": 8314.0,
+        "units": "J * kmol^-1 * K^-1",
+        "desc": "Molar gas constant",
+        "latex": "$\\omega_2$",
+        "comment": "ok"
+    },
+    "omega3": {
+        "val": 0.0075,
+        "units": "1",
+        "desc": "Percentage of CO2 absorbed by the canopy",
+        "latex": "$\\omega_3$",
+        "comment": "Deberia depender del modelo de la planta"
+    },
+    "Qh2o": {
+        "val": 0,
+        "units": "MXN * kg",
+        "desc": "Water cost ",
+        "latex": "$Q_{H2O}$",
+        "comment": "revisar unidades"
+    },
+    "Qgas": {
+        "val": 0,
+        "units": "MXN * m^-2",
+        "desc": "Fuel cost (natural gas)",
+        "latex": "$Q_{Gas}$",
+        "comment": "revisar unidades"
+    },
+    "Qco2": {
+        "val": 0,
+        "units": "MXN * kg",
+        "desc": "CO2 cost ",
+        "latex": "$Q_{CO2}$",
+        "comment": "revisar unidades"
+    },
+    "Qelec": {
+        "val": 0,
+        "units": "MXN * m^-2 * s^-1",
+        "desc": "Costo por Electricidad",
+        "latex": "$Q_{Elec}$",
+        "comment": "revisar unidades"
+    },
+    "etagas": {
+        "val": 9.794,
+        "units": "kW * h * m^-3",
+        "desc": "Energy efficiency of natural gas",
+        "latex": "$\\eta_{gas}$",
+        "comment": "Data hacakaton"
+    },
+    "qh2o": {
+        "val": 3.5,
+        "units": "MXN *m^-3",
+        "desc": "Costo del agua",
+        "latex": "$\\q_{H_{2}O}$",
+        "comment": "Data hacakaton"
+    },
+    "qgas": {
+        "val": 0.09,
+        "units": "EUR * kW^-1 * h^-1",
+        "desc": "Cost of natural gas",
+        "latex": "$q_{gas}$",
+        "comment": "Data hacakaton"
+    },
+    "q_co2_ext": {
+        "val": 0.3,
+        "units": "EUR * kg^-1",
+        "desc": "",
+        "latex": "$\\q_{CO_2}_{ext}$",
+        "comment": "ok"
+    },
+    "cost_elect": {
+        "val": 0.3,
+        "units": "EUR * kW^-1 * h^-1",
+        "desc": "Cost of the electricity",
+        "latex": "$\\cost_{elect}$",
+        "comment": "Data hacakaton"
+    },
+    "T_cal": {
+        "val": 65,
+        "units": "1",
+        "desc": "Missing",
+        "latex": "$T_{cal}$",
+        "comment": "falta descripci\u00f3n y unidades"
+    },
+    "sigma": {
+        "val": 5.67e-08,
+        "units": "W * m^-2 * K^-4",
+        "desc": "Stefan-Boltzmann constant",
+        "latex": "$\\sigma$",
+        "comment": "ok"
+    },
+    "etadrain": {
+        "val": 30,
+        "units": "1",
+        "desc": "Missing",
+        "latex": "$\\eta_{drain}$",
+        "comment": "falta descripci\u00f3n y unidades"
+    },
+    "HEAT_PIPE": {
+        "val": 363.15,
+        "units": "1",
+        "desc": "Temperatura del tubo de calentamiento",
+        "latex": "$HEAT_PIPE$",
+        "comment": "Temperatuire 90 C, puesta en Kelvin"
+    },
+    "n_pipes": {
+        "val": 2,
+        "units": "1",
+        "desc": "Numero de tuberias de calentamiento",
+        "latex": "$N_{pipes}$",
+        "comment": "Multiplica h_4 y r_6"
+    },
+    "RH": {
+        "val": 50,
+        "units": "1",
+        "desc": "Relative humidity percentage in the greenhouse air",
+        "latex": "$RH$",
+        "comment": "1"
+    },
+    "VPD": {
+        "val": 70,
+        "units": "1",
+        "desc": "Presion de vapor de saturacion",
+        "latex": "$VPD$",
+        "comment": "1"
+    },
+    "lambda": {
+        "val": 0.0001,
+        "units": "1",
+        "desc": "Constante de la ecuacion para U7 ",
+        "latex": "$\\lambda$",
+        "comment": "1"
+    },
+    "U7_c": {
+        "val": 0.1,
+        "units": "1",
+        "desc": "Punto final para el control U7 ",
+        "latex": "$U_{7c}",
+        "comment": "1"
+    },
+    "U6_c": {
+        "val": 0.1,
+        "units": "1",
+        "desc": "Punto final para el control U6 ",
+        "latex": "$U_{6c}",
+        "comment": "1"
+    },
+    "LampEndtime": {
+        "val": 20,
+        "units": "1",
+        "desc": "Hora de apagado de luces ",
+        "latex": "LampEndtime",
+        "comment": "1"
+    },
+    "h": {
+        "val": 0,
+        "units": "1",
+        "desc": "Hora del dia",
+        "latex": "h",
+        "comment": "1"
+    },
+    "dia": {
+        "val": 0,
+        "units": "1",
+        "desc": "Fecha",
+        "latex": "dia",
+        "comment": "1"
+    },
+    "Potential_value": {
+        "val": 0,
+        "units": "EURos / m^2",
+        "desc": "Value in EURos per sq meter of potted tomato plants currently in greenhouse",
+        "latex": "Potential_value",
+        "comment": "1"
+    },
+    "PARsum": {
+        "val": 0,
+        "units": "1",
+        "desc": "Suma del PAR que recibe el canopy por dia (moles * m-2 * dia-1)",
+        "latex": "PARSum",
+        "comment": "1"
+    },
+    "month": {
+        "val": 0,
+        "units": "1",
+        "desc": "Fecha",
+        "latex": "month",
+        "comment": "1"
+    },
+    "year": {
+        "val": 0,
+        "units": "1",
+        "desc": "Fecha",
+        "latex": "year",
+        "comment": "1"
+    }
+}

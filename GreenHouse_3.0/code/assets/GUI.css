@@ -1,0 +1,76 @@
+body {
+    line-height: 1;
+    background-color: rgb(10,10,10);
+    font-family: Arial, Helvetica, sans-serif;
+}
+ h1 {
+    font-size: 3rem;
+    color:cornflowerblue;
+ }
+
+h3 {
+    color:cornflowerblue;
+ }
+
+#container {
+  position: absolute;
+  width: 1400px;
+  object-fit: cover;
+}
+
+#greenhouse-img {
+  float: left;
+  width: 1100px;
+  height: "auto";
+}
+
+#controles {
+  float: left;
+  width: 300px;
+  height: "auto";
+}
+
+h6 {
+     font-size: 14px;
+     color:whitesmoke;
+}
+
+#date-picker {
+    font-size: 14px;
+    background-color:  rgb(10,10,10);
+    color:whitesmoke;
+    width: auto;
+}
+
+
+#dias_sim {
+    padding: auto;
+    font-size: 14px;
+    background-color:  rgb(10,10,10);
+    color:whitesmoke;
+    width: 100px;
+}
+
+#simloader-msg {
+    font-size: 14px;
+    color:whitesmoke;
+}
+
+#mensaje {
+    font-size: 14px;
+    color:whitesmoke;
+}
+
+.nine.columns {width: 1100px;}
+
+
+#blockbelow {
+  position: absol;
+  width: 1400px;
+}
+
+#graph {
+    width: 1000px;
+    height: 400px;
+    display: "center";
+}

@@ -1,0 +1,247 @@
+{
+    "k_Ag": {
+        "val": 1e-6,
+        "units": "m^3 * g^-1 * s^-1 * mol_CO2 * mol_air^-1",
+        "desc": "Constant for units transformation",
+        "latex": "$k_{Ag}$",
+        "comment": "The original unist are m^3 * g^-1 * s^-1 * mumol_CO2 * mol_air^-1  and the value 1. Reference"
+    },
+    "r_m": {
+        "val": 100,
+        "units": "s * m^-1",
+        "desc": "Minimal stomatal resistance",
+        "latex": "$r_m$",
+        "comment": "reference: "
+    },
+    "C_ev1": {
+        "val": 4.976851851851852e-11,
+        "units": "mol_phot * m^-2 * s^-1",
+        "desc": "Constant in the formula of f_R",
+        "latex": "$C_{ev1}$",
+        "comment": "4.3 μmol_phot * m^-2 * d^-1 = 4.976851851851852e-11 to mol_phot * m^-2 * s^-1"
+    },
+    "C_ev2": {
+        "val": 6.25e-12,
+        "units": "mol_phot * m^-2 * s^-1",
+        "desc": "Constant in the formula of f_R",
+        "latex": "$C_{ev2}$",
+        "comment": "0.54 μmol_phot * m^-2 * d^-1 =  6.25e-12 mol_phot * m^-2 * s^-1 "
+    },
+    "k_fc": {
+        "val": 1e-6,
+        "units": "mol_CO2 * mol_air^-1",
+        "desc": "Constant for units completion",
+        "latex": "$k_{fc}$",
+        "comment": "Original unit μmol_phot change to  to 1e-6 mol_phot"
+    },
+    "C_ev3d": {
+        "val": 6.1e-1,
+        "units": "mol_air * mol_CO2^-1",
+        "desc": "Constant in the formula of f_C",
+        "latex": "$C_{ev3d}$",
+        "comment": "Original value 6.1e-7 change μmol_CO2^-1 to mol_CO2^-1 "
+    },
+    "C_ev3n": {
+        "val": 1.1e-5,
+        "units": "mol_air * mol_CO2^-1",
+        "desc": "Constant in the formula of f_C",
+        "latex": "$C_{ev3n}$",
+        "comment": "Original value 1.1e-11 change μmol_CO2^-1 to mol_CO2^-1 "
+    },
+    "S": {
+        "val": -8.64e4,
+        "units": "m^2 * s * mol_phot^-1",
+        "desc": "Constant in the formula of Sr",
+        "latex": "$S$",
+        "comment": "Original unit μmol_phot^-1 to mol_phot^-1 "
+    },
+    "Rs": {
+        "val": 5e-6,
+        "units": "mol_phot * m^-2 * s^-1",
+        "desc": "Radiation setpoint to switch day and night",
+        "latex": "$R_s$",
+        "comment": "5 μmol_phot = 5.7870370370370374e-11 mol_phot * m^-2 * s^-1"
+    },
+    "C_ev4d": {
+        "val": 4.3e-6,
+        "units": "Pa^-2",
+        "desc": "Constant in the formula of f_C",
+        "latex": "$C_{ev4d}$",
+        "comment": ""
+    },
+    "C_ev4n": {
+        "val": 5.2e-6,
+        "units": "Pa^-2",
+        "desc": "Constant in the formula of f_C",
+        "latex": "$C_{ev4n}$",
+        "comment": ""
+    },
+    "ks": {
+        "val": 0.5,
+        "units": "1",
+        "desc": "Stomatal ratio",
+        "latex": "$k_s$",
+        "comment": ""
+    },
+    "Rb": {
+        "val": 711,
+        "units": "s * m^-1",
+        "desc": "Stomatal resistance of the canopy boundary layer",
+        "latex": "$R_b$",
+        "comment": ""
+    },
+    "k_d": {
+        "val": 86400,
+        "units": "1",
+        "desc": "Factor to transform s^-1 into d^-1",
+        "latex": "$k_d$",
+        "comment": "Eliminar?"
+    },
+    "k_JV": {
+        "val": 1.0 ,
+        "units": "1",
+        "desc": "Auxiliary constant which transforms the units of the electron transport rate J to those of the maximum Rubisco rate V_cmax",
+        "latex": "$k_{JV}$",
+        "comment": "μmol_CO2 * μmol_phot^-1 is unitless"
+    },
+    "fc": {
+        "val": 2.9533083839999996e10,
+        "units": "g * s * mol_CO2^-1",
+        "desc": "Factor to transform μmol_CO2/sec to grams_CH20/day",
+        "latex": "$f_c$",
+        "comment": "0.3418181 g * d *  μmol_CO2^-1 = 2.9533083839999996e10 g * s * mol_CO2^-1 now mol_CO2^-1"
+    },
+    "phi": {
+        "val": 2,
+        "units": "mol_O2 * mol_CO2^-1",
+        "desc": "Ratio of oxygenation to carboxylation rates",
+        "latex": "$\\phi$",
+        "comment": ""
+    },
+    "O_a": {
+        "val": 0.21,
+        "units": "mol_O2 * mol_air^-1",
+        "desc": "O2 concentration in the environment",
+        "latex": "$O_a$",
+        "comment": "Orinal μmol_O2 * mol_air^-1 now mol_O2 * mol_air^-1"
+    },
+    "V_cmax25": {
+        "val": 150e-6,
+        "units": "mol_CO2 * m^-2 * s^-1",
+        "desc": "Maximum Rubisco Rate, per unit area",
+        "latex": "$V_{cmax25}$",
+        "comment": "150 μmol_CO2 * m^-2 * s^-1 = mol_CO2 m^-2 * s^-1"
+    },
+    "Q10_Vcmax": {
+        "val": 2.4,
+        "units": "1",
+        "desc": "V_cmax value at 25C",
+        "latex": "$Q_{10,Vcmax}$",
+        "comment": ""
+    },
+    "K_C25": {
+        "val": 300e-6,
+        "units": "mol_CO2 * mol_air^-1",
+        "desc": "Michaelis-Menten constant for CO2",
+        "latex": "$K_{C25}$",
+        "comment": "Original μmol_O2 * mol_air^-1 now mol_O2 * mol_air^-1"
+    },
+    "Q10_KC": {
+        "val": 2.1,
+        "units": "1",
+        "desc": "Temperature response of Michaelis-Menten constant for CO2",
+        "latex": "$Q_{10,KC}$",
+        "comment": ""
+    },
+    "K_O25": {
+        "val": 0.3,
+        "units": "mol_O2 * mol_air^-1",
+        "desc": "Michaelis-Menten constant for O2",
+        "latex": "$K_{O25}$",
+        "comment": "Original 300000 μmol_O2 * mol_air^-1 now mol_O2 * mol_air^-1  "
+    },
+    "Q10_KO": {
+        "val": 1.2,
+        "units": "1",
+        "desc": "Temperature response of Michaelis-Menten constant for O2",
+        "latex": "$Q_{10,KO}$",
+        "comment": ""
+    },
+    "tau_25": {
+        "val": 2600,
+        "units": "mol * mol^-1",
+        "desc": "Specificity factor",
+        "latex": "$\\tau_{25}$",
+        "comment": ""
+    },
+    "Q10_tau": {
+        "val": 2.1,
+        "units": "1",
+        "desc": "Temperature response of specificity factor",
+        "latex": "$Q_{10,\\tau}$",
+        "comment": ""
+    },
+    "Rgas": {
+        "val": 8.314472,
+        "units": "m^2 * kg * s^-2 * K^-1 * mol^-1",
+        "desc": "Universal Gas constant",
+        "latex": "$R$",
+        "comment": ""
+    },
+    "Sco25": {
+        "val": 2800,
+        "units": "Pa * Pa^-1",
+        "desc": "Rubisco CO2/O2 specificity factor (Sc/o) at 25C",
+        "latex": "$S_{CO}$",
+        "comment": ""
+    },
+    "E_Soc": {
+        "val": -24460,
+        "units": "kg * m^2 * s^-2 * mol^-1",
+        "desc": "Sco activation energy",
+        "latex": "$E_{Sco}$",
+        "comment": "Xin & Struick 2009"
+    },
+    "J_max": {
+        "val": 0.0002,
+        "units": "mol_phot * m^-2 * s^-1",
+        "desc": "Maximum electron transport rate",
+        "latex": "$J_{max}$",
+        "comment": " 200 μmol_phot * m^-2 * s^-1 = 200e-6 mol_phot * m^-2 * s^-1"
+    },
+    "ab": {
+        "val": 0.85,
+        "units": "1",
+        "desc": "Leaf absorbance",
+        "latex": "$a_b$",
+        "comment": ""
+    },
+    "f": {
+        "val": 0.15,
+        "units": "1",
+        "desc": "Correction factor for the spectral quality of the light",
+        "latex": "$f$",
+        "comment": ""
+    },
+    "alpha": {
+        "val": 0.35,
+        "units": "1",
+        "desc": "Product of the leaf absrovance, the fraction of light directed to PSII and the maximum quantum effiuciency of PSII; initial slope of an J/Iin curve",
+        "latex": "$f$",
+        "comment": "Bush et al 2022"
+    },
+    "theta": {
+        "val": 0.7,
+        "units": "1",
+        "desc": "Empirical curvature factor",
+        "latex": "$theta$",
+        "comment": "Bush et al 2022"
+    },
+    "Rd_day": {
+        "val": 1e-6,
+        "units": "mol * m^-2 * s^-1",
+        "desc": "Rate of respiratory CO2 released from the mitocondria",
+        "latex": "$theta$",
+        "comment": "Bush et al 2022"
+    }
+}
