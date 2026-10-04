@@ -19,6 +19,12 @@ Design goals
    old globals gave, but the (tiny) dynamic cost happens once per MCMC
    proposal, OUTSIDE the ODE inner loop (a function barrier).
 
+3. GENERIC DRY-MATTER PARTITIONING (default-off):
+   Pass `generic_params = CUCUMBER_PARAMS` or `TOMATO_PARAMS` to `grow!`
+   / `grow_cohort!` / `simulate_growth` / `simulate_cohort_measured` to
+   activate the Marcelis (1994) / Heuvelink (1996) Bell-curve sink and
+   affine appearance rate. Default `nothing` preserves every V2.2 result.
+
 Public API
 ----------
     load_params(climate_json, crop_json) -> NamedTuple      # all constants
@@ -45,6 +51,7 @@ include("weather.jl")
 include("controls.jl")
 include("climate.jl")
 include("photosynthesis.jl")
+include("generic_growth.jl")   # GenericParameters, CUCUMBER_PARAMS, TOMATO_PARAMS
 include("forward_map.jl")
 include("growth.jl")
 include("measured.jl")
@@ -59,6 +66,13 @@ export ControlInputs, load_measured_controls
 export SimBase, SimContext, rhs!, simulate, forward_map
 # Model kernels (exported for benchmarking / testing)
 export climate_rhs, assimilation, Pws, rhf, VPDf, floor_balance
+# Generic dry-matter partitioning (Marcelis 1994 / Heuvelink 1996)
+export GenericParameters, CUCUMBER_PARAMS, TOMATO_PARAMS
+export generic_appearance, generic_development_rate, generic_sink, generic_vegetation
+export allocate_daily
+# M94 / H96 reference functions (for validation)
+export cucumber_appearance_m94, cucumber_sink_m94, cucumber_vegetation_m94
+export tomato_appearance_h96, tomato_development_rate_h96, tomato_sink_h96, tomato_vegetation_h96
 # Growth model (cucumber source-sink)
 export load_growth_params, Fruit, GrowthState, init_growth_state
 export rhs_dyn!, day_assimilation, grow!, simulate_growth

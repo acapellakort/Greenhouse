@@ -80,14 +80,20 @@ function init_cohort_state(gp; LAI0 = 0.5, stem0 = 8.0, root0 = 4.0)
 end
 
 """
-    grow_cohort!(s, Pg, Tmean_C, gp, day; deleaf_target=Inf) 
+    grow_cohort!(s, Pg, Tmean_C, gp, day; deleaf_target=Inf, generic_params=nothing)
 
 Advance one day. `Pg` = daily gross assimilate [g CH2O/m2] (big-leaf, total LAI).
 `deleaf_target` = working LAI the grower holds by removing the oldest leaves.
+
+`generic_params`: pass a `GenericParameters` instance (e.g. `CUCUMBER_PARAMS`)
+to use the Marcelis/Heuvelink Bell-curve sink and affine appearance rate in place
+of the legacy smoothstep sink and capacity-fill vegetative demand. Default
+`nothing` preserves the original V2.2 behaviour exactly.
 """
 function grow_cohort!(s::CohortState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
                       deleaf_target = Inf, dens = gp.stem_density / REF_DENSITY,
-                      q10_resp = NaN)
+                      q10_resp = NaN,
+                      generic_params::Union{Nothing, GenericParameters} = nothing)
     dT   = max(Tmean_C - gp.T_base, 0.0)
     q10f = isnan(q10_resp) ? gp.Q10_resp ^ ((Tmean_C - 25.0) / 10.0) : q10_resp  # diurnal-corrected if provided
 
@@ -101,35 +107,77 @@ function grow_cohort!(s::CohortState, Pg::Float64, Tmean_C::Float64, gp, day::In
     active = day < gp.top_day
     dnode  = active ? gp.node_rate * dT : 0.0
     s.node += dnode
-    ddev = dT / gp.DD_fruit
+
+    # Fruit development increment: generic clock or legacy linear thermal time
+    if isnothing(generic_params)
+        ddev = dT / gp.DD_fruit
+    else
+        ddev = generic_development_rate(Tmean_C, generic_params)
+    end
     for f in s.fruits; f.dev += ddev; end
     for c in s.leaves; c.age += dT;  end
 
-    # --- sinks: node-driven LEAF demand (no capacity-fill churn) + fruit -------
-    leaf_area_demand = gp.leaf_per_node * dens * dnode          # new LAI wanted at the head
-    veg_sink = (leaf_area_demand / gp.SLA) / max(gp.frac_leaf, 1e-6)   # total veg DM (leaf is frac_leaf share)
-    fruit_sink_pre = isempty(s.fruits) ? 0.0 :
-                     sum(f.n * gp.Wf_max * _sink_shape(f.dev) * ddev for f in s.fruits)
+    if isnothing(generic_params)
+        # --- Legacy path (V2.2 smoothstep) ---
 
-    # --- node-driven flowering: flowers per node set (carbon-regulated) --------
-    if active && day >= gp.set_start_day && dnode > 0.0
-        ss = dDM_pot / (veg_sink + fruit_sink_pre + 1e-9)
-        set_frac = clamp((ss - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
-        n_set = gp.set_rate * dens * dnode * set_frac            # fruits set at this node flush
-        n_set > 0.0 && push!(s.fruits, Fruit(0.0, 0.0, n_set))
-    end
+        # sinks: node-driven LEAF demand (no capacity-fill churn) + fruit
+        leaf_area_demand = gp.leaf_per_node * dens * dnode          # new LAI wanted at the head
+        veg_sink = (leaf_area_demand / gp.SLA) / max(gp.frac_leaf, 1e-6)   # total veg DM (leaf is frac_leaf share)
+        fruit_sink_pre = isempty(s.fruits) ? 0.0 :
+                         sum(f.n * gp.Wf_max * _sink_shape(f.dev) * ddev for f in s.fruits)
 
-    # --- allocate assimilate: source- or sink-limited --------------------------
-    fruit_sinks = [f.n * gp.Wf_max * _sink_shape(f.dev) * ddev for f in s.fruits]
-    total_sink  = veg_sink + (isempty(fruit_sinks) ? 0.0 : sum(fruit_sinks))
-    if total_sink > 0.0
-        dDM    = min(dDM_pot, total_sink)
-        veg_DM = dDM * veg_sink / total_sink
-        new_leaf_area = veg_DM * gp.frac_leaf * gp.SLA           # new top cohort
+        # node-driven flowering: flowers per node set (carbon-regulated)
+        if active && day >= gp.set_start_day && dnode > 0.0
+            ss = dDM_pot / (veg_sink + fruit_sink_pre + 1e-9)
+            set_frac = clamp((ss - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
+            n_set = gp.set_rate * dens * dnode * set_frac            # fruits set at this node flush
+            n_set > 0.0 && push!(s.fruits, Fruit(0.0, 0.0, n_set))
+        end
+
+        # allocate assimilate: source- or sink-limited
+        fruit_sinks = [f.n * gp.Wf_max * _sink_shape(f.dev) * ddev for f in s.fruits]
+        total_sink  = veg_sink + (isempty(fruit_sinks) ? 0.0 : sum(fruit_sinks))
+        if total_sink > 0.0
+            dDM    = min(dDM_pot, total_sink)
+            veg_DM = dDM * veg_sink / total_sink
+            new_leaf_area = veg_DM * gp.frac_leaf * gp.SLA           # new top cohort
+            new_leaf_area > 0.0 && push!(s.leaves, LeafCohort(new_leaf_area, 0.0))
+            s.W_stem += veg_DM * gp.frac_stem
+            s.W_root += veg_DM * gp.frac_root
+            for (i, f) in enumerate(s.fruits); f.W += dDM * fruit_sinks[i] / total_sink; end
+        end
+
+    else
+        # --- Generic path (Marcelis 1994 / Heuvelink 1996 Bell sigmoid) ---
+
+        # Node-driven leaf demand (same node rate as legacy, generic sink replaces fruit shape)
+        leaf_area_demand = gp.leaf_per_node * dens * dnode
+        veg_sink = (leaf_area_demand / gp.SLA) / max(gp.frac_leaf, 1e-6)
+
+        fruit_sink_pre = isempty(s.fruits) ? 0.0 :
+                         sum(generic_sink(Tmean_C, f.dev, f.n, generic_params) for f in s.fruits)
+
+        # Node-driven flowering: generic appearance gates set fraction
+        if active && day >= gp.set_start_day && dnode > 0.0
+            ss = dDM_pot / (veg_sink + fruit_sink_pre + 1e-9)
+            set_frac = clamp((ss - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
+            # Appearance rate scales new cohort per node increment (dnode drives timing)
+            n_set = generic_appearance(Tmean_C, generic_params) * dens * dnode * set_frac
+            n_set > 0.0 && push!(s.fruits, Fruit(0.0, 0.0, n_set))
+        end
+
+        # Allocate using M94 eq.4 / H96 eq.1 helper
+        fruit_sinks_vec = [generic_sink(Tmean_C, f.dev, f.n, generic_params) for f in s.fruits]
+        potentials = vcat([veg_sink], fruit_sinks_vec)
+        growths, _ = allocate_daily(potentials, dDM_pot)
+        veg_DM     = growths[1]
+        new_leaf_area = veg_DM * gp.frac_leaf * gp.SLA
         new_leaf_area > 0.0 && push!(s.leaves, LeafCohort(new_leaf_area, 0.0))
         s.W_stem += veg_DM * gp.frac_stem
         s.W_root += veg_DM * gp.frac_root
-        for (i, f) in enumerate(s.fruits); f.W += dDM * fruit_sinks[i] / total_sink; end
+        for (i, f) in enumerate(s.fruits)
+            f.W += growths[i + 1]
+        end
     end
 
     # --- harvest mature fruit --------------------------------------------------
@@ -168,14 +216,18 @@ function grow_cohort!(s::CohortState, Pg::Float64, Tmean_C::Float64, gp, day::In
 end
 
 """
-    simulate_cohort_measured(p, gp, season; LAI0, deleaf_target) -> daily series
+    simulate_cohort_measured(p, gp, season; LAI0, deleaf_target, generic_params) -> daily series
 
 Cohort crop model driven by MEASURED greenhouse climate (like
 simulate_growth_measured) for validation/calibration.
+
+`generic_params`: optional `GenericParameters` instance passed through to
+`grow_cohort!`. Default `nothing` uses the legacy V2.2 smoothstep sink.
 """
 function simulate_cohort_measured(p::NamedTuple, gp, season; LAI0 = 0.5,
                                   deleaf_target = Inf, density_sched = nothing,
-                                  layered = true)
+                                  layered = true,
+                                  generic_params::Union{Nothing, GenericParameters} = nothing)
     # density_sched(day)::stems/m2 lets the grower change PLANT DENSITY in-season
     # ("separate the plants"): planting dense for fast canopy closure, then pulling
     # stems. A DROP on day d scales the standing leaf cohorts AND the unharvested
@@ -200,7 +252,8 @@ function simulate_cohort_measured(p::NamedTuple, gp, season; LAI0 = 0.5,
         Pgd = layered ? daily_assimilation_layered(M, s.leaves, p, season.dt, gp.k_ext) :
                         daily_assimilation_measured(M, s.LAI, p, season.dt, gp.k_ext)
         grow_cohort!(s, Pgd, daily_mean_T(M), gp, d;
-                     deleaf_target = deleaf_target, dens = d_now / REF_DENSITY)
+                     deleaf_target = deleaf_target, dens = d_now / REF_DENSITY,
+                     generic_params = generic_params)
         push!(day, d); push!(LAI, s.LAI); push!(yieldFW, s.yield_FW)
         push!(Wfruit, isempty(s.fruits) ? 0.0 : sum(f.W for f in s.fruits))
         push!(Pg, Pgd); push!(node, s.node); push!(nleaf, length(s.leaves)); push!(dens_out, d_now)

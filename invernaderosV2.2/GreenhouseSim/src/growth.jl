@@ -149,13 +149,19 @@ end
 @inline _sink_shape(dev) = 6.0 * dev * (1.0 - dev)
 
 """
-    grow!(s::GrowthState, Pg, Tmean_C, gp, day)
+    grow!(s::GrowthState, Pg, Tmean_C, gp, day; generic_params=nothing)
 
 Advance the crop state one day given daily gross assimilate `Pg` [g CH2O m^-2],
 mean temperature `Tmean_C`, and the season `day` index (for fruit-set timing).
 Returns the total fruit dry weight on the plant.
+
+`generic_params`: pass a `GenericParameters` instance (e.g. `CUCUMBER_PARAMS`)
+to use the Marcelis/Heuvelink Bell-curve sink and affine appearance rate instead
+of the legacy smoothstep sink and capacity-fill vegetative demand. Default
+`nothing` preserves the original V2.2 behaviour exactly.
 """
-function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int)
+function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
+               generic_params::Union{Nothing, GenericParameters} = nothing)
     dT = max(Tmean_C - gp.T_base, 0.0)          # thermal drive above base
 
     # 1. maintenance respiration (g CH2O/m2/day)
@@ -173,41 +179,77 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int)
     if active
         s.node += gp.node_rate * dT
     end
-    ddev = dT / gp.DD_fruit                          # dev increment per day
+    # Development increment per day: generic clock or legacy linear thermal time
+    if isnothing(generic_params)
+        ddev = dT / gp.DD_fruit
+    else
+        ddev = generic_development_rate(Tmean_C, generic_params)
+    end
     for f in s.fruits
         f.dev += ddev
     end
 
     # 4. sink strengths of EXISTING cohorts (potential growth, g DM/m2/day).
-    # Per-area capacities scale with planting density (per-m2 = per-stem-basis x dens).
-    dens    = gp.stem_density / REF_DENSITY
-    lai_cap = gp.LAI_max * dens
-    veg_sink = max(gp.veg_sink_max * dens * (1.0 - s.LAI / lai_cap), 0.0)
-    fruit_sink_pre = isempty(s.fruits) ? 0.0 :
-                     sum(f.n * gp.Wf_max * _sink_shape(f.dev) * ddev for f in s.fruits)
-    total_sink_pre = veg_sink + fruit_sink_pre
+    dens = gp.stem_density / REF_DENSITY
 
-    # 5. fruit set REGULATED by carbohydrate status (supply/demand feedback).
-    # When the standing fruit load is carbon-limiting (supply << demand) set is
-    # suppressed; after those fruits are harvested the load drops and set resumes.
-    # With the ~2-week fruit-growth delay this produces the harvest "flushes".
-    if active && day >= gp.set_start_day
-        ss = dDM_pot / (total_sink_pre + 1e-9)       # supply / demand
-        set_frac = clamp((ss - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
-        push!(s.fruits, Fruit(0.0, 0.0, gp.set_rate * dens * set_frac))
-    end
+    if isnothing(generic_params)
+        # --- Legacy path (V2.2 smoothstep) ---
+        lai_cap  = gp.LAI_max * dens
+        veg_sink = max(gp.veg_sink_max * dens * (1.0 - s.LAI / lai_cap), 0.0)
+        fruit_sink_pre = isempty(s.fruits) ? 0.0 :
+                         sum(f.n * gp.Wf_max * _sink_shape(f.dev) * ddev for f in s.fruits)
+        total_sink_pre = veg_sink + fruit_sink_pre
 
-    # 6. allocate: source- OR sink-limited, split by sink share (new cohort dev=0 => 0 sink)
-    fruit_sinks = [f.n * gp.Wf_max * _sink_shape(f.dev) * ddev for f in s.fruits]
-    total_sink  = veg_sink + (isempty(fruit_sinks) ? 0.0 : sum(fruit_sinks))
-    if total_sink > 0.0
-        dDM = min(dDM_pot, total_sink)               # sink-limited if source is ample
-        veg_DM = dDM * veg_sink / total_sink
-        s.W_leaf += veg_DM * gp.frac_leaf
-        s.W_stem += veg_DM * gp.frac_stem
-        s.W_root += veg_DM * gp.frac_root
+        # 5. fruit set regulated by carbohydrate status
+        if active && day >= gp.set_start_day
+            ss = dDM_pot / (total_sink_pre + 1e-9)
+            set_frac = clamp((ss - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
+            push!(s.fruits, Fruit(0.0, 0.0, gp.set_rate * dens * set_frac))
+        end
+
+        # 6. allocate: source- OR sink-limited, split by sink share
+        fruit_sinks = [f.n * gp.Wf_max * _sink_shape(f.dev) * ddev for f in s.fruits]
+        total_sink  = veg_sink + (isempty(fruit_sinks) ? 0.0 : sum(fruit_sinks))
+        if total_sink > 0.0
+            dDM    = min(dDM_pot, total_sink)
+            veg_DM = dDM * veg_sink / total_sink
+            s.W_leaf += veg_DM * gp.frac_leaf
+            s.W_stem += veg_DM * gp.frac_stem
+            s.W_root += veg_DM * gp.frac_root
+            for (i, f) in enumerate(s.fruits)
+                f.W += dDM * fruit_sinks[i] / total_sink
+            end
+        end
+
+    else
+        # --- Generic path (Marcelis 1994 / Heuvelink 1996 Bell sigmoid) ---
+        # Vegetative demand: generic_vegetation scaled by planting density
+        veg_sink = generic_vegetation(Tmean_C, generic_params) * dens
+
+        # Per-fruit sink: generic Bell curve; f.n [fruits/m2] linearises directly
+        fruit_sink_pre = isempty(s.fruits) ? 0.0 :
+                         sum(generic_sink(Tmean_C, f.dev, f.n, generic_params) for f in s.fruits)
+        total_sink_pre = veg_sink + fruit_sink_pre
+
+        # 5. fruit set regulated by carbohydrate status (same logic, generic appearance)
+        if active && day >= gp.set_start_day
+            ss = dDM_pot / (total_sink_pre + 1e-9)
+            set_frac = clamp((ss - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
+            # Appearance rate [events/plant/day] × density [plants/m2] × carbon gate
+            n_new = generic_appearance(Tmean_C, generic_params) * dens * set_frac
+            n_new > 0.0 && push!(s.fruits, Fruit(0.0, 0.0, n_new))
+        end
+
+        # 6. allocate using M94 eq.4 / H96 eq.1 helper
+        fruit_sinks_vec = [generic_sink(Tmean_C, f.dev, f.n, generic_params) for f in s.fruits]
+        potentials = vcat([veg_sink], fruit_sinks_vec)
+        growths, _ = allocate_daily(potentials, dDM_pot)
+        veg_DM     = growths[1]
+        s.W_leaf  += veg_DM * gp.frac_leaf
+        s.W_stem  += veg_DM * gp.frac_stem
+        s.W_root  += veg_DM * gp.frac_root
         for (i, f) in enumerate(s.fruits)
-            f.W += dDM * fruit_sinks[i] / total_sink
+            f.W += growths[i + 1]
         end
     end
 
@@ -227,6 +269,7 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int)
     # (LAI_deleaf), whichever is lower. De-leafing sheds the lower, shaded leaves
     # -- which fix almost nothing (lai_eff is saturated) but still respire -- WITHOUT
     # touching stem density or fruit set. Default gp.LAI_deleaf is large (no de-leafing).
+    lai_cap = gp.LAI_max * dens
     cap = min(lai_cap, gp.LAI_deleaf)
     if gp.SLA * s.W_leaf > cap
         s.W_leaf = cap / gp.SLA
@@ -241,17 +284,21 @@ end
 # ---------------------------------------------------------------------------
 """
     simulate_growth(p, gp, weather, controls, start_unix, ndays;
-                    LAI0, tspan, teval, u0) -> NamedTuple of daily time series
+                    LAI0, tspan, teval, u0, generic_params) -> NamedTuple of daily time series
 
 Runs the full digital twin: each day integrates the climate+FvCB ODE at the
 current LAI to get gross assimilate, then advances the cucumber growth model.
 Returns daily vectors: day, LAI, W_leaf, W_stem, W_fruit, yield_FW, Pg, Tmean.
+
+`generic_params`: optional `GenericParameters` instance passed through to `grow!`.
+Default `nothing` uses the legacy V2.2 smoothstep sink.
 """
 function simulate_growth(p::NamedTuple, gp, weather, controls, start_unix::Float64, ndays::Int;
                          LAI0 = 0.5,
                          tspan = (0.0, 86400.0),
                          teval = 0.0:600.0:86400.0,
-                         u0 = [18 + 273.15, 23 + 273.15, 575.0, 1200.0, 0.0, 0.0, 18 + 273.15])
+                         u0 = [18 + 273.15, 23 + 273.15, 575.0, 1200.0, 0.0, 0.0, 18 + 273.15],
+                         generic_params::Union{Nothing, GenericParameters} = nothing)
     s = init_growth_state(gp; LAI0 = LAI0)
     u = copy(u0)
 
@@ -269,7 +316,7 @@ function simulate_growth(p::NamedTuple, gp, weather, controls, start_unix::Float
         wt0 = start_unix + 86400.0 * d
         ct0 = 86400.0 * d
         Pg, Tmean, u = day_assimilation(p, weather, controls, s.LAI, wt0, ct0, u, tspan, teval)
-        grow!(s, Pg, Tmean, gp, d)
+        grow!(s, Pg, Tmean, gp, d; generic_params = generic_params)
 
         push!(day, d)
         push!(LAI, s.LAI)
