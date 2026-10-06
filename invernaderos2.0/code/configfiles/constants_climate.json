@@ -298,7 +298,7 @@
         "units": "1",
         "desc": "Ventilation power reduction factor",
         "latex": "$\\eta_6$",
-        "comment": "Value computed from vanthorr´s thesis ec 8.70 with zeta = 0.33"
+        "comment": "Value computed from vanthorr\u00b4s thesis ec 8.70 with zeta = 0.33"
     },
     "eta7": {
         "val": 0.8,
@@ -504,21 +504,21 @@
         "comment": "ok"
     },
     "nu3": {
-        "val":  2352.9,
+        "val": 2352.9,
         "units": "m^2",
         "desc": "Side surface of the greenhouse",
         "latex": "$\nu_3$",
         "comment": "Usamos la proporcion dada en Vanthor "
     },
     "nu4": {
-        "val": 1e-4,
+        "val": 0.0001,
         "units": "1",
         "desc": "Heat leakage coefficient",
         "latex": "$\nu_4$",
         "comment": "Vanthoor value 1e-4. Data-validated: after the V2.2 vent-sign + roof-vent(h7) fixes the ODE is stable at 1e-4 (sweep_leakage.jl) and the venting-day MCMC posterior excludes 1e-2 (run_inference_venting.jl). Restored to physical."
     },
     "nu4CO2": {
-        "val": 1e-4,
+        "val": 0.0001,
         "units": "1",
         "desc": "CO2 leakage coefficient",
         "latex": "$\nu_{4CO2}$",
@@ -838,5 +838,25 @@
         "desc": "Fecha",
         "latex": "year",
         "comment": "1"
+    },
+    "use_cover_node": {
+        "val": 1.0,
+        "units": "-",
+        "desc": "Algebraic cover thermal node: 0=off (V2.2 default, bit-for-bit), 1=on (buffered T_cover replaces T_sky in inside-facing LW terms)"
+    },
+    "h_cover_out": {
+        "val": 30.0,
+        "units": "W m-2 K-1",
+        "desc": "Cover-to-outside convective heat transfer coefficient [W/(m2 K)]. Active only when use_cover_node=1. Treated as constant (inferred from data)."
+    },
+    "nu4_min": {
+        "val": 0.0,
+        "units": "m3 m-2 s-1",
+        "desc": "Minimum infiltration/leakage rate regardless of wind speed [m3/(m2 s)]. 0=off (V2.2 default, bit-for-bit). Active independently of nu4; floor on f6."
+    },
+    "U8_min_leak": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Minimum effective roof-vent opening fraction due to seal imperfections [dimensionless, 0-1]. 0=off (V2.2 default, bit-for-bit). Applied as max(U8, U8_min_leak) in the f7 buoyancy-vent rate; represents physical residual airflow when actuator commands closure."
     }
 }
