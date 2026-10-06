@@ -48,7 +48,10 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
        psi1, psi2,
        rho1, rho2, rho3,
        sigma,
-       tau1, tau2, tau3) = p
+       tau1, tau2, tau3,
+       use_cover_node, h_cover_out,
+       nu4_min,
+       U8_min_leak) = p
 
     # --- global quantities ---------------------------------------------------
     T_ThmScr = 0.5 * (I5 + T2)
@@ -75,8 +78,8 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     n3 = nu2 * (1 - eta11 * U5)
     f5 = n1 * n2 * I8 * sqrt(n3) / (2 * alpha6)
 
-    f6 = I8 < 0.25 ? 0.25 * nu4 : nu4 * I8
-    f6CO2 = I8 < 0.25 ? 0.25 * nu4CO2 : nu4CO2 * I8
+    f6 = max(I8 < 0.25 ? 0.25 * nu4 : nu4 * I8, nu4_min)
+    f6CO2 = max(I8 < 0.25 ? 0.25 * nu4CO2 : nu4CO2 * I8, nu4_min)
 
     f7t = max(omega1 * nu6 * (T2 - I5) / (T2 + I5) + n3 * I8^2, 0.0)
     # Ventilation RATE is a non-negative air-exchange rate (buoyancy magnitude);
@@ -86,7 +89,7 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     # and vapour ventilation terms into a positive feedback (blow-up) once the
     # leakage is set to a realistic value. Removed. Identical whenever T2 >= I5
     # (all venting in the summer calibration), so calibrated results are unchanged.
-    f7 = (U8 * nu5 * n1) / (2.0 * alpha6) * sqrt(f7t)
+    f7 = (max(U8, U8_min_leak) * nu5 * n1) / (2.0 * alpha6) * sqrt(f7t)
 
     if eta7 >= eta8
         f2 = eta6 * f5 + 0 * 0.5 * f6
@@ -105,12 +108,22 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     g2 = 1 - U1 * (1 - tau3)
     g3 = tau1 * g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-beta3 * I1)
 
-    SkyFIRBoltzmann = epsil3 * sigma * (T2^4 - I4^4)
-    r11 = epsil4 * g3 * epsil3 * sigma * (I7^4 - I4^4)
+    # --- algebraic cover node (default-off: use_cover_node=0 → I4_eff = I4) ----
+    # Quasi-static cover energy balance (linearised around T_ref = (T2+I4)/2):
+    #   kR*(T2-Tc) = kR*(Tc-I4) + h_cover_out*(Tc-I5)
+    #   → Tc = (kR*(T2+I4) + h_cover_out*I5) / (2kR + h_cover_out)
+    # When use_cover_node=0: I4_eff = I4 exactly (bit-for-bit with V2.2).
+    T_ref_cov = 0.5 * (T2 + I4)
+    kR_cov    = 4.0 * epsil3 * sigma * T_ref_cov^3
+    I4_eff    = use_cover_node > 0.5 ?
+        (kR_cov * (T2 + I4) + h_cover_out * I5) / (2.0 * kR_cov + h_cover_out) : I4
+
+    SkyFIRBoltzmann = epsil3 * sigma * (T2^4 - I4_eff^4)
+    r11 = epsil4 * g3 * epsil3 * sigma * (I7^4 - I4_eff^4)
     r12 = eps_screen * (U1 * tau2) * SkyFIRBoltzmann   # energy screen (low-e); was epsil5=1 (full-emissivity)
     r13 = epsil6 * SkyFIRBoltzmann
     r14 = epsil4 * epsil2 * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T2^4 - I7^4)
-    r15 = epsil2 * epsil5 * (1 - exp(-beta2 * I1)) * g2 * sigma * (T1^4 - I4^4)
+    r15 = epsil2 * epsil5 * (1 - exp(-beta2 * I1)) * g2 * sigma * (T1^4 - I4_eff^4)
 
     # --- dT1: canopy temperature ---------------------------------------------
     r1 = r2 + r3
@@ -118,7 +131,7 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     r6 = alpha3 * epsil1 * epsil2 * g1 * sigma * (I3^4 - T1^4)
     h1 = 2 * alpha4 * I1 * (T1 - T2)
     l1 = gamma2 * q1 * (q2 - V1)
-    r7 = (g1 / 0.49) * epsil2 * epsil3 * g2 * sigma * (T1^4 - I4^4)
+    r7 = (g1 / 0.49) * epsil2 * epsil3 * g2 * sigma * (T1^4 - I4_eff^4)
 
     dT1 = (1.0 / (alpha1 * I1)) * (r1 + r5 + r6 - h1 - l1 - r7 - r14)
 
