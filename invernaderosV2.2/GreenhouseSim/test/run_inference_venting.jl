@@ -53,7 +53,7 @@ QoI = ["nu4", "gamma4", "k_ground"]
 QoI_dict = Dict(                          # [min, prior-center, max]
     "nu4"    => [1.0e-5, 1.0e-4, 1.0e-1],  # heat leakage (Vanthoor ~1e-4; old inflated 1e-2)
     "gamma4" => [20.0,   82.0,   300.0],   # min stomatal resistance
-    "k_ground" => [0.5,  5.0,   50.0],     # single air<->ground conductance (fixed capacity C_soil)
+    "k_ground"    => [0.5,   5.0,   50.0],     # single air<->ground conductance (fixed capacity C_soil)
 )
 
 EXCEL_UNIX0 = 25569.0
