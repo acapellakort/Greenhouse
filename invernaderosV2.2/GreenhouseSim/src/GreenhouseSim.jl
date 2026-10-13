@@ -61,7 +61,7 @@ include("growth_cohort.jl")
 export load_params, update_params
 # Inputs
 export WeatherInputs, load_weather, prepare_meteo, weather_from_df
-export ControlInputs, load_measured_controls
+export ControlInputs, ControlInputsX, load_measured_controls
 # Simulation
 export SimBase, SimContext, rhs!, simulate, forward_map
 # Model kernels (exported for benchmarking / testing)

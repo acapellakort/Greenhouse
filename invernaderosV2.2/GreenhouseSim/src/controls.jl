@@ -26,6 +26,27 @@ struct ControlInputs{T}
 end
 
 """
+    ControlInputsX
+
+ControlInputs plus three extra interpolants used only by default-off flags
+(Note 34): `VentSP` (vent temperature setpoint, K), `HumDefSP` (humidity-deficit
+setpoint, g/m3) and `BlackScr` (blackout-screen closure, 0-1). `rhs!` detects
+them with `hasproperty` (resolved at compile time), so scripts that pass a plain
+`ControlInputs` are unaffected.
+"""
+struct ControlInputsX{T,V}
+    U1::T; U2::T; U3::T; U4::T; U5::T; U6::T
+    U7::T; U8::T; U9::T; U10::T; U11::T; U12::T
+    Tpipe::T
+    VentSP::T; HumDefSP::T; BlackScr::T
+    VentMin::V          # Note 42: logged minimum vent opening (0-1), or `nothing` (default)
+end
+# 16-argument form (Notes 34-41 scripts): no VentMin input
+ControlInputsX(U1::T, U2::T, U3::T, U4::T, U5::T, U6::T, U7::T, U8::T, U9::T, U10::T, U11::T, U12::T,
+               Tpipe::T, VentSP::T, HumDefSP::T, BlackScr::T) where {T} =
+    ControlInputsX{T,Nothing}(U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, Tpipe, VentSP, HumDefSP, BlackScr, nothing)
+
+"""
     load_measured_controls(csv_path) -> ControlInputs
 
 Read the observation CSV (columns: time, ..., U1..U12, Tpipe) and build

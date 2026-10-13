@@ -137,7 +137,7 @@
         "units": "m * m^-2",
         "desc": "Length of the heating pipe",
         "latex": "$\\gamma_1$",
-        "comment": "ok, us\u00e9 el valor de Texas"
+        "comment": "ok, usé el valor de Texas"
     },
     "gamma2": {
         "val": 2450000.0,
@@ -256,7 +256,7 @@
         "units": "1",
         "desc": "External cover FIR emission coefficient",
         "latex": "$\\epsilon_6$",
-        "comment": "ok,us\u00e9 el valor de Texas"
+        "comment": "ok,usé el valor de Texas"
     },
     "eta1": {
         "val": 0.1,
@@ -282,7 +282,7 @@
     "eta4": {
         "val": 0.554,
         "units": "ppm * mg^-1 * m^3",
-        "desc": "Conversion factor for CO2 of mg*m**\u22123 to ppm",
+        "desc": "Conversion factor for CO2 of mg*m**−3 to ppm",
         "latex": "$\\eta_4$",
         "comment": "ok"
     },
@@ -298,14 +298,14 @@
         "units": "1",
         "desc": "Ventilation power reduction factor",
         "latex": "$\\eta_6$",
-        "comment": "Value computed from vanthorr\u00b4s thesis ec 8.70 with zeta = 0.33"
+        "comment": "Value computed from vanthorr´s thesis ec 8.70 with zeta = 0.33"
     },
     "eta7": {
         "val": 0.8,
         "units": "1",
         "desc": "Ratio between ceiling ventilation area and total ventilation area",
         "latex": "$\\eta_7$",
-        "comment": "no dan valor en el art\u00edculo"
+        "comment": "no dan valor en el artículo"
     },
     "eta8": {
         "val": 0.9,
@@ -319,14 +319,14 @@
         "units": "1",
         "desc": "",
         "latex": "$\\eta_9$",
-        "comment": "No esta en el c\u00f3digo"
+        "comment": "No esta en el código"
     },
     "eta10": {
         "val": 0,
         "units": "1",
         "desc": "Shadow effect on the discharge coefficient",
         "latex": "$\\eta_{10}$",
-        "comment": "Falta valor, en los ejemplos del art\u00edculo no se considera"
+        "comment": "Falta valor, en los ejemplos del artículo no se considera"
     },
     "eta11": {
         "val": 0,
@@ -382,21 +382,21 @@
         "units": "1",
         "desc": "Performance coefficient of the mechanical cooling system",
         "latex": "$\\lambda_1$",
-        "comment": "Falta valor, en los ejemplos del art\u00edculo no se considera"
+        "comment": "Falta valor, en los ejemplos del artículo no se considera"
     },
     "lamb2": {
         "val": 0,
         "units": "W",
         "desc": "Electrical capacity of the mechanical cooling system",
         "latex": "$\\lambda_2$",
-        "comment": "Falta valor, en los ejemplos del art\u00edculo no se considera"
+        "comment": "Falta valor, en los ejemplos del artículo no se considera"
     },
     "lamb3": {
         "val": 1,
         "units": "W * m^-2 * K^-1",
         "desc": "Convective heat exchange coefficient between soil and greenhouse air",
         "latex": "$\\lambda_3$",
-        "comment": "1 . Falta valor, en los ejemplos del art\u00edculo no se considera"
+        "comment": "1 . Falta valor, en los ejemplos del artículo no se considera"
     },
     "lamb4": {
         "val": 500000,
@@ -410,28 +410,28 @@
         "units": "m^2",
         "desc": "Cover surface",
         "latex": "$\\lambda_5$",
-        "comment": "ok,tom\u00e9 el valor de Holanda, el de Texas es muy grande (9e4)"
+        "comment": "ok,tomé el valor de Holanda, el de Texas es muy grande (9e4)"
     },
     "lamb6": {
         "val": 2.8,
         "units": "W * m_cover^-2 * K^-1",
         "desc": "Variable of heat exchange by convection between the roof and the outside air",
         "latex": "$\\lambda_6$",
-        "comment": " 2.8 ok, us\u00e9 el valor de Texas"
+        "comment": " 2.8 ok, usé el valor de Texas"
     },
     "lamb7": {
         "val": 1,
         "units": "J * m^-3 * K^-1",
         "desc": "Variable of heat exchange by convection between the roof and the outside air",
         "latex": "$\\lambda_7$",
-        "comment": " 1 ok, us\u00e9 el valor de Texas"
+        "comment": " 1 ok, usé el valor de Texas"
     },
     "lamb8": {
         "val": 2,
         "units": "1",
         "desc": "Variable of heat exchange by convection between the roof and the outside air",
         "latex": "$\\lambda_8$",
-        "comment": "ok,us\u00e9 el valor de Texas"
+        "comment": "ok,usé el valor de Texas"
     },
     "lamb9": {
         "val": 0.05,
@@ -473,21 +473,21 @@
         "units": "1",
         "desc": "PAR transmission coefficient of the Cover",
         "latex": "$\tau_1$",
-        "comment": "En el art\u00edculo no dan su valor"
+        "comment": "En el artículo no dan su valor"
     },
     "tau2": {
         "val": 1,
         "units": "1",
         "desc": "FIR transmission coefficient of the Cover",
         "latex": "$\tau_2$",
-        "comment": "En el art\u00edculo no dan su valor"
+        "comment": "En el artículo no dan su valor"
     },
     "tau3": {
         "val": 0.11,
         "units": "1",
         "desc": "FIR transmission coefficient of the thermal screen",
         "latex": "$\tau_3$",
-        "comment": "ok --> us\u00e9 el valor de Texas"
+        "comment": "ok --> usé el valor de Texas"
     },
     "nu1": {
         "val": 1.0,
@@ -725,7 +725,7 @@
         "units": "1",
         "desc": "Missing",
         "latex": "$T_{cal}$",
-        "comment": "falta descripci\u00f3n y unidades"
+        "comment": "falta descripción y unidades"
     },
     "sigma": {
         "val": 5.67e-08,
@@ -739,7 +739,7 @@
         "units": "1",
         "desc": "Missing",
         "latex": "$\\eta_{drain}$",
-        "comment": "falta descripci\u00f3n y unidades"
+        "comment": "falta descripción y unidades"
     },
     "HEAT_PIPE": {
         "val": 363.15,
@@ -858,5 +858,216 @@
         "val": 0.0,
         "units": "-",
         "desc": "Minimum effective roof-vent opening fraction due to seal imperfections [dimensionless, 0-1]. 0=off (V2.2 default, bit-for-bit). Applied as max(U8, U8_min_leak) in the f7 buoyancy-vent rate; represents physical residual airflow when actuator commands closure."
+    },
+    "heat_ctrl": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Heating PI controller flag (0=off: V2.2 behaviour; 1=on: pipe driven to hold air at U11+hc_dT when the logged pipe is off)"
+    },
+    "hc_Kp": {
+        "val": 10.0,
+        "units": "K/K",
+        "desc": "Heating controller proportional gain (pipe-air K per K of setpoint error)"
+    },
+    "hc_Ki": {
+        "val": 0.005555555555555556,
+        "units": "1/s",
+        "desc": "Heating controller integral gain (= hc_Kp / tau_i, tau_i = 30 min)"
+    },
+    "hc_Tmax": {
+        "val": 338.15,
+        "units": "K",
+        "desc": "Maximum heating-pipe temperature (65 C; AiCU PipeLow peaks at 66.5 C)"
+    },
+    "hc_dT": {
+        "val": 0.0,
+        "units": "K",
+        "desc": "Offset added to the heating setpoint U11 (zone/sensor offset; inferable)"
+    },
+    "vent_exp": {
+        "val": 1.0,
+        "units": "-",
+        "desc": "Roof-vent effectiveness exponent: effective opening = U8^vent_exp (1 = linear, V2.2)"
+    },
+    "vent_screen": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag: closed energy screen throttles roof ventilation of crop air (0 = off, V2.2)"
+    },
+    "vent_scr_perm": {
+        "val": 0.2,
+        "units": "-",
+        "desc": "Fraction of roof ventilation reaching the crop air through a fully closed energy screen"
+    },
+    "stomata_fix": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag: correct stomatal-resistance day/night switch orientation and CO2 units (ppm) in q4 (0 = off, V2.2)"
+    },
+    "vapour_fix": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag: Vanthoor-consistent condensation sinks (p7 gated by mech. cooling U3; p8 with U1 factor and |T_air - T_screen|) (0 = off, V2.2)"
+    },
+    "cond_heat": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag: return a fraction f_cond of the latent heat of screen condensation (p8) to the air energy balance (0 = off, V2.2)"
+    },
+    "f_cond": {
+        "val": 0.5,
+        "units": "-",
+        "desc": "Fraction of screen-condensation latent heat returned to the crop air (rest leaves via the cover)"
+    },
+    "vent_ctrl": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag: closed-loop roof vents (Note 34), opening = state u[7] (0 = off, replay logged U8)"
+    },
+    "vc_gain": {
+        "val": 0.12,
+        "units": "1/K",
+        "desc": "Vent controller gain: opening per K above (VentSP + vc_e0)"
+    },
+    "vc_e0": {
+        "val": -2.0,
+        "units": "K",
+        "desc": "Vent controller start offset relative to the vent setpoint"
+    },
+    "vc_tau": {
+        "val": 600.0,
+        "units": "s",
+        "desc": "Vent opening time constant"
+    },
+    "vc_hum": {
+        "val": 0.12,
+        "units": "-",
+        "desc": "Vent opening for humidity control when the air is too humid"
+    },
+    "vc_hband": {
+        "val": 1.0,
+        "units": "g/m3",
+        "desc": "Humidity band over which the humidity opening ramps to vc_hum"
+    },
+    "pipe_lag": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag: first-order lag on the heat_ctrl pipe temperature, state u[8] (0 = off)"
+    },
+    "pl_tau": {
+        "val": 3600.0,
+        "units": "s",
+        "desc": "Heating pipe time constant"
+    },
+    "black_scr": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag: blackout screen adds to energy-screen closure, U1_eff = 1-(1-U1)(1-k_black*BlackScr) (0 = off)"
+    },
+    "k_black": {
+        "val": 0.5,
+        "units": "-",
+        "desc": "Insulation weight of the blackout screen relative to the energy screen"
+    },
+    "vc_night_log": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag (Note 38, with vent_ctrl): at night replay the logged vent opening instead of the controller (0 = off)"
+    },
+    "vc_min_night": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Minimum vent opening at night with vent_ctrl (0 = off)"
+    },
+    "vc_night_I": {
+        "val": 1.0,
+        "units": "W/m2",
+        "desc": "Global radiation below which vc_night_log / vc_min_night apply"
+    },
+    "hc_log_pipe": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag (Note 42, with heat_ctrl): where the logged pipe is warm (> air + 1 K) only the logged pipe heats; PI only elsewhere (0 = off)"
+    },
+    "vc_min_log": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag (Note 42, with vent_ctrl): minimum vent opening from the logged VentLeewMin setpoint input (0 = off)"
+    },
+    "soil_dyn": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag (Note 43): deep-soil anchor is state u[9] following the floor T with time constant sd_tau, instead of fixed Tsoil (0 = off)"
+    },
+    "sd_tau": {
+        "val": 604800.0,
+        "units": "s",
+        "desc": "Deep-soil time constant for soil_dyn (7 days)"
+    },
+    "floor_full": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag (Note 46): close the floor energy balance - floor FIR to sky (r11), canopy FIR to floor (r14, on T1) and Vanthoor air-floor conduction (h11) are booked into the floor state (0 = off, V2.2)"
+    },
+    "solar_split": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag (Note 46): global radiation absorbed by the cover (cov_abs*I2) heats the cover node instead of the air (V2.0 put 1.0*I2 into the air via alpha8, alpha9); the floor absorbs the transmitted sun not intercepted by the canopy (0 = off, V2.2)"
+    },
+    "cov_abs": {
+        "val": 0.1,
+        "units": "-",
+        "desc": "Fraction of global radiation absorbed by the cover, used only with solar_split (glass: ~1 - tau1 - reflection 0.13)"
+    },
+    "deep_k": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag (Note 46): floor -> deep-soil link uses its own conductance k_deep instead of k_ground (0 = off, V2.2)"
+    },
+    "mass_node": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Flag (Note 48): lumped internal thermal mass (structure, substrate, crop and pipe water) as state u[10], coupled to the air by h_mass; absorbs f_mass*Iglob (0 = off, V2.2)"
+    },
+    "C_mass": {
+        "val": 50000.0,
+        "units": "J m^-2 K^-1",
+        "desc": "Heat capacity of the internal mass node (mass_node); ~12 L water per m2 = 5e4"
+    },
+    "h_mass": {
+        "val": 5.0,
+        "units": "W m^-2 K^-1",
+        "desc": "Air <-> internal mass heat-transfer coefficient (mass_node)"
+    },
+    "f_mass": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Share of outside global radiation absorbed by the internal mass (mass_node); additional to the other solar terms"
+    },
+    "dday": {
+        "val": 0.0,
+        "units": "K",
+        "desc": "Daytime observation offset (Note 50, calibration n49a only): compared air T = model air T + dday when Iglob > 50 W m-2. Not used by the engine; a measurement/representation term (crop-height sensor vs well-mixed air node)."
+    },
+    "lamp_full": {
+        "val": 0,
+        "units": "1",
+        "desc": "Note 54 flag: full lamp electrical power into canopy+air (default off)",
+        "latex": "",
+        "comment": "Note 54"
+    },
+    "lamp_Pel": {
+        "val": 117,
+        "units": "W * m^-2",
+        "desc": "Lamp electrical power at 100% (AGC-2018: 187 umol/m2/s / 1.6 umol/J)",
+        "latex": "",
+        "comment": "Note 54"
+    },
+    "lamp_fcan": {
+        "val": 0.45,
+        "units": "1",
+        "desc": "Share of lamp power absorbed by a closed canopy (PAR+NIR), Note 54",
+        "latex": "",
+        "comment": "Note 54"
     }
 }

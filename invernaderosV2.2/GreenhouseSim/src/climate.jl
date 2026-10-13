@@ -24,6 +24,51 @@ rhf(T1, V1) = 100 * V1 / Pws(T1)
 VPDf(VP_sat, rh) = VP_sat * (1 - rh / 100)
 
 """
+    cover_T(T2, I4, I5, I2, p) -> Tc
+
+Algebraic cover temperature (Note 29 cover node). With solar_split = 1 (Note 46) the cover also absorbs
+cov_abs * I2 of the global radiation:  Tc = (kR(T2 + I4) + h_cover_out*I5 + R_cov) / (2kR + h_cover_out).
+"""
+@inline function cover_T(T2, I4, I5, I2, p)
+    kR  = 4.0 * p.epsil3 * p.sigma * (0.5 * (T2 + I4))^3
+    Rc  = (hasproperty(p, :solar_split) && p.solar_split > 0.5) ? p.cov_abs * I2 : 0.0
+    return (kR * (T2 + I4) + p.h_cover_out * I5 + Rc) / (2.0 * kR + p.h_cover_out)
+end
+
+"""
+    floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p) -> (dT1_corr, dT2_corr, Q_floor)
+
+Note 46. Re-books the floor terms of climate_rhs so the floor energy balance closes (floor_full = 1):
+  r11 (floor FIR to sky)  was taken from the AIR       -> given back to the air, taken from the floor
+  r14 (canopy FIR to floor) used T2 and was taken from the canopy only -> recomputed with T1, given to the floor
+  h11 (air-floor conduction) was taken from the AIR only -> given to the floor
+With solar_split = 1 the floor also absorbs the transmitted sun not intercepted by the canopy.
+Returns corrections to dT1, dT2 [K/s] and the extra net flux into the floor [W m^-2].
+"""
+@inline function floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p)
+    (; epsil2, epsil3, epsil4, sigma, gamma1, phi1, tau1, tau3, beta1, beta3, eta1, eta2, eta3,
+       rho2, alpha1, alpha5, alpha7, rho3, phi2, nu7, nu8, use_cover_node) = p
+    Qf = 0.0; c1 = 0.0; c2 = 0.0
+    if hasproperty(p, :floor_full) && p.floor_full > 0.5
+        Tc  = use_cover_node > 0.5 ? cover_T(T2, I4, I5, I2, p) : I4
+        g2  = 1 - U1 * (1 - tau3)
+        g3  = tau1 * g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-beta3 * I1)
+        fcf = epsil4 * epsil2 * (1 - 0.49 * pi * gamma1 * phi1) * sigma
+        r11  = epsil4 * g3 * epsil3 * sigma * (T5^4 - Tc^4)
+        r14o = fcf * (T2^4 - T5^4)
+        r14n = fcf * (T1^4 - T5^4)
+        h11  = 2 * nu7 * (T2 - T5) / (phi2 + nu8)
+        c2 = r11 / (phi2 * rho3 * alpha5)
+        c1 = (r14o - r14n) / (alpha1 * I1)
+        Qf = h11 + r14n - r11
+    end
+    if hasproperty(p, :solar_split) && p.solar_split > 0.5
+        Qf += (1 - eta1) * tau1 * I2 * (eta2 * exp(-beta1 * I1) * (1 - rho2) + eta3 * exp(-beta3 * I1) * alpha7)
+    end
+    return c1, c2, Qf
+end
+
+"""
     climate_rhs(T1,T2,C1,V1, I1..I11, A, U1..U10,U12, p) -> (dT1, dT2, dC1, dV1)
 
 Right-hand sides of the four greenhouse-climate ODEs (canopy temperature,
@@ -69,6 +114,17 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
 
     q5 = 1 + q9 * ((q2 - V1)^2)         # levels large VP deviations
     q4 = 1 + q8 * ((C1 - 200)^2)        # levels large CO2 values
+    # --- stomata_fix (default-off: identical to V2.2) --------------------------
+    # q7 is ~1 by DAY (gamma5 < 0), but q8/q9 above give weight q7 to the NIGHT
+    # coefficients (delta5, delta7) -> day/night swapped w.r.t. Vanthoor (2011).
+    # Also delta4/delta5 are per ppm^2 while C1 is mg/m3 (~1.8 x ppm).
+    # Fix: day coefficients weighted by q7, and C1 converted to ppm (mg/m3 * T / 536.4).
+    if hasproperty(p, :stomata_fix) && p.stomata_fix > 0.5
+        q8f = delta5 + (delta4 - delta5) * q7
+        q9f = delta7 + (delta6 - delta7) * q7
+        q5  = 1 + q9f * ((q2 - V1)^2)
+        q4  = 1 + q8f * ((C1 * T2 / 536.4 - 200)^2)
+    end
     q3 = gamma4 * q10 * q4 * q5         # canopy stomatal resistance
     q1 = (2 * rho3 * alpha5 * I1) / (gamma * gamma2 * (gamma3 + q3))  # VEC Can-Air
 
@@ -89,7 +145,20 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     # and vapour ventilation terms into a positive feedback (blow-up) once the
     # leakage is set to a realistic value. Removed. Identical whenever T2 >= I5
     # (all venting in the summer calibration), so calibrated results are unchanged.
-    f7 = (max(U8, U8_min_leak) * nu5 * n1) / (2.0 * alpha6) * sqrt(f7t)
+    # --- roof-vent effectiveness flags (default-off: identical to V2.2) --------
+    # vent_exp:    effective opening = U8^vent_exp (real vent flow vs opening % is concave;
+    #              vent_exp = 1 -> linear, skipped by an explicit branch so it is exact).
+    # vent_screen: a closed energy screen (U1) throttles roof ventilation of the CROP air,
+    #              factor (1 - U1*(1 - vent_scr_perm)): the vents then mostly ventilate the
+    #              space above the screen. One-node proxy for Vanthoor's top compartment.
+    U8e = max(U8, U8_min_leak)
+    if hasproperty(p, :vent_exp) && p.vent_exp != 1.0
+        U8e = U8e^p.vent_exp
+    end
+    if hasproperty(p, :vent_screen) && p.vent_screen > 0.5
+        U8e = U8e * (1.0 - U1 * (1.0 - p.vent_scr_perm))
+    end
+    f7 = (U8e * nu5 * n1) / (2.0 * alpha6) * sqrt(f7t)
 
     if eta7 >= eta8
         f2 = eta6 * f5 + 0 * 0.5 * f6
@@ -117,6 +186,11 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     kR_cov    = 4.0 * epsil3 * sigma * T_ref_cov^3
     I4_eff    = use_cover_node > 0.5 ?
         (kR_cov * (T2 + I4) + h_cover_out * I5) / (2.0 * kR_cov + h_cover_out) : I4
+    # Note 46 (default-off): solar_split = 1 -> the global radiation absorbed by the cover (cov_abs * I2) heats
+    # the cover node instead of the greenhouse air (see r8 below). Only active with use_cover_node = 1.
+    if hasproperty(p, :solar_split) && p.solar_split > 0.5 && use_cover_node > 0.5
+        I4_eff = cover_T(T2, I4, I5, I2, p)
+    end
 
     SkyFIRBoltzmann = epsil3 * sigma * (T2^4 - I4_eff^4)
     r11 = epsil4 * g3 * epsil3 * sigma * (I7^4 - I4_eff^4)
@@ -150,6 +224,13 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     h11 = 2 * nu7 * (T2 - I7) / (phi2 + nu8)
     h12 = (eta15 + eta16) * alpha12 * U12
     r8 = I2 * (eta1 * (tau1 * eta2 + (alpha2 + alpha7) * eta3) + (alpha8 * eta2 + alpha9 * eta3))
+    # Note 46 (default-off): V2.0 adds (alpha8*eta2 + alpha9*eta3)*I2 = 1.0*I2 ("cover absorption", values not
+    # given -> 1) to the AIR, so the air receives ~108 % of the outside global radiation on top of the canopy share.
+    # In Vanthoor (2011) the cover-absorbed part heats the cover (R_Glob_Cov), not the air. solar_split = 1 keeps
+    # only R_Glob_Air here; the cover part goes to the cover node (cover_T) and a floor share to the floor (forward_map).
+    if hasproperty(p, :solar_split) && p.solar_split > 0.5
+        r8 = I2 * eta1 * (tau1 * eta2 + (alpha2 + alpha7) * eta3)
+    end
     r10 = r11 + r12 + r13
     l2 = gamma2 * U9 * phi9 / alpha6
 
@@ -165,6 +246,24 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     p7 = V1 < q6 ? 0.0 : 6.4e-9 * (V1 - q6)
     p8 = V1 < VPsat_ThmScr ? 0.0 : 6.4e-9 * 1.7 * (abs(T2 - VPsat_ThmScr))^0.33 * (V1 - VPsat_ThmScr)
     p9 = V1 < VPsat_Air ? 0.0 : 6.4e-9 * 1.2 * 1000 * ((abs(T1 - T2))^0.33) * (V1 - VPsat_Air)
+
+    # --- vapour_fix (default-off: identical to V2.2) ---------------------------
+    # Vanthoor (2011): MV = 6.4e-9 * HEC * (VP_air - VP_surface), HEC in W m^-2 K^-1.
+    # p7 (mechanical cooler): HEC_AirMech is proportional to U_MechCool -> gate by U3
+    #    (as coded it is a permanent dehumidifier toward Pws(I6) = Pws(0 C)).
+    # p8 (thermal screen): HEC_AirThScr = 1.7 * U_ThScr * |T_air - T_ThScr|^0.33
+    #    (as coded: no U1 factor, and |T2 - VPsat_ThmScr| mixes K with Pa -> ~7x too large).
+    if hasproperty(p, :vapour_fix) && p.vapour_fix > 0.5
+        p7 = U3 * p7
+        p8 = V1 < VPsat_ThmScr ? 0.0 : 6.4e-9 * 1.7 * U1 * (abs(T2 - T_ThmScr))^0.33 * (V1 - VPsat_ThmScr)
+    end
+    # --- cond_heat (default-off: identical to V2.2) ----------------------------
+    # Latent heat released by screen condensation (gamma2 * p8, W m^-2) is otherwise lost.
+    # The screen has no energy balance here (T_ThmScr is algebraic), so a fraction f_cond
+    # of it is returned to the crop air; the rest is assumed to leave through the cover.
+    if hasproperty(p, :cond_heat) && p.cond_heat > 0.5
+        dT2 = dT2 + p.f_cond * gamma2 * p8 / (phi2 * rho3 * alpha5)
+    end
 
     kappa3 = (psi1 * phi2) / (omega2 * T2)
     dV1 = (1 / kappa3) * (p1 + p2 + p3 + p4 - p5 - p6 - p7 - p8 - p9)
