@@ -165,6 +165,25 @@ function rhs!(du, u, ctx::SimContext, t)
         eI   = (logwarm || (dmd >= room && e > 0.0) || (u5 <= 0.0 && e < 0.0)) ? 0.0 : e
     end
 
+    # Note 58 (default-off): vent_split = 1 -> leeward and windward roof vents as two flows. Inputs: U8 = leeward
+    # opening (VentLee/100), U7 = windward opening (Ventwind/100; forced ventilation U7 is then 0). Each side is half
+    # the roof-vent area with its own wind-pressure multiplier (vs_clee, vs_cwind) and discharge multiplier for the
+    # windward side (vs_gwind); shared stack term and shared curvature vs_exp:
+    #   flow = 1/2 [ lee^e sqrt(B + c_lee n3 v^2) + g_w wind^e sqrt(B + c_wind n3 v^2) ]
+    # passed to climate_rhs as the single equivalent opening U8 that gives the same flow (defaults reproduce
+    # U8 = (lee + wind)/2 exactly). Meant for open loop (vent_ctrl = 0) with logged openings.
+    if hasproperty(p, :vent_split) && p.vent_split > 0.5
+        Uw = clamp(U7, 0.0, 1.0); Ul = clamp(U8, 0.0, 1.0); U7 = 0.0
+        e  = p.vs_exp
+        n3 = p.nu2 * (1 - p.eta11 * U5)
+        B  = p.omega1 * p.nu6 * (T2 - I5) / (T2 + I5)
+        w2 = n3 * I8^2
+        f0 = max(B + w2, 0.0)
+        sl = sqrt(max(B + p.vs_clee * w2, 0.0)); sw = sqrt(max(B + p.vs_cwind * w2, 0.0))
+        num = 0.5 * (Ul^e * sl + p.vs_gwind * Uw^e * sw)
+        U8 = f0 > 1e-12 ? num / sqrt(f0) : 0.5 * (Ul^e + p.vs_gwind * Uw^e)
+    end
+
     dT1, dT2, dC1, dV1 = climate_rhs(T1, T2, C1, V1,
         I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, A,
         U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U12, p)

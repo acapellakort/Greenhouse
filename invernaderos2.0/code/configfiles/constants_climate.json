@@ -1069,5 +1069,40 @@
         "desc": "Share of lamp power absorbed by a closed canopy (PAR+NIR), Note 54",
         "latex": "",
         "comment": "Note 54"
+    },
+    "vent_split": {
+        "val": 0,
+        "units": "1",
+        "desc": "Note 58 flag: leeward (U8) and windward (U7) roof vents as two flows (default off)",
+        "latex": "",
+        "comment": "Note 58"
+    },
+    "vs_exp": {
+        "val": 1.0,
+        "units": "1",
+        "desc": "Note 58: curvature of opening -> flow for each side (1 = linear)",
+        "latex": "",
+        "comment": "Note 58"
+    },
+    "vs_gwind": {
+        "val": 1.0,
+        "units": "1",
+        "desc": "Note 58: windward discharge multiplier relative to leeward",
+        "latex": "",
+        "comment": "Note 58"
+    },
+    "vs_clee": {
+        "val": 1.0,
+        "units": "1",
+        "desc": "Note 58: leeward wind-pressure multiplier on nu2",
+        "latex": "",
+        "comment": "Note 58"
+    },
+    "vs_cwind": {
+        "val": 1.0,
+        "units": "1",
+        "desc": "Note 58: windward wind-pressure multiplier on nu2",
+        "latex": "",
+        "comment": "Note 58"
     }
 }
