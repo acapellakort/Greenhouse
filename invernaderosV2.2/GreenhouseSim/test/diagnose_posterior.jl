@@ -89,7 +89,7 @@ println("  ", "-"^168)
 TP = Float64[]
 Igc_ = A(Ig_v).(predtimes)
 for (nm_, x) in runs
-    T, RH, U = full_eval(x)
+    T, RH, U = full_eval(x); Tair = copy(T)          # VP always from the air node
     if startswith(nm_, "M  sensor s=")          # measurement model: compare T + s*I/100 (RH kept at the air node)
         s_ = parse(Float64, split(nm_, "=")[2]); T = T .+ s_ .* Igc_ ./ 100
     end
@@ -101,7 +101,7 @@ for (nm_, x) in runs
     @printf("  %-20s | %6.3f %6.3f | %s | %s | %+6.2f %+6.2f %+6.2f %+7.3f | a %+.2f  b %+.3f\n", nm_,
             hourly_rmse(T, Tobs_g, okT .& ALLD), hourly_rmse(T, Tobs_g, okT .& COM),
             join([@sprintf("%+6.2f", v) for v in nb], " "), join([@sprintf("%+6.2f", v) for v in hb], " "),
-            mb(T, Tobs_g, okT .& ALLD .& dayt), mb(VP(T, RH), VPo, okV .& ALLD .& dayt), mb(VP(T, RH), VPo, okV .& ALLD .& nite),
+            mb(T, Tobs_g, okT .& ALLD .& dayt), mb(VP(Tair, RH), VPo, okV .& ALLD .& dayt), mb(VP(Tair, RH), VPo, okV .& ALLD .& nite),
             mb(U, U8obs, okU .& ALLD .& dayt), ab[1], ab[2])
 end
 # Note 55: Note 45b criteria per season period, at the posterior mean (first run)
