@@ -15,13 +15,13 @@
 # Caveat: n49b was calibrated with the V2.0 lamp heat, so its other parameters may already absorb part of it.
 # =============================================================================
 
-ENV["CL_MODE"] = "setup"; ENV["PRIORS"] = "n49b"
+ENV["CL_MODE"] = "setup"; haskey(ENV, "PRIORS") || (ENV["PRIORS"] = "n49b")   # Note 55: PRIORS=n54 uses the n54 posterior
 haskey(ENV, "RELTOL") || (ENV["RELTOL"] = "1e-4")
 include(joinpath(@__DIR__, "run_climate_calibration_cl.jl"))
 
 parts = Vector{Matrix{Float64}}()
 for s in (1, 2)
-    f = joinpath(POSTDIR, "AiCU_climcal_cl_blocks_n49b_seed$(s).jld2")
+    f = joinpath(POSTDIR, "AiCU_climcal_cl_blocks_$(PRIORS)_seed$(s).jld2")
     isfile(f) || error("missing $f")
     ch = JLD2.load(f)["chain"]; push!(parts, ch[30001:end, 1:NM])
 end
@@ -58,8 +58,10 @@ println("\n", "="^200)
         join([@sprintf("%6s", "n$(a)") for (a, b) in PER], " "), join([@sprintf("%6s", "d$(a)-$(b)") for (a, b) in HB_], " "),
         "T day", "VPday", "VPnit", "U8 day", "sensor test a + b*I/100   | day L-on L-off | nit L-on L-off")
 println("  ", "-"^198)
-pL = update_params(pP, ["lamp_full"], [1.0])
-for (mode, p) in (("CL", pP), ("CL lamp_full", pL), ("OL", update_params(pP, ["vent_ctrl"], [0.0])),
+# n49b posterior: base = V2.0 lamp heat, variant = lamp_full. n54 posterior (lamp_full fitted on): base = V2.0, variant = n54 as fitted.
+p0 = update_params(pP, ["lamp_full"], [0.0]); pL = update_params(pP, ["lamp_full"], [1.0])
+@printf("posterior: %s (pooled seeds 1-2, steps 30001+)\n", PRIORS)
+for (mode, p) in (("CL", p0), ("CL lamp_full", pL), ("OL", update_params(p0, ["vent_ctrl"], [0.0])),
                   ("OL lamp_full", update_params(pL, ["vent_ctrl"], [0.0])))
     us = simdays(p, days, u0_cl, RELTOL)
     us === nothing && (println("  $TEAM $mode: solver failed"); continue)

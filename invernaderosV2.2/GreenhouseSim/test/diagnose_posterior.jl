@@ -72,8 +72,10 @@ println("\n", "="^170)
         join([@sprintf("%6s", "n$(a)") for (a, b) in PER], " "), join([@sprintf("%6s", "d$(a)-$(b)") for (a, b) in HB_], " "),
         "T day", "VPday", "VPnit", "U8 day", "sensor test: resid = a + b*I  (a K, b K/100 W m-2)")
 println("  ", "-"^168)
+TP = Float64[]
 for (nm_, x) in runs
     T, RH, U = full_eval(x)
+    isempty(TP) && append!(TP, T)
     nb = [mb(T, Tobs_g, okT .& nite .& inset(collect(a:b))) for (a, b) in PER]
     hb = [mb(T, Tobs_g, okT .& dayt .& (hrc .>= a) .& (hrc .< b)) for (a, b) in HB_]
     m = okT .& dayt; r = Tobs_g[m] .- T[m]; I = Igc[m]
@@ -83,6 +85,15 @@ for (nm_, x) in runs
             join([@sprintf("%+6.2f", v) for v in nb], " "), join([@sprintf("%+6.2f", v) for v in hb], " "),
             mb(T, Tobs_g, okT .& ALLD .& dayt), mb(VP(T, RH), VPo, okV .& ALLD .& dayt), mb(VP(T, RH), VPo, okV .& ALLD .& nite),
             mb(U, U8obs, okU .& ALLD .& dayt), ab[1], ab[2])
+end
+# Note 55: Note 45b criteria per season period, at the posterior mean (first run)
+println("\n  Note 45b criteria by period (posterior mean; model - measured, K):")
+@printf("  %-10s %8s %8s %8s   %s\n", "period", "24-h", "day", "night", "crop: |24-h| <= 0.5 ; physics: |day|,|night| <= 0.75")
+for (a, b) in PER
+    md = inset(collect(a:b))
+    v24 = mb(TP, Tobs_g, okT .& md); vd = mb(TP, Tobs_g, okT .& md .& dayt); vn = mb(TP, Tobs_g, okT .& md .& nite)
+    @printf("  d%-3d-%-4d %+8.2f %+8.2f %+8.2f   %s %s\n", a, b, v24, vd, vn,
+            abs(v24) <= 0.5 ? "crop ok  " : "crop FAIL", (abs(vd) <= 0.75 && abs(vn) <= 0.75) ? "physics ok" : "physics FAIL")
 end
 println("""
   How to read it:

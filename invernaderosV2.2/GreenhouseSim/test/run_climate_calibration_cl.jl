@@ -24,6 +24,7 @@
 # =============================================================================
 
 ENV["OPTB_MODE"] = "setup"
+get(ENV, "PRIORS", "") == "n54" && !haskey(ENV, "PIPE2") && (ENV["PIPE2"] = "1")   # Note 54: both heating circuits
 ENV["N_DAYS"]    = "115"
 include(joinpath(@__DIR__, "run_joint_inference_optionB.jl"))   # season inputs (ts, U*v, Tair_obs, ...)
 
@@ -37,7 +38,7 @@ const CBURN  = parse(Int, get(ENV, "BURN", "40000"))
 const RELTOL = parse(Float64, get(ENV, "RELTOL", "1e-3"))
 const CSMOKE = 200
 const PRIORS = get(ENV, "PRIORS", "n36")     # n36 = Note 36 priors; n37 = Note 34/37-informed controller priors + free vc_hband
-PRIORS in ("n36", "n37", "n39", "n43", "n46", "n49a", "n49b") || error("PRIORS must be n36, n37, n39, n43, n46, n49a or n49b")   # n49a/b = Note 50: physical caps, free vent wind term; a = with daytime observation offset dday   # n46 = Notes 46-48: SF structure + solar-absorbing internal mass   # n43 = Note 43 structure: logged pipe + PI gaps, deep-soil state, logged min vent   # n39 = n37 + free vc_min_night (Note 40)
+PRIORS in ("n36", "n37", "n39", "n43", "n46", "n49a", "n49b", "n54") || error("PRIORS must be n36, n37, n39, n43, n46, n49a, n49b or n54")   # n54 = Note 54b: n49b + full lamp heat (lamp_full) + both pipe circuits (PIPE2)   # n49a/b = Note 50: physical caps, free vent wind term; a = with daytime observation offset dday   # n46 = Notes 46-48: SF structure + solar-absorbing internal mass   # n43 = Note 43 structure: logged pipe + PI gaps, deep-soil state, logged min vent   # n39 = n37 + free vc_min_night (Note 40)
 const CTAG   = "$(TEAM)_climcal_cl_$(DESIGN)$(PRIORS == "n36" ? "" : "_" * PRIORS)_seed$(CSEED)"
 
 for k in (:vent_ctrl, :vc_gain, :vc_e0, :vc_tau, :vc_hum, :vc_hband, :pipe_lag, :black_scr, :heat_ctrl, :cond_heat)
@@ -81,8 +82,8 @@ LAI_row = [lai_of_day((t - t0) / 86400.0) for t in ts]
 const weather_c = WeatherInputs(A(Ig_v), A(Tsky_v), A(Tout_v), _t -> 273.15, _t -> 18.0 + 273.15,
                                 A(Wind_v), _t -> 834.7, A(VPout_v), A(Ig_v), A(LAI_row))
 U8z = [isnan(v) ? 0.0 : v for v in U8log]
-const N46P = PRIORS in ("n46", "n49a", "n49b")   # Notes 46-48 structure
-const N43P = PRIORS in ("n43", "n46", "n49a", "n49b")     # structures with the Note 43 flags, VentMin input and deep-soil state
+const N46P = PRIORS in ("n46", "n49a", "n49b", "n54")   # Notes 46-48 structure
+const N43P = PRIORS in ("n43", "n46", "n49a", "n49b", "n54")     # structures with the Note 43 flags, VentMin input and deep-soil state
 const ctrl_x = N43P ?
     ControlInputsX(Z(U1v), zc, zc, zc, zc, zc, zc, Z(U8z), zc, Z(U10v), Z(U11v), Z(U12v), Z(Tpipe_meas),
                    Z(VentSPv), Z(HumSPv), Z(Blackv), Z(VentMinv)) :
@@ -101,6 +102,9 @@ if N46P   # Notes 46-48: closed floor balance, solar split, own floor-deep condu
     append!(FIXN, ["floor_full", "solar_split", "deep_k", "mass_node", "sd_tau"])
     append!(FIXV, [1.0, 1.0, 1.0, 1.0, 14 * 86400.0])
 end
+if PRIORS == "n54"   # Note 54b: full lamp electrical power (lamp_Pel 117 W m-2 fixed from the AGC ReadMe)
+    append!(FIXN, ["lamp_full"]); append!(FIXV, [1.0])
+end
 const params_cl = update_params(params, FIXN, FIXV)
 
 # ── free parameters ──────────────────────────────────────────────────────────
@@ -109,6 +113,7 @@ const CQ_MODEL = vcat(["gamma4", "vent_exp", "vent_scr_perm", "hc_dT", "k_ground
                       PRIORS == "n43" ? ["vc_hband", "gamma1", "sd_tau"] :
                       PRIORS == "n46" ? ["vc_hband", "gamma1", "nu1", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass"] :
                       PRIORS == "n49b" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass"] :
+                      PRIORS == "n54" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass", "lamp_fcan"] :
                       PRIORS == "n49a" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass", "dday"] : String[])
 const CQ       = vcat(CQ_MODEL, ["sigma_T", "sigma_RH", "sigma_U"])
 const NM       = length(CQ_MODEL)
@@ -125,7 +130,7 @@ const CQ_dict = Dict(                     # [min, centre, max]
     "sigma_T"       => [0.2,   1.5,   6.0],
     "sigma_RH"      => [0.5,   6.0,   25.0],
     "sigma_U"       => [0.01,  0.08,  0.5])
-if PRIORS in ("n37", "n39", "n43", "n46", "n49a", "n49b")     # Note 37: soft humidity band removes the limit cycle; Note 34 controller identification
+if PRIORS in ("n37", "n39", "n43", "n46", "n49a", "n49b", "n54")     # Note 37: soft humidity band removes the limit cycle; Note 34 controller identification
     CQ_dict["vc_gain"]  = [0.05,  0.12,  0.3]      # 1/K
     CQ_dict["vc_e0"]    = [-4.0, -2.0,   0.0]      # K
     CQ_dict["vc_tau"]   = [60.0,  600.0, 1800.0]   # s  (capped at 30 min)
@@ -151,12 +156,16 @@ if N46P     # physical priors (Notes 46-48): literature centres, physically size
     CQ_dict["h_mass"]   = [1.0,   5.0,   20.0]     # W/m2/K air <-> internal mass
     CQ_dict["f_mass"]   = [0.0,   0.15,  0.35]     # -     share of outside radiation absorbed by the mass
 end
-if PRIORS in ("n49a", "n49b")   # Note 50: physical caps; vent exchange per opening allowed lower; wind term free
+if PRIORS in ("n49a", "n49b", "n54")   # Note 50: physical caps; vent exchange per opening allowed lower; wind term free
     CQ_dict["nu1"]    = [0.3,  0.65, 1.0]
     CQ_dict["nu2"]    = [0.03, 0.10, 0.2]      # wind pressure coefficient of the roof-vent flow (JSON 0.1)
     CQ_dict["k_deep"] = [0.5,  1.5,  3.0]      # no large deep store (Note 49: ~5 m at k_deep 9)
     CQ_dict["f_mass"] = [0.0,  0.1,  0.2]      # inside solar absorption <= ~0.85 of outside
     CQ_dict["dday"]   = [0.0,  0.5,  2.0]      # K, daytime observation offset (n49a only; measurement model)
+end
+if PRIORS == "n54"   # Note 54b: nu2 was pinned at 0.03 in n49b and OL is under-ventilated by day -> wider; lamp split free
+    CQ_dict["nu2"]       = [0.03, 0.10, 0.5]
+    CQ_dict["lamp_fcan"] = [0.1,  0.45, 0.7]   # share of lamp power absorbed by a closed canopy
 end
 const ADDITIVE = Set(["hc_dT", "vc_e0"])        # jittered additively (centre 0 / negative)
 CSupp(z) = all(CQ_dict[CQ[k]][1] < z[k] < CQ_dict[CQ[k]][3] for k in eachindex(z))
