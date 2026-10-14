@@ -22,7 +22,8 @@ include(joinpath(@__DIR__, "run_climate_calibration_cl.jl"))
 
 const BURN46 = 30000
 parts = Vector{Matrix{Float64}}()
-for s in (1, 2)
+const SEEDS_ = parse.(Int, split(get(ENV, "SEEDS", "1,2"), ","))   # Note 59: SEEDS=2 to evaluate one mode of a bimodal posterior
+for s in SEEDS_
     f = joinpath(POSTDIR, "AiCU_climcal_cl_blocks_$(PRIORS)_seed$(s).jld2")
     fc = joinpath(POSTDIR, "AiCU_climcal_cl_blocks_$(PRIORS)_seed$(s)_ckpt.jld2")
     src = isfile(f) ? f : isfile(fc) ? fc : ""
@@ -50,6 +51,19 @@ if "dday" in CQ_MODEL
 else
     push!(runs, ("P1 f_mass 0.15", setx(pm, "f_mass" => 0.15)))
 end
+# Note 60 (SOLARGRID=1): forward screen of the afternoon solar deficit at the posterior mean
+#   M*   measurement model: compared T = air T + s * Iglob/100 (sensor heated by sun; post hoc, no re-simulation)
+#   F*   f_mass above its 0.2 cap (more absorbed sun reaching the air via the internal mass)
+#   G*   gamma4 higher (less daytime transpiration / latent cooling)
+#   FG   both
+const SOLARGRID = get(ENV, "SOLARGRID", "0") == "1"
+if SOLARGRID
+    runs = Any[("P  posterior mean", pm)]
+    for s_ in (0.15, 0.3); push!(runs, ("M  sensor s=$(s_)", pm)); end
+    for f in (0.25, 0.3, 0.4); push!(runs, ("F  f_mass $(f)", setx(pm, "f_mass" => f))); end
+    for g in (110.0, 150.0); push!(runs, ("G  gamma4 $(Int(g))", setx(pm, "gamma4" => g))); end
+    push!(runs, ("FG f_mass 0.3 g4 110", setx(pm, "f_mass" => 0.3, "gamma4" => 110.0)))
+end
 okT = .!isnan.(Tobs_g); okT[1] = false; okV = okT .& .!isnan.(RHobs_g); okU = .!isnan.(U8obs); okU[1] = false
 inset(ds) = in.(cd_, Ref(Set(ds)))
 ALLD = inset(collect(0:114)); COM = inset(COMMON_TEST)
@@ -73,8 +87,12 @@ println("\n", "="^170)
         "T day", "VPday", "VPnit", "U8 day", "sensor test: resid = a + b*I  (a K, b K/100 W m-2)")
 println("  ", "-"^168)
 TP = Float64[]
+Igc_ = A(Ig_v).(predtimes)
 for (nm_, x) in runs
     T, RH, U = full_eval(x)
+    if startswith(nm_, "M  sensor s=")          # measurement model: compare T + s*I/100 (RH kept at the air node)
+        s_ = parse(Float64, split(nm_, "=")[2]); T = T .+ s_ .* Igc_ ./ 100
+    end
     isempty(TP) && append!(TP, T)
     nb = [mb(T, Tobs_g, okT .& nite .& inset(collect(a:b))) for (a, b) in PER]
     hb = [mb(T, Tobs_g, okT .& dayt .& (hrc .>= a) .& (hrc .< b)) for (a, b) in HB_]
