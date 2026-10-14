@@ -210,6 +210,13 @@ function rhs!(du, u, ctx::SimContext, t)
         # (PAR + NIR absorbed) and the rest heats the air (convection + lamp-body long-wave, lumped).
         if hasproperty(p, :lamp_full) && p.lamp_full > 0.5
             Ql   = p.lamp_Pel * U12
+            # Note 58d (default-off): lamp_scr_loss > 0 -> share of the lamp power lost upward through the roof when
+            # the screens are open; closure = 1 - (1 - EnScr)(1 - BlackScr). Retained = Ql * (1 - loss * (1 - closure)).
+            if hasproperty(p, :lamp_scr_loss) && p.lamp_scr_loss > 0.0
+                bs   = hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing) ? c.BlackScr(tctrl) : 0.0
+                clos = 1.0 - (1.0 - clamp(c.U1(tctrl), 0.0, 1.0)) * (1.0 - clamp(bs, 0.0, 1.0))
+                Ql  *= 1.0 - p.lamp_scr_loss * (1.0 - clos)
+            end
             fc   = p.lamp_fcan * (1 - exp(-p.beta1 * I1))
             r5l  = (1 - p.eta1) * p.alpha2 * p.eta14 * p.alpha12 * U12
             h12l = (p.eta15 + p.eta16) * p.alpha12 * U12

@@ -1104,5 +1104,12 @@
         "desc": "Note 58: windward wind-pressure multiplier on nu2",
         "latex": "",
         "comment": "Note 58"
+    },
+    "lamp_scr_loss": {
+        "val": 0.0,
+        "units": "1",
+        "desc": "Note 58d: share of lamp power lost through the roof when screens are open (default 0 = off)",
+        "latex": "",
+        "comment": "Note 58d"
     }
 }

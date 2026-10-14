@@ -70,18 +70,36 @@ hrc = [floor(Int, mod(((c - 2) % NPD) * 300 / 3600, 24.0)) for c in 1:NCOL]; hrc
 HB_ = ((6, 9), (9, 12), (12, 15), (15, 18), (18, 21))
 EARLY = inset(collect(0:48)); LATE = inset(collect(49:114))
 
-psplit(gw, cw, e) = update_params(pOL, ["vent_split", "vent_exp", "vs_gwind", "vs_cwind", "vs_clee", "vs_exp"],
-                                  [1.0, 1.0, gw, cw, 1.0, e])
+psplit(gw, cw, e; P = 117.0, L = 0.0) = update_params(pOL, ["vent_split", "vent_exp", "vs_gwind", "vs_cwind", "vs_clee", "vs_exp", "lamp_Pel", "lamp_scr_loss"],
+                                  [1.0, 1.0, gw, cw, 1.0, e, P, L])
+LOSSGRID = get(ENV, "LOSSGRID", "0") == "1"   # Note 58d: screen-dependent lamp loss
+U12c = A(U12v).(predtimes); lon = U12c .> 0.5
+LAMPGRID = get(ENV, "LAMPGRID", "0") == "1"   # Note 58b: lamp power x vent split (lamp-on / lamp-off day columns)
 runs = Any[("CL (n54 as fitted)", pP, ctrl_x), ("OL mean (current)", pOL, ctrl_x), ("split defaults", psplit(1.0, 1.0, 1.0), ctrl_split)]
-for e in (1.0, 0.65), cw in (1.0, 5.0), gw in (1.0, 2.0, 3.0)
-    (e == 1.0 && cw == 1.0 && gw == 1.0) && continue
-    push!(runs, ("split g$(Int(gw)) c$(Int(cw)) e$(e)", psplit(gw, cw, e), ctrl_split))
+if LOSSGRID
+    runs = Any[("CL (n54 as fitted)", pP, ctrl_x), ("P60 L0 (58c best)", psplit(1.0, 1.0, 1.0; P = 60.0), ctrl_split)]
+    for P in (117.0, 90.0), L in (0.3, 0.5, 0.6)
+        push!(runs, ("P$(Int(P)) L$(L)", psplit(1.0, 1.0, 1.0; P = P, L = L), ctrl_split))
+    end
+    for (P, L) in ((117.0, 0.5), (90.0, 0.4))
+        push!(runs, ("P$(Int(P)) L$(L) g2", psplit(2.0, 1.0, 1.0; P = P, L = L), ctrl_split))
+    end
+elseif LAMPGRID
+    runs = Any[("CL (n54 as fitted)", pP, ctrl_x)]
+    for P in (117.0, 80.0, 60.0), (gw, cw, e) in ((1.0, 1.0, 1.0), (3.0, 1.0, 1.0), (2.0, 1.0, 0.8), (1.0, 1.0, 0.65))
+        push!(runs, ("P$(Int(P)) g$(Int(gw)) c$(Int(cw)) e$(e)", psplit(gw, cw, e; P = P), ctrl_split))
+    end
+else
+    for e in (1.0, 0.65), cw in (1.0, 5.0), gw in (1.0, 2.0, 3.0)
+        (e == 1.0 && cw == 1.0 && gw == 1.0) && continue
+        push!(runs, ("split g$(Int(gw)) c$(Int(cw)) e$(e)", psplit(gw, cw, e), ctrl_split))
+    end
 end
 
 println("\n", "="^190)
 @printf("  %-22s | %6s | %s | %s | %6s %6s %6s | %6s %6s | %s\n", "run", "hRMS",
         join([@sprintf("%6s", "n$(a)") for (a, b) in PER], " "), join([@sprintf("%6s", "d$(a)-$(b)") for (a, b) in HB_], " "),
-        "T day", "VPday", "VPnit", "day<49", "day49+", "")
+        "T day", "VPday", "VPnit", "day<49", "day49+", "day L-on L-off | night L-on L-off")
 println("  ", "-"^188)
 for (nm_, p, ctrl) in runs
     us = simdays_c(p, days, u0_cl, RELTOL, ctrl)
@@ -89,10 +107,11 @@ for (nm_, p, ctrl) in runs
     T = us[2, :]; RH = rhf.(us[2, :], us[4, :])
     nb = [mb(T, Tobs_g, okT .& nite .& inset(collect(a:b))) for (a, b) in PER]
     hb = [mb(T, Tobs_g, okT .& dayt .& (hrc .>= a) .& (hrc .< b)) for (a, b) in HB_]
-    @printf("  %-22s | %6.3f | %s | %s | %+6.2f %+6.2f %+6.2f | %+6.2f %+6.2f |\n", nm_, hourly_rmse(T, Tobs_g, okT),
+    lb = [mb(T, Tobs_g, okT .& w .& l) for (w, l) in ((dayt, lon), (dayt, .!lon), (nite, lon), (nite, .!lon))]
+    @printf("  %-22s | %6.3f | %s | %s | %+6.2f %+6.2f %+6.2f | %+6.2f %+6.2f | %+6.2f %+6.2f | %+6.2f %+6.2f\n", nm_, hourly_rmse(T, Tobs_g, okT),
             join([@sprintf("%+6.2f", v) for v in nb], " "), join([@sprintf("%+6.2f", v) for v in hb], " "),
             mb(T, Tobs_g, okT .& dayt), mb(VP(T, RH), VPo, okV .& dayt), mb(VP(T, RH), VPo, okV .& nite),
-            mb(T, Tobs_g, okT .& dayt .& EARLY), mb(T, Tobs_g, okT .& dayt .& LATE))
+            mb(T, Tobs_g, okT .& dayt .& EARLY), mb(T, Tobs_g, okT .& dayt .& LATE), lb...)
 end
 println("""
   Bias = model - measured (K; VP hPa). n54 posterior mean, full season from day 0, open loop except the CL row.

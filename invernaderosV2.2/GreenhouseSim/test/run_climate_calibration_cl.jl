@@ -24,7 +24,7 @@
 # =============================================================================
 
 ENV["OPTB_MODE"] = "setup"
-get(ENV, "PRIORS", "") == "n54" && !haskey(ENV, "PIPE2") && (ENV["PIPE2"] = "1")   # Note 54: both heating circuits
+get(ENV, "PRIORS", "") in ("n54", "n58") && !haskey(ENV, "PIPE2") && (ENV["PIPE2"] = "1")   # Note 54: both heating circuits
 ENV["N_DAYS"]    = "115"
 include(joinpath(@__DIR__, "run_joint_inference_optionB.jl"))   # season inputs (ts, U*v, Tair_obs, ...)
 
@@ -38,7 +38,7 @@ const CBURN  = parse(Int, get(ENV, "BURN", "40000"))
 const RELTOL = parse(Float64, get(ENV, "RELTOL", "1e-3"))
 const CSMOKE = 200
 const PRIORS = get(ENV, "PRIORS", "n36")     # n36 = Note 36 priors; n37 = Note 34/37-informed controller priors + free vc_hband
-PRIORS in ("n36", "n37", "n39", "n43", "n46", "n49a", "n49b", "n54") || error("PRIORS must be n36, n37, n39, n43, n46, n49a, n49b or n54")   # n54 = Note 54b: n49b + full lamp heat (lamp_full) + both pipe circuits (PIPE2)   # n49a/b = Note 50: physical caps, free vent wind term; a = with daytime observation offset dday   # n46 = Notes 46-48: SF structure + solar-absorbing internal mass   # n43 = Note 43 structure: logged pipe + PI gaps, deep-soil state, logged min vent   # n39 = n37 + free vc_min_night (Note 40)
+PRIORS in ("n36", "n37", "n39", "n43", "n46", "n49a", "n49b", "n54", "n58") || error("PRIORS must be n36, n37, n39, n43, n46, n49a, n49b, n54 or n58")   # n58 = Note 58d: OPEN LOOP, logged lee/wind vents (vent_split), lamp_full + screen loss   # n54 = Note 54b: n49b + full lamp heat (lamp_full) + both pipe circuits (PIPE2)   # n49a/b = Note 50: physical caps, free vent wind term; a = with daytime observation offset dday   # n46 = Notes 46-48: SF structure + solar-absorbing internal mass   # n43 = Note 43 structure: logged pipe + PI gaps, deep-soil state, logged min vent   # n39 = n37 + free vc_min_night (Note 40)
 const CTAG   = "$(TEAM)_climcal_cl_$(DESIGN)$(PRIORS == "n36" ? "" : "_" * PRIORS)_seed$(CSEED)"
 
 for k in (:vent_ctrl, :vc_gain, :vc_e0, :vc_tau, :vc_hum, :vc_hband, :pipe_lag, :black_scr, :heat_ctrl, :cond_heat)
@@ -55,6 +55,7 @@ const COMMON_TEST  = vcat(wk(49, 62), wk(70, 76), wk(84, 90), wk(98, 114))
 
 # ── inputs (as diagnose_closed_loop.jl) ─────────────────────────────────────
 const VC_LEEW = vcols("VentLeew_Vip", 1:6); const VC_WIND = vcols("VentWind_Vip", 1:6); const VC_VMIN = vcols("VentLeewMin_Vip", 1:6)
+LeeZ = Float64[]; WindZ = Float64[]      # Note 58d: logged lee / wind openings (fractions, NaN -> 0)
 VentMinv = Float64[]; srcv = Int[]; VentSPv = Float64[]; HumSPv = Float64[]; Blackv = Float64[]; U8log = Float64[]
 for i in 1:n
     g = _num(gh.GHtime[i]); (isnan(g) || g < win_lo || g >= win_hi) && continue
@@ -70,6 +71,7 @@ for i in 1:n
     bs = _num(gh.BlackScr[i]); push!(Blackv, isnan(bs) ? 0.0 : clamp(bs / 100, 0.0, 1.0))
     vl = _num(gh.VentLee[i]); vw = _num(gh.Ventwind[i])
     push!(U8log, (isnan(vl) || isnan(vw)) ? NaN : clamp((vl + vw) / 200, 0.0, 1.0))
+    push!(LeeZ, isnan(vl) ? 0.0 : clamp(vl / 100, 0.0, 1.0)); push!(WindZ, isnan(vw) ? 0.0 : clamp(vw / 100, 0.0, 1.0))
     vmn = filter(!isnan, [_num(vip[i, c]) for c in VC_VMIN])
     push!(VentMinv, isempty(vmn) ? 0.0 : clamp(mean(vmn) / 200, 0.0, 1.0))
 end
@@ -82,9 +84,13 @@ LAI_row = [lai_of_day((t - t0) / 86400.0) for t in ts]
 const weather_c = WeatherInputs(A(Ig_v), A(Tsky_v), A(Tout_v), _t -> 273.15, _t -> 18.0 + 273.15,
                                 A(Wind_v), _t -> 834.7, A(VPout_v), A(Ig_v), A(LAI_row))
 U8z = [isnan(v) ? 0.0 : v for v in U8log]
-const N46P = PRIORS in ("n46", "n49a", "n49b", "n54")   # Notes 46-48 structure
-const N43P = PRIORS in ("n43", "n46", "n49a", "n49b", "n54")     # structures with the Note 43 flags, VentMin input and deep-soil state
-const ctrl_x = N43P ?
+const N46P = PRIORS in ("n46", "n49a", "n49b", "n54", "n58")   # Notes 46-48 structure
+const OLP  = PRIORS == "n58"     # Note 58d: open-loop calibration (vents are logged inputs, no vent likelihood)
+const N43P = PRIORS in ("n43", "n46", "n49a", "n49b", "n54", "n58")     # structures with the Note 43 flags, VentMin input and deep-soil state
+const ctrl_x = OLP ?
+    ControlInputsX(Z(U1v), zc, zc, zc, zc, zc, Z(WindZ), Z(LeeZ), zc, Z(U10v), Z(U11v), Z(U12v), Z(Tpipe_meas),
+                   Z(VentSPv), Z(HumSPv), Z(Blackv), Z(VentMinv)) :
+               N43P ?
     ControlInputsX(Z(U1v), zc, zc, zc, zc, zc, zc, Z(U8z), zc, Z(U10v), Z(U11v), Z(U12v), Z(Tpipe_meas),
                    Z(VentSPv), Z(HumSPv), Z(Blackv), Z(VentMinv)) :
     ControlInputsX(Z(U1v), zc, zc, zc, zc, zc, zc, Z(U8z), zc, Z(U10v), Z(U11v), Z(U12v), Z(Tpipe_meas),
@@ -105,17 +111,24 @@ end
 if PRIORS == "n54"   # Note 54b: full lamp electrical power (lamp_Pel 117 W m-2 fixed from the AGC ReadMe)
     append!(FIXN, ["lamp_full"]); append!(FIXV, [1.0])
 end
+if OLP   # Note 58d: open loop -- logged lee/wind openings drive vent_split; lamp_full with screen loss
+    FIXV[findfirst(==("vent_ctrl"), FIXN)] = 0.0
+    append!(FIXN, ["lamp_full", "vent_split", "vent_exp", "vs_clee"]); append!(FIXV, [1.0, 1.0, 1.0, 1.0])
+end
 const params_cl = update_params(params, FIXN, FIXV)
 
 # ── free parameters ──────────────────────────────────────────────────────────
-const CQ_MODEL = vcat(["gamma4", "vent_exp", "vent_scr_perm", "hc_dT", "k_ground", "vc_gain", "vc_e0", "vc_tau", "vc_hum"],
+const CQ_MODEL = OLP ?
+    ["gamma4", "vent_scr_perm", "hc_dT", "k_ground", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass",
+     "lamp_Pel", "lamp_scr_loss", "lamp_fcan", "vs_gwind", "vs_cwind", "vs_exp"] :
+    vcat(["gamma4", "vent_exp", "vent_scr_perm", "hc_dT", "k_ground", "vc_gain", "vc_e0", "vc_tau", "vc_hum"],
                       PRIORS == "n37" ? ["vc_hband"] : PRIORS == "n39" ? ["vc_hband", "vc_min_night"] :
                       PRIORS == "n43" ? ["vc_hband", "gamma1", "sd_tau"] :
                       PRIORS == "n46" ? ["vc_hband", "gamma1", "nu1", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass"] :
                       PRIORS == "n49b" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass"] :
                       PRIORS == "n54" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass", "lamp_fcan"] :
                       PRIORS == "n49a" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass", "dday"] : String[])
-const CQ       = vcat(CQ_MODEL, ["sigma_T", "sigma_RH", "sigma_U"])
+const CQ       = OLP ? vcat(CQ_MODEL, ["sigma_T", "sigma_RH"]) : vcat(CQ_MODEL, ["sigma_T", "sigma_RH", "sigma_U"])   # n58: no vent term
 const NM       = length(CQ_MODEL)
 const CQ_dict = Dict(                     # [min, centre, max]
     "gamma4"        => [20.0,  82.0,  300.0],
@@ -156,12 +169,21 @@ if N46P     # physical priors (Notes 46-48): literature centres, physically size
     CQ_dict["h_mass"]   = [1.0,   5.0,   20.0]     # W/m2/K air <-> internal mass
     CQ_dict["f_mass"]   = [0.0,   0.15,  0.35]     # -     share of outside radiation absorbed by the mass
 end
-if PRIORS in ("n49a", "n49b", "n54")   # Note 50: physical caps; vent exchange per opening allowed lower; wind term free
+if PRIORS in ("n49a", "n49b", "n54", "n58")   # Note 50: physical caps; vent exchange per opening allowed lower; wind term free
     CQ_dict["nu1"]    = [0.3,  0.65, 1.0]
     CQ_dict["nu2"]    = [0.03, 0.10, 0.2]      # wind pressure coefficient of the roof-vent flow (JSON 0.1)
     CQ_dict["k_deep"] = [0.5,  1.5,  3.0]      # no large deep store (Note 49: ~5 m at k_deep 9)
     CQ_dict["f_mass"] = [0.0,  0.1,  0.2]      # inside solar absorption <= ~0.85 of outside
     CQ_dict["dday"]   = [0.0,  0.5,  2.0]      # K, daytime observation offset (n49a only; measurement model)
+end
+if OLP   # Note 58d: open-loop priors (lamp heat retained by day ~45-55, at night ~85-100 W m-2; windward vents)
+    CQ_dict["nu2"]           = [0.03, 0.10, 0.5]
+    CQ_dict["lamp_Pel"]      = [60.0, 117.0, 130.0]
+    CQ_dict["lamp_scr_loss"] = [0.0,  0.4,  0.8]
+    CQ_dict["lamp_fcan"]     = [0.05, 0.3,  0.9]
+    CQ_dict["vs_gwind"]      = [0.5,  1.5,  4.0]
+    CQ_dict["vs_cwind"]      = [0.5,  1.0,  10.0]
+    CQ_dict["vs_exp"]        = [0.5,  0.9,  1.2]
 end
 if PRIORS == "n54"   # Note 54b: nu2 was pinned at 0.03 in n49b and OL is under-ventilated by day -> wider; lamp split free
     CQ_dict["nu2"]       = [0.03, 0.10, 0.5]
@@ -250,8 +272,10 @@ function sse_all(x, rtol)
     return (sT, sR, sU)
 end
 function cenergy(z; rtol = RELTOL)
-    σT = z[NM+1]; σR = z[NM+2]; σU = z[NM+3]
+    σT = z[NM+1]; σR = z[NM+2]
     sT, sR, sU = sse_all(z[1:NM], rtol); isfinite(sT) || return Inf
+    OLP && return NBT * log(σT) + sT / (2σT^2) + NBR * log(σR) + sR / (2σR^2)   # n58: vents are inputs
+    σU = z[NM+3]
     return NBT * log(σT) + sT / (2σT^2) + NBR * log(σR) + sR / (2σR^2) + NBU * log(σU) + sU / (2σU^2)
 end
 
@@ -307,7 +331,8 @@ function full_eval(x; rtol = RELTOL)
     us = simdays(update_params(params_cl, CQ_MODEL, x), days, u0_cl, rtol)
     us === nothing && error("full-season solve failed")
     dd = "dday" in CQ_MODEL ? x[findfirst(==("dday"), CQ_MODEL)] : 0.0       # n49a: compared T includes the offset
-    return us[2, :] .+ dd .* (A(Ig_v).(predtimes) .> 50.0), rhf.(us[2, :], us[4, :]), clamp.(us[7, :], 0.0, 1.0)
+    Uout = OLP ? AU.(predtimes) : clamp.(us[7, :], 0.0, 1.0)        # n58: vents are logged inputs (report the log)
+    return us[2, :] .+ dd .* (A(Ig_v).(predtimes) .> 50.0), rhf.(us[2, :], us[4, :]), Uout
 end
 cd_  = vcat(-1, [(c - 2) ÷ NPD for c in 2:NCOL])
 nite = A(Ig_v).(predtimes) .< 1.0
