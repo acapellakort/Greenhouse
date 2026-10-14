@@ -72,6 +72,8 @@ if LAGGRID
     runs = Any[("P  posterior mean", pm)]
     for tau in (15, 30, 60, 90, 120); push!(runs, ("L  lag $(tau) min", pm)); end
     push!(runs, ("LM lag 60 + s=0.15", pm))
+    push!(runs, ("LM lag 30 + s=0.15", pm))
+    for m in (2.0, 4.0, 8.0); push!(runs, ("A  air cap x$(Int(m))", pm)); end   # Note 61: physical alternative to a sensor lag
 end
 function lagT(T, tau_min)
     a = 300.0 / (60.0 * tau_min); y = copy(T)
@@ -103,14 +105,21 @@ println("  ", "-"^168)
 TP = Float64[]
 Igc_ = A(Ig_v).(predtimes)
 for (nm_, x) in runs
-    T, RH, U = full_eval(x); Tair = copy(T)          # VP always from the air node
+    if startswith(nm_, "A  air cap x")       # re-simulate with a larger effective air heat capacity
+        m_ = parse(Float64, split(nm_, "x")[end])
+        us_ = simdays(update_params(update_params(params_cl, CQ_MODEL, x), ["air_cap_mult"], [m_]), days, u0_cl, RELTOL)
+        T, RH = us_[2, :], rhf.(us_[2, :], us_[4, :]); U = AU.(predtimes)
+    else
+        T, RH, U = full_eval(x)
+    end
+    Tair = copy(T)          # VP always from the air node
     if startswith(nm_, "M  sensor s=")          # measurement model: compare T + s*I/100 (RH kept at the air node)
         s_ = parse(Float64, split(nm_, "=")[2]); T = T .+ s_ .* Igc_ ./ 100
     end
     if startswith(nm_, "L  lag ")
         T = lagT(T, parse(Float64, split(nm_)[3]))
     elseif startswith(nm_, "LM ")
-        T = lagT(T, 60.0) .+ 0.15 .* Igc_ ./ 100
+        T = lagT(T, parse(Float64, split(nm_)[3])) .+ 0.15 .* Igc_ ./ 100
     end
     if LAGGRID     # within-hour SD of T (model as compared / observed), common test, day and night
         wsd(v, m) = (e = Float64[]; for cols in values(HB); k = [c for c in cols if m[c]]; length(k) >= 6 && push!(e, std(v[k])); end; mean(e))

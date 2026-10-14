@@ -223,7 +223,8 @@ function rhs!(du, u, ctx::SimContext, t)
             dT1  += (fc * Ql - r5l) / (p.alpha1 * I1)
             dT2x += ((1 - fc) * Ql - h12l) / (p.phi2 * p.rho3 * p.alpha5)
         end
-        du[1] = dT1; du[2] = dT2 + dT2x; du[3] = dC1; du[4] = dV1
+        du[1] = dT1; du[2] = (dT2 + dT2x) / (hasproperty(p, :air_cap_mult) ? p.air_cap_mult : 1.0);   # Note 61: effective air heat capacity (default 1)
+        du[3] = dC1; du[4] = dV1
         du[5] = eI                 # integral of the temperature error (PI); = U11 - T2 when heat_ctrl is off
         du[6] = dT5                # floor/soil thermal-mass state
     end

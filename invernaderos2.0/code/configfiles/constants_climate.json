@@ -1111,5 +1111,12 @@
         "desc": "Note 58d: share of lamp power lost through the roof when screens are open (default 0 = off)",
         "latex": "",
         "comment": "Note 58d"
+    },
+    "air_cap_mult": {
+        "val": 1.0,
+        "units": "1",
+        "desc": "Note 61: multiplier on the air heat capacity (fast structure/crop/air-volume mass lumped with the air); 1 = V2.2",
+        "latex": "",
+        "comment": "Note 61"
     }
 }
