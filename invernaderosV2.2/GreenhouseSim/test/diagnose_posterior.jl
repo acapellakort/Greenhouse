@@ -64,6 +64,20 @@ if SOLARGRID
     for g in (110.0, 150.0); push!(runs, ("G  gamma4 $(Int(g))", setx(pm, "gamma4" => g))); end
     push!(runs, ("FG f_mass 0.3 g4 110", setx(pm, "f_mass" => 0.3, "gamma4" => 110.0)))
 end
+# Note 60 (LAGGRID=1): first-order SENSOR LAG on the compared air T (post hoc filter of the 5-min model series,
+#   tau in minutes; no re-simulation). A lagged sensor makes the measured diurnal cycle trail the air and damps
+#   within-hour swings -- the two signatures of Notes 58/59 (morning warm / afternoon cold; within-hour SD x2).
+const LAGGRID = get(ENV, "LAGGRID", "0") == "1"
+if LAGGRID
+    runs = Any[("P  posterior mean", pm)]
+    for tau in (15, 30, 60, 90, 120); push!(runs, ("L  lag $(tau) min", pm)); end
+    push!(runs, ("LM lag 60 + s=0.15", pm))
+end
+function lagT(T, tau_min)
+    a = 300.0 / (60.0 * tau_min); y = copy(T)
+    for k in 3:length(T); y[k] = y[k-1] + a * (T[k] - y[k-1]); end   # column 1 is the initial state
+    y
+end
 okT = .!isnan.(Tobs_g); okT[1] = false; okV = okT .& .!isnan.(RHobs_g); okU = .!isnan.(U8obs); okU[1] = false
 inset(ds) = in.(cd_, Ref(Set(ds)))
 ALLD = inset(collect(0:114)); COM = inset(COMMON_TEST)
@@ -92,6 +106,16 @@ for (nm_, x) in runs
     T, RH, U = full_eval(x); Tair = copy(T)          # VP always from the air node
     if startswith(nm_, "M  sensor s=")          # measurement model: compare T + s*I/100 (RH kept at the air node)
         s_ = parse(Float64, split(nm_, "=")[2]); T = T .+ s_ .* Igc_ ./ 100
+    end
+    if startswith(nm_, "L  lag ")
+        T = lagT(T, parse(Float64, split(nm_)[3]))
+    elseif startswith(nm_, "LM ")
+        T = lagT(T, 60.0) .+ 0.15 .* Igc_ ./ 100
+    end
+    if LAGGRID     # within-hour SD of T (model as compared / observed), common test, day and night
+        wsd(v, m) = (e = Float64[]; for cols in values(HB); k = [c for c in cols if m[c]]; length(k) >= 6 && push!(e, std(v[k])); end; mean(e))
+        @printf("  %-20s   within-hour SD  day %.3f / %.3f   night %.3f / %.3f\n", nm_, wsd(T, okT .& COM .& dayt),
+                wsd(Tobs_g, okT .& COM .& dayt), wsd(T, okT .& COM .& nite), wsd(Tobs_g, okT .& COM .& nite))
     end
     isempty(TP) && append!(TP, T)
     nb = [mb(T, Tobs_g, okT .& nite .& inset(collect(a:b))) for (a, b) in PER]
