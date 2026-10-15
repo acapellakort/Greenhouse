@@ -1118,5 +1118,12 @@
         "desc": "Note 61: multiplier on the air heat capacity (fast structure/crop/air-volume mass lumped with the air); 1 = V2.2",
         "latex": "",
         "comment": "Note 61"
+    },
+    "s_rad": {
+        "val": 0.0,
+        "units": "K / (100 W m^-2)",
+        "desc": "Note 61: measurement model, compared T = air T + s_rad*Iglob/100 (sun-heated sensor); 0 = off",
+        "latex": "",
+        "comment": "Note 61"
     }
 }
