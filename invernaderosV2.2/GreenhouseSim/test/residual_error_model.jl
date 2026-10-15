@@ -64,13 +64,17 @@ function acf_u(z, mask, k)       # uncentred autocorrelation (the bias is part o
     n < 20 ? NaN : a / sqrt(b * c)
 end
 
+function arpaths(r, n)           # NSIM x n stationary AR(1) paths with unit variance
+    X = Matrix{Float64}(undef, NSIM, n); X[:, 1] = randn(NSIM); s = sqrt(1 - r^2)
+    for t in 2:n
+        X[:, t] = r .* X[:, t - 1] .+ s .* randn(NSIM)
+    end
+    return X
+end
 function simz(kind, p, n)        # NSIM x n unit-variance stationary paths
-    Z = randn(NSIM, n)
-    kind == :iid && return Z
-    ar(r) = (X = similar(Z); X[:, 1] = randn(NSIM); s = sqrt(1 - r^2)
-             for t in 2:n; X[:, t] = r .* X[:, t - 1] .+ s .* randn(NSIM); end; X)
-    kind == :ar1 && return ar(p.r)
-    return sqrt(p.w) .* ar(p.rf) .+ sqrt(1 - p.w) .* ar(p.rs)
+    kind == :iid && return randn(NSIM, n)
+    kind == :ar1 && return arpaths(p.r, n)
+    return sqrt(p.w) .* arpaths(p.rf, n) .+ sqrt(1 - p.w) .* arpaths(p.rs, n)
 end
 
 function windows(ds, w)          # non-overlapping w-hour windows, starting at midnight, inside the day set

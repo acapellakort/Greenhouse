@@ -109,7 +109,7 @@ if length(good) >= 5
     @printf("     corr(k obs, night vent) %.2f, corr(k obs, wind) %.2f  |  corr(k model, night vent) %.2f, corr(k model, wind) %.2f\n",
             cor(ko, nvent.(good)), cor(ko, nwind.(good)), cor(km, nvent.(good)), cor(km, nwind.(good)))
 end
-@printf("\n  model vent (night, lamps off) mean %.3f vs logged %.3f\n", mean(Vmod[use]), mean(Vlog[use]))
+@printf("\n  model vent (night, lamps off) mean %.3f vs logged %.3f\n", mean(filter(!isnan, Vmod[use])), mean(filter(!isnan, Vlog[use])))
 println("""
   Read: k is the fraction of the excess CO2 exchanged with outside per hour, fitted from how fast each night's CO2
   relaxes -- not from its level, so the daytime dosing error does not enter. k model > k obs = the model exchanges
