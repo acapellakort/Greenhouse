@@ -51,6 +51,10 @@ if "dday" in CQ_MODEL
 else
     push!(runs, ("P1 f_mass 0.15", setx(pm, "f_mass" => 0.15)))
 end
+if "s_rad" in CQ_MODEL     # n61: what the physical air node does without the sun-proportional measurement term
+    push!(runs, ("P  air T only (s_rad 0)", setx(pm, "s_rad" => 0.0)))
+    push!(runs, ("P  air cap x1, s_rad 0", setx(pm, "s_rad" => 0.0, "air_cap_mult" => 1.0)))
+end
 # Note 60 (SOLARGRID=1): forward screen of the afternoon solar deficit at the posterior mean
 #   M*   measurement model: compared T = air T + s * Iglob/100 (sensor heated by sun; post hoc, no re-simulation)
 #   F*   f_mass above its 0.2 cap (more absorbed sun reaching the air via the internal mass)
