@@ -34,10 +34,9 @@ end
 isempty(parts) && error("no $(PRIORS) chains in $POSTDIR")
 post = reduce(vcat, parts)
 idx  = round.(Int, range(1, size(post, 1), length = K))
-iσT  = findfirst(==("sigma_T"), CQ); iσR = findfirst(==("sigma_RH"), CQ)
+kσT  = findfirst(==("sigma_T"), CQ); kσR = findfirst(==("sigma_RH"), CQ)
 
 # hourly bins over the season
-HBk = sort(collect(Dict{Tuple{Int,Int},Vector{Int}}()))   # placeholder type
 HB = Dict{Tuple{Int,Int},Vector{Int}}()
 for c in 2:NCOL; push!(get!(HB, (cd_[c], floor(Int, ((c - 2) % NPD) * 300 / 3600)), Int[]), c); end
 keys_ = sort(collect(keys(HB)))
@@ -59,7 +58,7 @@ for (i, r) in enumerate(idx)
     Tc, RHc, _ = try full_eval(z[1:NM]) catch; (nothing, nothing, nothing) end
     if Tc === nothing; global nfail += 1; continue; end
     MT[i, :] = [binmean(Tc, HB[k], okT) for k in keys_]; MR[i, :] = [binmean(RHc, HB[k], okR) for k in keys_]
-    σT[i] = z[iσT]; σR[i] = z[iσR]
+    σT[i] = z[kσT]; σR[i] = z[kσR]
     if CROP     # crop with this draw's air T (s_rad excluded: the crop sees the air, not the sensor)
         us_ = simdays(update_params(params_cl, CQ_MODEL, z[1:NM]), days, u0_cl, RELTOL); Tair = us_[2, :]
         for d in 0:(N_DAYS - 1); M = work[d + 1]
