@@ -29,6 +29,7 @@ const NCHN  = parse(Int, get(ENV, "CHAIN", MODE == "smoke" ? "2000" : "150000"))
 const BURN  = parse(Int, get(ENV, "BURN", "40000"))
 const TRANS = parse(Float64, get(ENV, "TRANS", "0.65"))
 const TEAM  = "AiCU"
+const ZCLAMP = parse(Float64, get(ENV, "ZCLAMP", "0"))   # Note 70: 1 = fruits grow past stage 1, picked by size only
 
 INV   = normpath(joinpath(@__DIR__, "..", "..", ".."))
 DATA  = joinpath(INV, "invernaderos2.0", "data")
@@ -36,7 +37,7 @@ params = load_params(joinpath(INV, "invernaderos2.0", "code", "configfiles", "co
                      joinpath(INV, "invernaderos2.0", "code", "configfiles", "constants_cropphoto.json"))
 gp_base = load_growth_params(joinpath(@__DIR__, "..", "configfiles", "cucumber_growth.json"))
 gp_base = update_params(gp_base, ["set_start_day", "harvest_W", "gen_clampT", "gen_parlight", "gen_beta", "gen_kappa",
-                                  "gen_A", "gen_V"], [15.0, 16.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+                                  "gen_A", "gen_V", "gen_zclamp"], [15.0, 16.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, ZCLAMP])
 
 season = load_measured_climate_par(joinpath(DATA, TEAM, "Greenhouse_climate.csv"), joinpath(DATA, "meteo.csv");
                                    transmission = TRANS, lamp_umol = 187.0)
@@ -101,13 +102,14 @@ function report(z, tag)
     @printf("\n  %s: final yield %.2f kg FW/m2 (obs %.2f) | weekly-yield RMSE %.3f | leaves RMSE %.2f (final %.1f vs %.1f) | fruit-age RMSE %.2f d\n",
             tag, r.yield_FW[end], cum_at(days_obs, y_obs, LAST), sqrt(mean(abs2, ry)), sqrt(mean(abs2, rl)),
             at_day(r.node, cm_days[end]), cm_N[end], sqrt(mean(abs2, rf)))
-    @printf("  fruits harvested %.1f /m2, mean fruit FW %.0f g; final LAI %.2f\n", sum(r.harv_n),
-            sum(r.harv_n) > 0 ? 1000 * r.yield_FW[end] / sum(r.harv_n) : NaN, r.LAI[end])
+    @printf("  fruits harvested %.1f /m2, mean fruit FW %.0f g; final LAI %.2f; mean Pg %.1f g CH2O/m2/d (d0-48 %.1f, d49-114 %.1f)\n",
+            sum(r.harv_n), sum(r.harv_n) > 0 ? 1000 * r.yield_FW[end] / sum(r.harv_n) : NaN, r.LAI[end], mean(r.Pg),
+            mean(r.Pg[1:49]), mean(r.Pg[50:end]))
     println("  week start | fruit dev. time obs / model (d)")
     for (d, v) in zip(fd_start, fd_val); @printf("  %10d | %5.1f / %5.1f\n", d, v, week_age(r, d)); end
 end
 
-println("\nGeneric (Aaron/M94) crop calibration -- mode=$MODE seed=$SEED transmission=$TRANS")
+println("\nGeneric (Aaron/M94) crop calibration -- mode=$MODE seed=$SEED transmission=$TRANS zclamp=$ZCLAMP")
 report(centre, "prior centre")
 @printf("  energy at centre %.1f\n", energy(centre))
 MODE == "centre" && exit()
@@ -117,7 +119,7 @@ jit() = (for _ in 1:1000; x = centre .* (1 .+ 0.05 .* randn(length(QoI))); supp(
 t0 = time(); Run!(obj, T = NCHN, x0 = jit(), xp0 = jit())
 @printf("\n%d steps in %.0f s (%.2f s/step)\n", NCHN, time() - t0, (time() - t0) / NCHN)
 postdir = joinpath(@__DIR__, "posteriors"); mkpath(postdir)
-fn = joinpath(postdir, "$(TEAM)_growth_generic_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
+fn = joinpath(postdir, "$(TEAM)_growth_generic$(ZCLAMP > 0.5 ? "_zc" : "")_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
 JLD2.@save fn chain=obj.Output QoI=QoI burn_in=BURN transmission=TRANS
 println("saved ", fn)
 b = MODE == "smoke" ? max(1, NCHN ÷ 2) : BURN

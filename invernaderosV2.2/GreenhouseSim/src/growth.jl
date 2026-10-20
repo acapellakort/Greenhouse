@@ -174,6 +174,10 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
     gK = hasproperty(gp, :gen_kappa) ? gp.gen_kappa : 1.0
     gA = hasproperty(gp, :gen_A)     ? gp.gen_A     : 1.0
     gV = hasproperty(gp, :gen_V)     ? gp.gen_V     : 1.0
+    # Note 70 (generic path, default-off): gen_zclamp = 1 -> past stage 1 a fruit keeps the stage-1 sink (as M94's own
+    # equation, which clamps thermal age at 270 C d) and is picked by size only (harvest_W), with stage 3 as a safety cap.
+    zc   = !isnothing(generic_params) && hasproperty(gp, :gen_zclamp) && gp.gen_zclamp > 0.5
+    zmax = zc ? 3.0 : 1.0
     fpar = (!isnothing(generic_params) && hasproperty(gp, :gen_parlight) && gp.gen_parlight > 0.5 && !isnan(par_MJ)) ?
            (1.0 - exp(-0.5 - 0.5 * par_MJ)) / (1.0 - exp(-0.5 - 0.5 * 6.8)) : 1.0
 
@@ -255,7 +259,7 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
 
         # Per-fruit sink: generic Bell curve; f.n [fruits/m2] linearises directly
         fruit_sink_pre = isempty(s.fruits) ? 0.0 :
-                         gA * sum(generic_sink(Ts, f.dev, f.n, generic_params) for f in s.fruits)
+                         gA * sum(generic_sink(Ts, zc ? min(f.dev, 1.0) : f.dev, f.n, generic_params) for f in s.fruits)
         total_sink_pre = veg_sink + fruit_sink_pre
 
         # 5. fruit set regulated by carbohydrate status (same logic, generic appearance)
@@ -270,7 +274,7 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
         end
 
         # 6. allocate using M94 eq.4 / H96 eq.1 helper
-        fruit_sinks_vec = [gA * generic_sink(Ts, f.dev, f.n, generic_params) for f in s.fruits]
+        fruit_sinks_vec = [gA * generic_sink(Ts, zc ? min(f.dev, 1.0) : f.dev, f.n, generic_params) for f in s.fruits]
         potentials = vcat([veg_sink], fruit_sinks_vec)
         growths, s.reserve = allocate_daily(potentials, dDM_pot, s.reserve)   # M94 eq.4 with reserve carry-over (Note 66)
         veg_DM     = growths[1]
@@ -288,7 +292,7 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
     hw = (!isnothing(generic_params) && hasproperty(gp, :harvest_W)) ? gp.harvest_W : 0.0
     keep = Fruit[]
     for f in s.fruits
-        if f.dev >= 1.0 || (hw > 0.0 && f.n > 0.0 && f.W / f.n >= hw)
+        if f.dev >= zmax || (hw > 0.0 && f.n > 0.0 && f.W / f.n >= hw)
             s.yield_DW += f.W
             s.yield_FW += (f.W / gp.DMC_fruit) / 1000.0   # g DW -> kg FW / m2
         else
