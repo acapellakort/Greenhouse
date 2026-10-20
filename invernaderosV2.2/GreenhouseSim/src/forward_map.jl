@@ -222,7 +222,7 @@ function rhs!(du, u, ctx::SimContext, t)
         dT2x, dT5 = floor_balance(T2, T5, Tdeep, p)
         # Note 46 (default-off): floor_full closes the floor energy balance; solar_split adds sun on the floor
         if (hasproperty(p, :floor_full) && p.floor_full > 0.5) || (hasproperty(p, :solar_split) && p.solar_split > 0.5)
-            c1, c2, Qf = floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p)
+            c1, c2, Qf = floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p; V1 = V1)
             dT1 += c1; dT2x += c2; dT5 += Qf / p.C_soil
         end
         # Note 48 (default-off): mass_node = 1 -> lumped internal thermal mass (structure, substrate, crop water,

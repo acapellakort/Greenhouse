@@ -36,6 +36,27 @@ cov_abs * I2 of the global radiation:  Tc = (kR(T2 + I4) + h_cover_out*I5 + R_co
 end
 
 """
+    cover_latent(Tbase, T2, V1, U1, kR, p) -> Tc
+
+Note 81 (only with cover_cond = 1 and the cover node on): the latent heat of the vapour condensing on the cover
+(Vanthoor MV_AirCov, per m2 cover: 6.4e-9 * 1.7|T2 - Tc|^0.33 * (VP - Psat(Tc)) * share of crop air in contact)
+is released IN the cover, which warms it and limits condensation. The cover node is linear in Tc apart from this
+term, so Tc = Tbase + gamma2 * MV(Tc) / (2kR + h_cover_out), solved by fixed point (contraction ~0.1, 4 passes).
+The vapour removed from the air is the same MV (climate_rhs, p10), so water and energy stay consistent.
+"""
+@inline function cover_latent(Tbase, T2, V1, U1, kR, p)
+    D    = 2.0 * kR + p.h_cover_out
+    fcov = 1.0 - U1 * (1.0 - p.vent_scr_perm)
+    Tc   = Tbase
+    for _ in 1:4
+        dv = V1 - Pws(Tc)
+        Tc = Tbase + (dv > 0.0 ? p.gamma2 * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * dv / D : 0.0)
+    end
+    return Tc
+end
+cond_on(p) = hasproperty(p, :cover_cond) && p.cover_cond > 0.5
+
+"""
     floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p) -> (dT1_corr, dT2_corr, Q_floor)
 
 Note 46. Re-books the floor terms of climate_rhs so the floor energy balance closes (floor_full = 1):
@@ -45,12 +66,15 @@ Note 46. Re-books the floor terms of climate_rhs so the floor energy balance clo
 With solar_split = 1 the floor also absorbs the transmitted sun not intercepted by the canopy.
 Returns corrections to dT1, dT2 [K/s] and the extra net flux into the floor [W m^-2].
 """
-@inline function floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p)
+@inline function floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p; V1 = NaN)
     (; epsil2, epsil3, epsil4, sigma, gamma1, phi1, tau1, tau3, beta1, beta3, eta1, eta2, eta3,
        rho2, alpha1, alpha5, alpha7, rho3, phi2, nu7, nu8, use_cover_node) = p
     Qf = 0.0; c1 = 0.0; c2 = 0.0
     if hasproperty(p, :floor_full) && p.floor_full > 0.5
         Tc  = use_cover_node > 0.5 ? cover_T(T2, I4, I5, I2, p) : I4
+        if use_cover_node > 0.5 && cond_on(p) && isfinite(V1)      # Note 81: same cover T as climate_rhs
+            Tc = cover_latent(Tc, T2, V1, U1, 4.0 * epsil3 * sigma * (0.5 * (T2 + I4))^3, p)
+        end
         g2  = 1 - U1 * (1 - tau3)
         g3  = tau1 * g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-beta3 * I1)
         fcf = epsil4 * epsil2 * (1 - 0.49 * pi * gamma1 * phi1) * sigma
@@ -190,6 +214,10 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     # the cover node instead of the greenhouse air (see r8 below). Only active with use_cover_node = 1.
     if hasproperty(p, :solar_split) && p.solar_split > 0.5 && use_cover_node > 0.5
         I4_eff = cover_T(T2, I4, I5, I2, p)
+    end
+    # Note 81: with cover condensation on, its latent heat warms the cover (self-limiting condensation)
+    if use_cover_node > 0.5 && cond_on(p)
+        I4_eff = cover_latent(I4_eff, T2, V1, U1, kR_cov, p)
     end
 
     SkyFIRBoltzmann = epsil3 * sigma * (T2^4 - I4_eff^4)
