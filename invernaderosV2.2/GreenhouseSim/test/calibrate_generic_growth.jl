@@ -37,7 +37,7 @@ params = load_params(joinpath(INV, "invernaderos2.0", "code", "configfiles", "co
                      joinpath(INV, "invernaderos2.0", "code", "configfiles", "constants_cropphoto.json"))
 gp_base = load_growth_params(joinpath(@__DIR__, "..", "configfiles", "cucumber_growth.json"))
 gp_base = update_params(gp_base, ["set_start_day", "harvest_W", "gen_clampT", "gen_parlight", "gen_beta", "gen_kappa",
-                                  "gen_A", "gen_V", "gen_zclamp"], [15.0, 16.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, ZCLAMP])
+                                  "gen_A", "gen_V", "gen_zclamp", "stem_density"], [15.0, 16.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, ZCLAMP, 2.6])
 
 season = load_measured_climate_par(joinpath(DATA, TEAM, "Greenhouse_climate.csv"), joinpath(DATA, "meteo.csv");
                                    transmission = TRANS, lamp_umol = 187.0)
@@ -72,12 +72,12 @@ function week_age(r, d0)     # n-weighted mean age of fruits harvested in days d
 end
 
 # --- parameters ----------------------------------------------------------------------------------------------
-QoI_G = ["gen_beta", "gen_kappa", "gen_A", "gen_V", "LAI_max", "set_r_low", "set_r_high", "stem_density"]
+QoI_G = ["gen_beta", "gen_kappa", "gen_A", "gen_V", "LAI_max", "set_r_low", "set_r_high"]   # stem_density fixed 2.6 (user, Note 71)
 QoI_S = ["sigma_y", "sigma_leaf", "sigma_fd"]
 QoI   = vcat(QoI_G, QoI_S); NG = length(QoI_G)
 PR = Dict("gen_beta" => [0.5, 1.0, 1.5],  "gen_kappa" => [0.5, 1.0, 2.5], "gen_A" => [0.2, 1.0, 2.0],
           "gen_V" => [0.2, 1.0, 2.0],     "LAI_max" => [1.5, 2.5, 4.0],   "set_r_low" => [0.0, 0.3, 1.0],
-          "set_r_high" => [0.2, 1.0, 2.5], "stem_density" => [2.4, 3.0, 3.6],
+          "set_r_high" => [0.2, 1.0, 2.5],
           "sigma_y" => [0.02, 0.3, 3.0],  "sigma_leaf" => [0.5, 3.0, 20.0], "sigma_fd" => [0.5, 3.0, 15.0])
 centre = [PR[q][2] for q in QoI]
 

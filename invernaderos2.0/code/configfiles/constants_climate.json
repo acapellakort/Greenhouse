@@ -1125,5 +1125,26 @@
         "desc": "Note 61: measurement model, compared T = air T + s_rad*Iglob/100 (sun-heated sensor); 0 = off",
         "latex": "",
         "comment": "Note 61"
+    },
+    "phys_light": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 71 flag: stomata and photosynthesis see sun PAR through the screens (x(1-0.98 BlackScr)(1-0.25 EnScr)) plus lamp PAR lamp_par_W*U12; 0 = sun only (V2.2)",
+        "latex": "",
+        "comment": "Note 71"
+    },
+    "lamp_par_W": {
+        "val": 40.65,
+        "units": "W m^-2 (PAR)",
+        "desc": "Note 71: lamp PAR at the canopy at 100 % (187 umol m-2 s-1 / 4.6 umol J-1)",
+        "latex": "",
+        "comment": "Note 71"
+    },
+    "photo_lai": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 71 flag: photosynthesis scaled by the effective leaf area (1-exp(-0.7 LAI))/0.7 instead of the 2.0 'LAI = I9' quirk; 0 = V2.2",
+        "latex": "",
+        "comment": "Note 71"
     }
 }

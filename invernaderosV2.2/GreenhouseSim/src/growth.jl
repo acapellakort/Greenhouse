@@ -60,6 +60,10 @@ function rhs_dyn!(du, u, ctx::SimContext, t)
     U5  = c.U5(tctrl);  U6  = c.U6(tctrl);  U7  = c.U7(tctrl);  U8 = c.U8(tctrl)
     U9  = c.U9(tctrl);  U10 = c.U10(tctrl); U11 = c.U11(tctrl); U12 = c.U12(tctrl)
     I3  = c.Tpipe(tctrl)
+    if hasproperty(p, :phys_light) && p.phys_light > 0.5      # Note 71: sun through screens + lamps for physiology
+        I9 = phys_par(I9, U1, U12, c, tctrl, p)
+        A  = assimilation(T2, C1, I9, lai_eff(LAI), p)
+    end
 
     dT1, dT2, dC1, dV1 = climate_rhs(T1, T2, C1, V1,
         I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, A,

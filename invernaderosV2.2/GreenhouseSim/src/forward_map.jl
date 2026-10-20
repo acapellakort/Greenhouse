@@ -52,6 +52,21 @@ weather Tsoil. `climate_rhs` itself is unchanged.
 end
 
 """
+    phys_par(I9, U1, U12, c, tctrl, p) -> PAR [W m-2] seen by the crop physiology (Note 71, flag phys_light)
+
+Sun PAR at the canopy through the screens (organisers' factors: blackout 0.98, energy screen 0.25 interception)
+plus lamp PAR (lamp_par_W, 187 umol / 4.6 = 40.7 W m-2 PAR at 100 %). Used for the stomatal light response and
+photosynthesis only; the energy balance keeps its own radiation terms. phys_light = 0 returns I9 unchanged.
+"""
+@inline function phys_par(I9, U1, U12, c, tctrl, p)
+    (hasproperty(p, :phys_light) && p.phys_light > 0.5) || return I9
+    bs = (hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing)) ? clamp(c.BlackScr(tctrl), 0.0, 1.0) : 0.0
+    es = clamp(U1, 0.0, 1.0)
+    lp = hasproperty(p, :lamp_par_W) ? p.lamp_par_W : 187.0 / 4.6
+    return I9 * (1 - 0.98 * bs) * (1 - 0.25 * es) + lp * clamp(U12, 0.0, 1.0)
+end
+
+"""
     rhs!(du, u, ctx::SimContext, t)
 
 Right-hand side of the greenhouse ODE system.
@@ -97,6 +112,14 @@ function rhs!(du, u, ctx::SimContext, t)
     U5  = c.U5(tctrl);  U6  = c.U6(tctrl);  U7  = c.U7(tctrl);  U8 = c.U8(tctrl)
     U9  = c.U9(tctrl);  U10 = c.U10(tctrl); U11 = c.U11(tctrl); U12 = c.U12(tctrl)
     I3  = c.Tpipe(tctrl)
+
+    # Note 71 (default-off): crop physiology sees sun (through the screens) + lamp PAR (phys_light), and photosynthesis
+    # is scaled by the effective leaf area instead of the 2.0 'LAI = I9' quirk (photo_lai). Computed from the raw logged
+    # energy-screen and lamp signals, before any controller modifies U1.
+    if (hasproperty(p, :phys_light) && p.phys_light > 0.5) || (hasproperty(p, :photo_lai) && p.photo_lai > 0.5)
+        I9 = phys_par(I9, U1, U12, c, tctrl, p)
+        A  = assimilation(T2, C1, I9, (hasproperty(p, :photo_lai) && p.photo_lai > 0.5) ? lai_eff(I1) : I9, p)
+    end
 
     # --- Note 34 flags (default-off; need ControlInputsX and, for states, length(u) >= 8) ---
     # black_scr: blackout screen as extra night insulation, U1_eff = 1-(1-U1)(1-k_black*BlackScr)

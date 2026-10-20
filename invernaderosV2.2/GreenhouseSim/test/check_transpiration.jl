@@ -28,7 +28,9 @@ for s in (1, 2)
 end
 isempty(parts) && error("no $(PRIORS) chains in $POSTDIR")
 pmean = vec(mean(reduce(vcat, parts), dims = 1)); pT = update_params(params_cl, CQ_MODEL, pmean)
-ust = simdays(pT, days, u0_cl, RELTOL); ust === nothing && error("solve failed")
+# Note 71: second run with the crop physiology seeing sun-through-screens + lamp PAR (phys_light) and the
+# leaf-area-scaled photosynthesis (photo_lai); same posterior-mean parameters (not re-fitted)
+pL = update_params(pT, ["phys_light", "photo_lai", "lamp_par_W"], [1.0, 1.0, 187.0 / 4.6])
 
 function p1_flux(T1, T2, C1, V1, I9, LAI, p)        # kg m-2 s-1, as climate_rhs with stomata_fix = 1
     (; gamma, gamma2, gamma3, gamma4, gamma5, delta1, delta2, delta3, delta4, delta5, delta6, delta7, rho3, alpha5) = p
@@ -43,11 +45,20 @@ function p1_flux(T1, T2, C1, V1, I9, LAI, p)        # kg m-2 s-1, as climate_rhs
 end
 trans9 = (1 - pT.eta1) * pT.tau1 * pT.eta2
 Ig = A(Ig_v).(predtimes); LAIt = A(LAI_row).(predtimes)
-Emod = zeros(N_DAYS)
-for d in 0:(N_DAYS - 1), j in 0:(NPD - 2)
-    c = col_of(d, j)
-    Emod[d + 1] += p1_flux(ust[1, c], ust[2, c], ust[3, c], ust[4, c], trans9 * Ig[c], LAIt[c], pT) * 300.0
+BSt = A(Blackv).(predtimes); ESt = A(U1v).(predtimes); LMt = A(U12v).(predtimes)
+function emod(pX, phys)
+    us_ = simdays(pX, days, u0_cl, RELTOL); us_ === nothing && error("solve failed")
+    E = zeros(N_DAYS)
+    for d in 0:(N_DAYS - 1), j in 0:(NPD - 2)
+        c = col_of(d, j)
+        Ipar = phys ? trans9 * Ig[c] * (1 - 0.98 * clamp(BSt[c], 0, 1)) * (1 - 0.25 * clamp(ESt[c], 0, 1)) + pX.lamp_par_W * clamp(LMt[c], 0, 1) :
+                      trans9 * Ig[c]
+        E[d + 1] += p1_flux(us_[1, c], us_[2, c], us_[3, c], us_[4, c], Ipar, LAIt[c], pX) * 300.0
+    end
+    E
 end
+Emod  = emod(pT, false)
+EmodL = emod(pL, true)
 
 irr = DataFrame(CSV.File(joinpath(DATA, TEAM, "Irrigation.csv")))
 num(x) = x isa Number ? Float64(x) : NaN
@@ -63,24 +74,27 @@ Eobs(basis) = net .* (basis / 96) .- fruitw .- vegw
 
 println("\n", "="^104)
 @printf("  %s transpiration check (posterior mean, %s); L per floor m2 per week\n", PRIORS, OLP ? "open loop" : "closed loop")
-@printf("  %-10s | %8s %8s | %8s %8s %8s | %6s %6s\n", "days", "net(96)", "fruit", "Eobs 96", "Eobs 76.8", "Emodel", "ratio96", "ratio77")
+@printf("  %-10s | %8s %8s | %8s %8s | %8s %8s | %6s %6s | %6s %6s\n", "days", "net(96)", "fruit", "Eobs 96", "Eobs 76.8",
+        "Emod", "Emod+L", "r96", "r77", "r96+L", "r77+L")
 W = Tuple{Int,Int}[(a, min(a + 6, N_DAYS - 1)) for a in 0:7:(N_DAYS - 1)]
 wkd = Dict{Int,Vector{Float64}}()
 for (a, b) in W
     ix = (a:b) .+ 1; ok = .!isnan.(net[ix]); count(ok) >= 6 || continue
-    e96 = sum(Eobs(96.0)[ix][ok]); e77 = sum(Eobs(76.8)[ix][ok]); em = sum(Emod[ix][ok])
-    wkd[a] = [e96, e77, em]
-    @printf("  d%-3d-%-4d | %8.2f %8.2f | %8.2f %8.2f %8.2f | %6.2f %6.2f\n", a, b, sum(net[ix][ok]), sum(fruitw[ix][ok]),
-            e96, e77, em, em / e96, em / e77)
+    e96 = sum(Eobs(96.0)[ix][ok]); e77 = sum(Eobs(76.8)[ix][ok]); em = sum(Emod[ix][ok]); eL = sum(EmodL[ix][ok])
+    wkd[a] = [e96, e77, em, eL]
+    @printf("  d%-3d-%-4d | %8.2f %8.2f | %8.2f %8.2f | %8.2f %8.2f | %6.2f %6.2f | %6.2f %6.2f\n", a, b, sum(net[ix][ok]),
+            sum(fruitw[ix][ok]), e96, e77, em, eL, em / e96, em / e77, eL / e96, eL / e77)
 end
 println("  ", "-"^102)
 for (lo, hi) in [(0, 8), (9, 48), (49, 100), (101, 114), (0, 114)]
     ks = [k for k in keys(wkd) if lo <= k <= hi]; isempty(ks) && continue
     s = reduce(+, [wkd[k] for k in ks])
-    @printf("  d%-3d-%-4d | model / observed: %.2f (floor basis), %.2f (growing basis)   [%d weeks]\n", lo, hi, s[3] / s[1], s[3] / s[2], length(ks))
+    @printf("  d%-3d-%-4d | model/obs  sun only: %.2f floor, %.2f growing | sun+lamps: %.2f floor, %.2f growing  [%d wk]\n",
+            lo, hi, s[3] / s[1], s[3] / s[2], s[4] / s[1], s[4] / s[2], length(ks))
 end
 ks = sort(collect(keys(wkd)))
-@printf("  weekly correlation (model, observed): %.2f\n", cor([wkd[k][3] for k in ks], [wkd[k][1] for k in ks]))
+@printf("  weekly correlation (model, observed): sun only %.2f, sun+lamps %.2f\n", cor([wkd[k][3] for k in ks], [wkd[k][1] for k in ks]),
+        cor([wkd[k][4] for k in ks], [wkd[k][1] for k in ks]))
 println("""
   Read: ratio ~1 on one basis = the model transpiration is consistent with the water use on that area basis.
   Model LAI = interpolated derived LAI (2.5 plateau, per growing area) with no 0.8 floor factor. A ratio that
