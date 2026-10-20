@@ -61,7 +61,8 @@ Rg   = (gp.asrq - 1) .* dDM
 conv = 44 / 30 * 1000 / 86400
 CR20 = FLOOR .* (Rm20 .+ Rg) .* conv
 out  = DataFrame(day = r.day, LAI_floor = FLOOR .* r.LAI, CropResp20 = CR20, Rm20_gCH2O = Rm20, Rg_gCH2O = Rg,
-                 Pg_gCH2O = r.Pg, yield_FW = r.yield_FW)
+                 Pg_gCH2O = r.Pg, yield_FW = r.yield_FW, node = r.node, W_leaf = r.W_leaf, W_stem = r.W_stem,
+                 W_root = r.W_root, W_fruit = r.W_fruit, yield_DW = r.yield_DW, harv_n = r.harv_n, LAI = r.LAI)
 fo = joinpath(@__DIR__, "posteriors", "$(TEAM)_crop_series_n78.csv"); CSV.write(fo, out)
 @printf("\nfinal yield %.2f kg FW/m2; LAI_floor mean %.2f (max %.2f)\n", r.yield_FW[end], mean(out.LAI_floor), maximum(out.LAI_floor))
 @printf("CropResp20 mean %.4f mg CO2/m2/s (maint %.4f, growth %.4f); = %.1f%% of mean Pg in CO2 terms\n",
