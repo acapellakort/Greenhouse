@@ -1170,5 +1170,17 @@
         "units": "-",
         "desc": "Note 85 flag: dew on the canopy (Psat(T_canopy) < VP_air) uses only the boundary-layer resistance gamma3, not the stomatal resistance; 0 = V2.2",
         "latex": ""
+    },
+    "leak_shared": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 86 flag: CO2 leakage uses the same coefficient nu4 as heat and vapour (nu4CO2 ignored); 0 = V2.2",
+        "latex": ""
+    },
+    "rd_q10": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 86 flag: leaf dark respiration Rd_day x 2^((T_canopy - 25 C)/10); 0 = V2.2 (constant Rd)",
+        "latex": ""
     }
 }

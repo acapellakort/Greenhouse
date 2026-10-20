@@ -165,7 +165,9 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     f5 = n1 * n2 * I8 * sqrt(n3) / (2 * alpha6)
 
     f6 = max(I8 < 0.25 ? 0.25 * nu4 : nu4 * I8, nu4_min)
-    f6CO2 = max(I8 < 0.25 ? 0.25 * nu4CO2 : nu4CO2 * I8, nu4_min)
+    # Note 86 (default-off): leak_shared = 1 -> CO2 leaks through the same cracks as heat and vapour (nu4CO2 := nu4)
+    nu4C  = (hasproperty(p, :leak_shared) && p.leak_shared > 0.5) ? nu4 : nu4CO2
+    f6CO2 = max(I8 < 0.25 ? 0.25 * nu4C : nu4C * I8, nu4_min)
 
     f7t = max(omega1 * nu6 * (T2 - I5) / (T2 + I5) + n3 * I8^2, 0.0)
     # Ventilation RATE is a non-negative air-exchange rate (buoyancy magnitude);

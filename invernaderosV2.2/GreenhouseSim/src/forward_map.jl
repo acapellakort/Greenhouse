@@ -116,9 +116,12 @@ function rhs!(du, u, ctx::SimContext, t)
     # Note 71 (default-off): crop physiology sees sun (through the screens) + lamp PAR (phys_light), and photosynthesis
     # is scaled by the effective leaf area instead of the 2.0 'LAI = I9' quirk (photo_lai). Computed from the raw logged
     # energy-screen and lamp signals, before any controller modifies U1.
+    # Note 86 (default-off): rd_q10 = 1 -> leaf dark respiration Rd x 2^((T_canopy - 25 C)/10) (was constant)
+    rds = (hasproperty(p, :rd_q10) && p.rd_q10 > 0.5) ? 2.0^((T1 - 298.15) / 10.0) : 1.0
+    rds != 1.0 && (A = assimilation(T2, C1, I9, I9, p; Rd_scale = rds))
     if (hasproperty(p, :phys_light) && p.phys_light > 0.5) || (hasproperty(p, :photo_lai) && p.photo_lai > 0.5)
         I9 = phys_par(I9, U1, U12, c, tctrl, p)
-        A  = assimilation(T2, C1, I9, (hasproperty(p, :photo_lai) && p.photo_lai > 0.5) ? lai_eff(I1) : I9, p)
+        A  = assimilation(T2, C1, I9, (hasproperty(p, :photo_lai) && p.photo_lai > 0.5) ? lai_eff(I1) : I9, p; Rd_scale = rds)
     end
 
     # --- Note 34 flags (default-off; need ControlInputsX and, for states, length(u) >= 8) ---

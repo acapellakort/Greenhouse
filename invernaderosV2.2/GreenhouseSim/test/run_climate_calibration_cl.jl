@@ -58,7 +58,10 @@ const COMMON_TEST  = N61P ? vcat(wk(49, 62), wk(70, 76), wk(84, 90), wk(98, 109)
                                          vcat(wk(49, 62), wk(70, 76), wk(84, 90), wk(98, 114))
 
 # ── inputs (as diagnose_closed_loop.jl) ─────────────────────────────────────
-const VC_LEEW = vcols("VentLeew_Vip", 1:6); const VC_WIND = vcols("VentWind_Vip", 1:6); const VC_VMIN = vcols("VentLeewMin_Vip", 1:6)
+# Note 86: AiCU's vip.csv holds the setpoints of ALL six compartments (_1 iGrow, _2 DeepGreens, _3 Reference, _4 AiCU,
+# _5 Sonoma, _6 Croperators); earlier priors averaged them. n79 uses AiCU's own column _4 (its heating setpoint _4 is empty).
+const VIPZ = N79 ? (4,) : 1:6
+const VC_LEEW = vcols("VentLeew_Vip", VIPZ); const VC_WIND = vcols("VentWind_Vip", VIPZ); const VC_VMIN = vcols("VentLeewMin_Vip", VIPZ)
 LeeZ = Float64[]; WindZ = Float64[]; gdayv = Int[]      # Note 58d: logged lee / wind openings (fractions, NaN -> 0)
 VentMinv = Float64[]; srcv = Int[]; VentSPv = Float64[]; HumSPv = Float64[]; Blackv = Float64[]; U8log = Float64[]
 for i in 1:n
@@ -155,9 +158,9 @@ if OLP   # Note 58d: open loop -- logged lee/wind openings drive vent_split; lam
 end
 if N79   # Note 79: physical description fixed a priori (AGC documents, Notes 67-68, 78); bias terms removed
     append!(FIXN, ["phi2", "alpha5", "nu5", "gamma1", "n_pipes", "tau1", "psi2", "cover_area", "cover_cond", "co2_resp",
-                   "hc_dT", "lamp_scr_loss", "s_rad", "dew_bl"])
+                   "hc_dT", "lamp_scr_loss", "s_rad", "dew_bl", "leak_shared", "rd_q10"])
     append!(FIXV, [5.4, 1005.0, 1000.0, 1.0, 1.0, 0.65 / 0.9, 35556.0, 1.6, 1.0, 1.0,
-                   0.0, 0.0, 0.0, 1.0])     # dew_bl: Note 85
+                   0.0, 0.0, 0.0, 1.0, 1.0, 1.0])     # dew_bl: Note 85; leak_shared, rd_q10: Note 86
     #  phi2 5.4 m mean air height | alpha5 c_p 1005 | nu5 = 0.10 x alpha6 vent area | rail pipe 1.0 m m-2 as ONE circuit
     #  (gamma1 1.0, n_pipes 1; PIPE2 folds the grow pipe in) | tau1 = 0.65/(1-eta1) -> PAR/global transmission 0.65 |
     #  psi2 = 12.8 g m-2 h-1 x alpha6 | cover 1.6 m2 per m2 floor | cover condensation and crop respiration ON
@@ -180,7 +183,9 @@ const CQ_MODEL = N79 ?
                       PRIORS == "n49b" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass"] :
                       PRIORS == "n54" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass", "lamp_fcan"] :
                       PRIORS == "n49a" ? ["vc_hband", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass", "dday"] : String[])
-const CQ       = OLP ? vcat(CQ_MODEL, ["sigma_T", "sigma_RH"]) : vcat(CQ_MODEL, ["sigma_T", "sigma_RH", "sigma_U"])   # n58: no vent term
+const CO2N     = N79 && get(ENV, "CO2NIGHT", "1") == "1"   # Note 86: dark-hour CO2 as a third observable (n79 default on)
+const CQ       = CO2N ? vcat(CQ_MODEL, ["sigma_T", "sigma_RH", "sigma_C"]) :
+                 OLP ? vcat(CQ_MODEL, ["sigma_T", "sigma_RH"]) : vcat(CQ_MODEL, ["sigma_T", "sigma_RH", "sigma_U"])   # n58: no vent term
 const NM       = length(CQ_MODEL)
 const CQ_dict = Dict(                     # [min, centre, max]
     "gamma4"        => [20.0,  82.0,  300.0],
@@ -194,7 +199,8 @@ const CQ_dict = Dict(                     # [min, centre, max]
     "vc_hum"        => [0.0,   0.12,  0.5],     # humidity-venting opening (Note 35: logged 0.15-0.22)
     "sigma_T"       => [0.2,   1.5,   6.0],
     "sigma_RH"      => [0.5,   6.0,   25.0],
-    "sigma_U"       => [0.01,  0.08,  0.5])
+    "sigma_U"       => [0.01,  0.08,  0.5],
+    "sigma_C"       => [10.0,  60.0,  400.0])   # mg m-3, dark-hour CO2 (Note 86)
 if PRIORS in ("n37", "n39", "n43", "n46", "n49a", "n49b", "n54")     # Note 37: soft humidity band removes the limit cycle; Note 34 controller identification
     CQ_dict["vc_gain"]  = [0.05,  0.12,  0.3]      # 1/K
     CQ_dict["vc_e0"]    = [-4.0, -2.0,   0.0]      # K
@@ -289,6 +295,7 @@ struct Block
     binsU::Vector{Vector{Int}}; obsU::Vector{Float64}
     dmask::Vector{Float64}        # 1 where outside radiation > 50 W m-2 (for the n49a daytime observation offset)
     Ib::Vector{Float64}           # outside global radiation at the block columns (n61: s_rad measurement term)
+    binsC::Vector{Vector{Int}}; obsC::Vector{Float64}   # Note 86: dark-hour CO2 bins (sun < 1, lamps off, valve closed)
 end
 const AT = A(Tair_obs); const AR = A(RH_obs); const AC = A(CO2_obs); const AU = A(U8log)
 function make_block(a, b)
@@ -304,8 +311,10 @@ function make_block(a, b)
     end
     N46P && push!(u0b, u0b[end])      # internal mass starts at the same spin-up-day mean
     times = vcat(tstart, [t0 + d * 86400.0 + tj for d in ds for tj in teval])
-    To = AT.(times); Ro = AR.(times); Uo = AU.(times)
+    To = AT.(times); Ro = AR.(times); Uo = AU.(times); Co_ = AC.(times)
+    darkC = (A(Ig_v).(times) .< 1.0) .& (A(U12v).(times) .< 0.01) .& (A(U10v).(times) .<= 0.0)
     bT = Vector{Int}[]; oT = Float64[]; bR = Vector{Int}[]; oR = Float64[]; bU = Vector{Int}[]; oU = Float64[]
+    bC = Vector{Int}[]; oC = Float64[]
     for (k, d) in enumerate(ds)
         Int(d) < a && continue                                  # spin-up day not scored
         for hb in 0:23
@@ -315,38 +324,43 @@ function make_block(a, b)
             length(okT) >= length(cols) / 2 && (push!(bT, okT); push!(oT, mean(To[okT])))
             length(okR) >= length(cols) / 2 && (push!(bR, okR); push!(oR, mean(Ro[okR])))
             length(okU) >= length(cols) / 2 && (push!(bU, okU); push!(oU, mean(Uo[okU])))
+            okC = [c for c in cols if !isnan(Co_[c]) && darkC[c]]                  # whole hour dark, lamps off, valve shut
+            length(okC) == length(cols) && (push!(bC, okC); push!(oC, mean(Co_[okC])))
         end
     end
-    return Block(ds, u0b, bT, oT, bR, oR, bU, oU, Float64.(A(Ig_v).(times) .> 50.0), A(Ig_v).(times))
+    return Block(ds, u0b, bT, oT, bR, oR, bU, oU, Float64.(A(Ig_v).(times) .> 50.0), A(Ig_v).(times), bC, oC)
 end
 const TB  = [make_block(a, b) for (a, b) in TRAIN_BLOCKS]
 const NBT = sum(length(b.obsT) for b in TB); const NBR = sum(length(b.obsR) for b in TB)
 const NBU = sum(length(b.obsU) for b in TB)
+const NBC = sum(length(b.obsC) for b in TB)
 
 function block_sse(p, b::Block, rtol)
-    us = simdays(p, b.days, b.u0, rtol); us === nothing && return (Inf, Inf, Inf)
+    us = simdays(p, b.days, b.u0, rtol); us === nothing && return (Inf, Inf, Inf, Inf)
     T2 = us[2, :] .+ (hasproperty(p, :dday) ? p.dday : 0.0) .* b.dmask   # n49a: compared T = air T + daytime offset
     hasproperty(p, :s_rad) && p.s_rad != 0.0 && (T2 = T2 .+ p.s_rad .* b.Ib ./ 100)   # n61: sun-heated sensor term
     RH = rhf.(us[2, :], us[4, :]); U8 = clamp.(us[7, :], 0.0, 1.0)
-    sT = 0.0; sR = 0.0; sU = 0.0
+    sT = 0.0; sR = 0.0; sU = 0.0; sC = 0.0
+    if !isempty(b.binsC); C1s = us[3, :]; for k in eachindex(b.binsC); sC += (binmean(C1s, b.binsC[k]) - b.obsC[k])^2; end; end
     for k in eachindex(b.binsT); sT += (binmean(T2, b.binsT[k]) - b.obsT[k])^2; end
     for k in eachindex(b.binsR); sR += (binmean(RH, b.binsR[k]) - b.obsR[k])^2; end
     for k in eachindex(b.binsU); sU += (binmean(U8, b.binsU[k]) - b.obsU[k])^2; end
     f(s) = isfinite(s) ? s : Inf
-    return (f(sT), f(sR), f(sU))
+    return (f(sT), f(sR), f(sU), f(sC))
 end
 function sse_all(x, rtol)
     p = update_params(params_cl, CQ_MODEL, x)
-    sT = 0.0; sR = 0.0; sU = 0.0
+    sT = 0.0; sR = 0.0; sU = 0.0; sC = 0.0
     for b in TB
-        a, c, e = block_sse(p, b, rtol); (isfinite(a) && isfinite(c) && isfinite(e)) || return (Inf, Inf, Inf)
-        sT += a; sR += c; sU += e
+        a, c, e, g = block_sse(p, b, rtol); (isfinite(a) && isfinite(c) && isfinite(e) && isfinite(g)) || return (Inf, Inf, Inf, Inf)
+        sT += a; sR += c; sU += e; sC += g
     end
-    return (sT, sR, sU)
+    return (sT, sR, sU, sC)
 end
 function cenergy(z; rtol = RELTOL)
     σT = z[NM+1]; σR = z[NM+2]
-    sT, sR, sU = sse_all(z[1:NM], rtol); isfinite(sT) || return Inf
+    sT, sR, sU, sC = sse_all(z[1:NM], rtol); isfinite(sT) || return Inf
+    CO2N && return NBT * log(σT) + sT / (2σT^2) + NBR * log(σR) + sR / (2σR^2) + NBC * log(z[NM+3]) + sC / (2z[NM+3]^2)
     OLP && return NBT * log(σT) + sT / (2σT^2) + NBR * log(σR) + sR / (2σR^2)   # n58: vents are inputs
     σU = z[NM+3]
     return NBT * log(σT) + sT / (2σT^2) + NBR * log(σR) + sR / (2σR^2) + NBU * log(σU) + sU / (2σU^2)
@@ -392,8 +406,8 @@ end
 println("\n", "="^78)
 @printf("CLOSED-LOOP climate calibration -- design=%s  priors=%s  mode=%s  seed=%d  reltol=%.0e\n", DESIGN, PRIORS, CMODE, CSEED, RELTOL)
 println("  TRAIN days: ", TRAIN_BLOCKS, "   VAL: ", VAL_BLOCKS)
-@printf("  TRAIN hourly bins: T %d, RH %d, VENT %d  (%d simulated days per step incl. spin-up)\n",
-        NBT, NBR, NBU, sum(length(b.days) for b in TB))
+@printf("  TRAIN hourly bins: T %d, RH %d, VENT %d, dark CO2 %d%s  (%d simulated days per step incl. spin-up)\n",
+        NBT, NBR, NBU, NBC, CO2N ? " (in likelihood)" : " (not used)", sum(length(b.days) for b in TB))
 println("="^78)
 
 # ── evaluation on the full season (closed loop from day 0) ──────────────────
@@ -476,9 +490,9 @@ if CMODE == "smoke"
             maximum(abs.(T3 .- T5)), mean(abs.(T3 .- T5)), maximum(abs.(U3 .- U5)))
 
     # [smoke 1b] energy split at the centre (which term dominates?)
-    sT, sR, sU = sse_all(xa[1:NM], RELTOL)
-    @printf("[smoke 1b] at centre: RMS hourly misfit T %.2f K, RH %.2f %%, vent %.3f  (bins %d / %d / %d)\n",
-            sqrt(sT / NBT), sqrt(sR / NBR), sqrt(sU / NBU), NBT, NBR, NBU)
+    sT, sR, sU, sC = sse_all(xa[1:NM], RELTOL)
+    @printf("[smoke 1b] at centre: RMS hourly misfit T %.2f K, RH %.2f %%, vent %.3f, dark CO2 %.0f mg/m3  (bins %d / %d / %d / %d)\n",
+            sqrt(sT / NBT), sqrt(sR / NBR), sqrt(sU / NBU), NBC > 0 ? sqrt(sC / NBC) : NaN, NBT, NBR, NBU, NBC)
 
     # [smoke 2] short chain + projected cost
     obj = jtwalk(n = length(CQ), U = cenergy_t, Supp = csupp)

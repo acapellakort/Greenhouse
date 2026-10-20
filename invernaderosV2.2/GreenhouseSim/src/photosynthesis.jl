@@ -53,9 +53,10 @@ true leaf-area index -- a known quirk kept here so V2.2 reproduces 2.0 exactly.
 The forthcoming growth model should pass the real LAI instead; do that by
 changing the `assimilation(...)` call in forward_map.jl / rhs!.
 """
-@inline function assimilation(T, C, Iw, LAI, p; VPD = 0.0)
+@inline function assimilation(T, C, Iw, LAI, p; VPD = 0.0, Rd_scale = 1.0)
     (; O_a, Sco25, E_Soc, Rgas, alpha, J_max, theta,
-       V_cmax25, Q10_Vcmax, Rd_day, K_C25, Q10_KC, K_O25, Q10_KO) = p
+       V_cmax25, Q10_Vcmax, K_C25, Q10_KC, K_O25, Q10_KO) = p
+    Rd_day = p.Rd_day * Rd_scale     # Note 86: Rd_scale = 2^((T_canopy - 25 C)/10) with rd_q10 = 1; 1.0 = V2.2
 
     I   = 4.6e-6 * Iw          # W m^-2 -> mol photons m^-2 s^-1
     C_i = 0.509e-6 * C         # mg m^-3 -> mol m^-3
