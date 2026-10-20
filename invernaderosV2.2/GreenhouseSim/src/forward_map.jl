@@ -234,7 +234,13 @@ function rhs!(du, u, ctx::SimContext, t)
             @inbounds Tm = u[10]
             Qam  = p.h_mass * (T2 - Tm)
             dT2x -= Qam / (p.phi2 * p.rho3 * p.alpha5)
-            dTm  = (Qam + p.f_mass * I2) / p.C_mass
+            # Note 91 (default-off): crop_cap = 1 -> the mass node also holds the standing crop (stems, roots, fruits on
+            # the plant; leaves are in the canopy node): C = C_mass (structure + slabs) + crop_cp * CropFW(t)
+            Cm   = p.C_mass
+            if hasproperty(p, :crop_cap) && p.crop_cap > 0.5 && hasproperty(c, :CropFW) && !(c.CropFW isa Nothing)
+                Cm += p.crop_cp * c.CropFW(tctrl)
+            end
+            dTm  = (Qam + p.f_mass * I2) / Cm
         end
         # Note 54 (default-off): lamp_full = 1 -> the lamps release their full electrical power lamp_Pel*U12
         # (AGC-2018 ReadMe: 187 umol m-2 s-1 at 1.6 umol/J = 117 W m-2). V2.0 puts only (eta15+eta16)*alpha12 = 29 W m-2

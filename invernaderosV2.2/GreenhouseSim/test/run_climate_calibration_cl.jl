@@ -91,7 +91,7 @@ lai_of_day(x) = x <= lai_d[1] ? lai_v[1] : x >= lai_d[end] ? lai_v[end] :
 LAI_row = [lai_of_day((t - t0) / 86400.0) for t in ts]
 # Note 79: LAI and crop respiration from the n78 crop posterior (test/crop_posterior_series.jl); CO2 valve from the
 # logged daily dosage: on-times from the CO2 setpoint rule, scaled per day so valve hours = CO2_dosage / 0.0128 kg m-2 h-1
-CropRespv = zeros(length(ts)); U10_scale = Float64[]
+CropRespv = zeros(length(ts)); CropFWv = zeros(length(ts)); U10_scale = Float64[]
 if N79
     csf = joinpath(@__DIR__, "posteriors", "AiCU_crop_series_n78.csv")
     isfile(csf) || error("missing $csf -- run test/crop_posterior_series.jl first")
@@ -99,6 +99,8 @@ if N79
     cday(x) = clamp(floor(Int, x), cs.day[1], cs.day[end]) - cs.day[1] + 1
     LAI_row   = [cs.LAI_floor[cday((t - t0) / 86400.0)] for t in ts]
     CropRespv = [cs.CropResp20[cday((t - t0) / 86400.0)] for t in ts]
+    "FW_mass_kg" in names(cs) || error("crop CSV has no FW_mass_kg -- re-run test/crop_posterior_series.jl (Note 91)")
+    CropFWv   = [cs.FW_mass_kg[cday((t - t0) / 86400.0)] for t in ts]
     rc = DataFrame(CSV.File(joinpath(DATA, TEAM, "ResourceCalculations.csv")))
     dos = Dict(floor(Int, rc.time[i]) => rc.CO2_dosage[i] for i in 1:nrow(rc) if !ismissing(rc.CO2_dosage[i]) && !isnan(rc.CO2_dosage[i]))
     dtr = length(ts) > 1 ? median(diff(ts)) / 3600 : 300 / 3600          # h per row
@@ -127,7 +129,7 @@ const OLP  = PRIORS in ("n58", "n61", "n61b", "n79")     # Note 58d: open-loop c
 const N43P = PRIORS in ("n43", "n46", "n49a", "n49b", "n54", "n58", "n61", "n61b", "n79")     # structures with the Note 43 flags, VentMin input and deep-soil state
 const ctrl_x = N79 ?
     ControlInputsX(Z(U1v), zc, zc, zc, zc, zc, Z(WindZ), Z(LeeZ), zc, Z(U10v), Z(U11v), Z(U12v), Z(Tpipe_meas),
-                   Z(VentSPv), Z(HumSPv), Z(Blackv), Z(VentMinv), Z(CropRespv)) :
+                   Z(VentSPv), Z(HumSPv), Z(Blackv), Z(VentMinv), Z(CropRespv), Z(CropFWv)) :
                OLP ?
     ControlInputsX(Z(U1v), zc, zc, zc, zc, zc, Z(WindZ), Z(LeeZ), zc, Z(U10v), Z(U11v), Z(U12v), Z(Tpipe_meas),
                    Z(VentSPv), Z(HumSPv), Z(Blackv), Z(VentMinv)) :
@@ -158,9 +160,9 @@ if OLP   # Note 58d: open loop -- logged lee/wind openings drive vent_split; lam
 end
 if N79   # Note 79: physical description fixed a priori (AGC documents, Notes 67-68, 78); bias terms removed
     append!(FIXN, ["phi2", "alpha5", "nu5", "gamma1", "n_pipes", "tau1", "psi2", "cover_area", "cover_cond", "co2_resp",
-                   "hc_dT", "lamp_scr_loss", "s_rad", "dew_bl", "leak_shared", "rd_q10", "leak_stack", "lamp_Pel"])
+                   "hc_dT", "lamp_scr_loss", "s_rad", "dew_bl", "leak_shared", "rd_q10", "leak_stack", "lamp_Pel", "crop_cap", "crop_cp"])
     append!(FIXV, [5.4, 1005.0, 1000.0, 1.0, 1.0, 0.65 / 0.9, 35556.0, 1.6, 1.0, 1.0,
-                   0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 117.0])     # dew_bl: Note 85; leak_shared, rd_q10: Note 86; leak_stack: Note 88; lamp_Pel = 187 umol / 1.6 umol J-1 (ReadMe), Note 90
+                   0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 117.0, 1.0, 3800.0])   # crop_cap, crop_cp (J kg-1 K-1): Note 91     # dew_bl: Note 85; leak_shared, rd_q10: Note 86; leak_stack: Note 88; lamp_Pel = 187 umol / 1.6 umol J-1 (ReadMe), Note 90
     #  phi2 5.4 m mean air height | alpha5 c_p 1005 | nu5 = 0.10 x alpha6 vent area | rail pipe 1.0 m m-2 as ONE circuit
     #  (gamma1 1.0, n_pipes 1; PIPE2 folds the grow pipe in) | tau1 = 0.65/(1-eta1) -> PAR/global transmission 0.65 |
     #  psi2 = 12.8 g m-2 h-1 x alpha6 | cover 1.6 m2 per m2 floor | cover condensation and crop respiration ON
@@ -261,7 +263,7 @@ if N79   # Note 78 prior table (approximate sub-models only)
                    "vs_gwind" => [0.5, 1.5, 4.0], "vs_cwind" => [0.5, 1.0, 10.0], "nu4" => [1e-5, 4.5e-5, 1e-4],
                    "gamma4" => [40.0, 82.0, 200.0], "lamp_Pel" => [100.0, 110.0, 120.0], "lamp_fcan" => [0.05, 0.3, 0.9],
                    "k_ground" => [1.0, 8.0, 40.0], "C_soil" => [1.5e5, 6e5, 2e6], "k_deep" => [0.5, 1.5, 3.0],
-                   "C_mass" => [2e4, 4e4, 8e4], "h_mass" => [1.0, 5.0, 40.0], "f_mass" => [0.0, 0.15, 0.5],
+                   "C_mass" => [2e4, 5e4, 1.2e5], "h_mass" => [1.0, 5.0, 40.0], "f_mass" => [0.0, 0.15, 0.5],
                    "h_cover_out" => [10.0, 25.0, 50.0], "air_cap_mult" => [1.0, 3.0, 12.0], "vent_scr_perm" => [0.0, 0.4, 1.0],
                    "leak_cs" => [0.0, 0.3, 1.0])     # Note 88: stack term of the leakage, m2 s-2 K-1
         CQ_dict[k] = v

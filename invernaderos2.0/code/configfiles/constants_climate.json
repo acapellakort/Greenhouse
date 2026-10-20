@@ -1194,5 +1194,17 @@
         "units": "m2 s-2 K-1",
         "desc": "Note 88: stack coefficient of the leakage (used only with leak_stack = 1)",
         "latex": ""
+    },
+    "crop_cap": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 91 flag: the internal mass node also holds the standing crop (stems, roots, fruits on plant): C = C_mass + crop_cp * CropFW(t); 0 = V2.2",
+        "latex": ""
+    },
+    "crop_cp": {
+        "val": 3800.0,
+        "units": "J kg-1 K-1",
+        "desc": "Note 91: specific heat of fresh plant tissue",
+        "latex": ""
     }
 }

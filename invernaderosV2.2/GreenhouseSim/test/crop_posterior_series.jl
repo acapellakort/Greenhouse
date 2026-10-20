@@ -62,11 +62,16 @@ conv = 44 / 30 * 1000 / 86400
 CR20 = FLOOR .* (Rm20 .+ Rg) .* conv
 out  = DataFrame(day = r.day, LAI_floor = FLOOR .* r.LAI, CropResp20 = CR20, Rm20_gCH2O = Rm20, Rg_gCH2O = Rg,
                  Pg_gCH2O = r.Pg, yield_FW = r.yield_FW, node = r.node, W_leaf = r.W_leaf, W_stem = r.W_stem,
-                 W_root = r.W_root, W_fruit = r.W_fruit, yield_DW = r.yield_DW, harv_n = r.harv_n, LAI = r.LAI)
+                 W_root = r.W_root, W_fruit = r.W_fruit, yield_DW = r.yield_DW, harv_n = r.harv_n, LAI = r.LAI,
+                 # Note 91: standing fresh mass per m2 FLOOR of stems + roots + fruits on the plant (leaves are in the canopy
+                 # heat capacity alpha1*LAI). Dry-matter contents: stem 0.06, root 0.07 (assumed), fruit = inferred DMC_fruit.
+                 FW_mass_kg = FLOOR .* (r.W_stem ./ 0.06 .+ r.W_root ./ 0.07 .+ r.W_fruit ./ pm[ix("DMC_fruit")]) ./ 1000)
 fo = joinpath(@__DIR__, "posteriors", "$(TEAM)_crop_series_n78.csv"); CSV.write(fo, out)
 @printf("\nfinal yield %.2f kg FW/m2; LAI_floor mean %.2f (max %.2f)\n", r.yield_FW[end], mean(out.LAI_floor), maximum(out.LAI_floor))
 @printf("CropResp20 mean %.4f mg CO2/m2/s (maint %.4f, growth %.4f); = %.1f%% of mean Pg in CO2 terms\n",
         mean(CR20), mean(FLOOR .* Rm20 .* conv), mean(FLOOR .* Rg .* conv), 100 * mean(Rm20 .+ Rg) / mean(r.Pg))
 println("weekly (day, LAI_floor, CropResp20):")
 for d in 0:14:length(r.day)-1; @printf("  %4d  %5.2f  %.4f\n", r.day[d+1], out.LAI_floor[d+1], CR20[d+1]); end
+@printf("standing fresh mass (stems+roots+fruits, floor basis): day 0 %.2f, day 30 %.2f, end %.2f kg/m2\n",
+        out.FW_mass_kg[1], out.FW_mass_kg[min(31, end)], out.FW_mass_kg[end])
 println("wrote ", fo)
