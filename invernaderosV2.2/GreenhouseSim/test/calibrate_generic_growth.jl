@@ -41,8 +41,19 @@ gp_base = load_growth_params(joinpath(@__DIR__, "..", "configfiles", "cucumber_g
 gp_base = update_params(gp_base, ["set_start_day", "harvest_W", "gen_clampT", "gen_parlight", "gen_beta", "gen_kappa",
                                   "gen_A", "gen_V", "gen_zclamp", "stem_density"], [15.0, 16.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, ZCLAMP, 2.6])
 
-season = load_measured_climate_par(joinpath(DATA, TEAM, "Greenhouse_climate.csv"), joinpath(DATA, "meteo.csv");
-                                   transmission = TRANS, lamp_umol = 187.0)
+# Note 76: transmission inferred (organisers: 0.60-0.70). Sun and lamp PAR are loaded separately once; each model
+# run rebuilds canopy PAR = transmission * sun_through_screens + lamps in a work copy (no reload).
+const GHC = joinpath(DATA, TEAM, "Greenhouse_climate.csv"); const MET = joinpath(DATA, "meteo.csv")
+sun_s  = load_measured_climate_par(GHC, MET; transmission = 1.0, lamp_umol = 0.0)
+lamp_s = load_measured_climate_par(GHC, MET; transmission = 0.0, lamp_umol = 187.0)
+season = MeasuredSeason(sun_s.ndays, [copy(M) for M in sun_s.day_samples], sun_s.dt)
+function set_trans!(tr)
+    for d in eachindex(season.day_samples)
+        W = season.day_samples[d]; S = sun_s.day_samples[d]; L = lamp_s.day_samples[d]
+        @inbounds for k in axes(W, 2); W[3, k] = tr * S[3, k] + L[3, k]; end
+    end
+end
+set_trans!(TRANS)
 cm_csv = joinpath(DATA, TEAM, "CropManagement.csv")
 keep   = load_fruit_keep(cm_csv; ndays = season.ndays)
 
@@ -81,15 +92,16 @@ end
 QoI_GEN  = ["W_pot", "E_fruit", "beta1", "V20"]                                  # Aaron / M94 crop relations
 QoI_GP   = ["k_m_leaf", "k_m_stem", "k_m_fruit", "LAI_max", "set_r_low", "set_r_high", "DMC_fruit"]   # growth.jl / JSON
 QoI_PH   = ["J_max"]                                                             # photosynthesis (FvCB)
+QoI_LT   = ["transmission"]                                                      # greenhouse light transmission
 QoI_S    = ["sigma_y", "sigma_leaf", "sigma_fd"]
-QoI      = vcat(QoI_GEN, QoI_GP, QoI_PH, QoI_S)
+QoI      = vcat(QoI_GEN, QoI_GP, QoI_PH, QoI_LT, QoI_S)
 ix(q)    = findfirst(==(q), QoI)
 PR = Dict("W_pot" => [20.0, 60.7, 120.0],  "E_fruit" => [150.0, 275.0, 450.0], "beta1" => [0.05, 0.0882, 0.13],
           "V20" => [2.0, 8.3, 16.0],
           "k_m_leaf" => [0.01, 0.03, 0.06], "k_m_stem" => [0.005, 0.015, 0.03], "k_m_fruit" => [0.003, 0.01, 0.02],
           "LAI_max" => [1.5, 2.5, 4.0], "set_r_low" => [0.0, 0.3, 1.0], "set_r_high" => [0.2, 1.0, 2.5],
           "DMC_fruit" => [0.025, 0.035, 0.045],   # Note 75: fruit dry-matter content (cultivar); picking at 400 g FW
-          "J_max" => [1.0e-4, 2.0e-4, 3.5e-4],
+          "J_max" => [1.0e-4, 2.0e-4, 3.5e-4], "transmission" => [0.60, 0.65, 0.70],
           "sigma_y" => [0.02, 0.3, 3.0], "sigma_leaf" => [0.5, 3.0, 20.0], "sigma_fd" => [0.5, 3.0, 15.0])
 centre = [PR[q][2] for q in QoI]
 
@@ -102,11 +114,11 @@ function genpar(W_pot, E, beta1, V20)        # M94 sink shape fixed in thermal a
                       sink_domain = V2.sink_domain, vegetation_domain = V2.vegetation_domain)
 end
 const HARVEST_FW = 400.0      # g FW per fruit at picking (A class >= 375 g; Elings: ~400 g)
-runmodel(z) = simulate_growth_measured(update_params(params, QoI_PH, [z[ix(q)] for q in QoI_PH]),
+runmodel(z) = (set_trans!(z[ix("transmission")]); simulate_growth_measured(update_params(params, QoI_PH, [z[ix(q)] for q in QoI_PH]),
                                        update_params(gp_base, vcat(QoI_GP, ["harvest_W"]),
                                                      vcat([z[ix(q)] for q in QoI_GP], HARVEST_FW * z[ix("DMC_fruit")])), season;
                                        LAI0 = 0.5, fruit_keep = keep,
-                                       generic_params = genpar(z[ix("W_pot")], z[ix("E_fruit")], z[ix("beta1")], z[ix("V20")]))
+                                       generic_params = genpar(z[ix("W_pot")], z[ix("E_fruit")], z[ix("beta1")], z[ix("V20")])))
 function resid(r)
     ry = Δy_obs .- weekly_incr(r.day, r.yield_FW, edges)
     rl = cm_N .- [at_day(r.node, d) for d in cm_days]
@@ -133,7 +145,7 @@ function report(z, tag)
     for (d, v) in zip(fd_start, fd_val); @printf("  %10d | %5.1f / %5.1f\n", d, v, week_age(r, d)); end
 end
 
-println("\nGeneric (Aaron/M94) crop calibration -- mode=$MODE seed=$SEED transmission=$TRANS zclamp=$ZCLAMP")
+println("\nGeneric (Aaron/M94) crop calibration -- mode=$MODE seed=$SEED transmission inferred 0.60-0.70 zclamp=$ZCLAMP")
 report(centre, "prior centre")
 @printf("  energy at centre %.1f\n", energy(centre))
 MODE == "centre" && exit()
@@ -143,7 +155,7 @@ jit() = (for _ in 1:1000; x = centre .* (1 .+ 0.05 .* randn(length(QoI))); supp(
 t0 = time(); Run!(obj, T = NCHN, x0 = jit(), xp0 = jit())
 @printf("\n%d steps in %.0f s (%.2f s/step)\n", NCHN, time() - t0, (time() - t0) / NCHN)
 postdir = joinpath(@__DIR__, "posteriors"); mkpath(postdir)
-fn = joinpath(postdir, "$(TEAM)_growth_generic_n75_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
+fn = joinpath(postdir, "$(TEAM)_growth_generic_n76_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
 JLD2.@save fn chain=obj.Output QoI=QoI burn_in=BURN transmission=TRANS
 println("saved ", fn)
 b = MODE == "smoke" ? max(1, NCHN ÷ 2) : BURN
