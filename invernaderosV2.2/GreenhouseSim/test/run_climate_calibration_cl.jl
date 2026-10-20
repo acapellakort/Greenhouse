@@ -158,9 +158,9 @@ if OLP   # Note 58d: open loop -- logged lee/wind openings drive vent_split; lam
 end
 if N79   # Note 79: physical description fixed a priori (AGC documents, Notes 67-68, 78); bias terms removed
     append!(FIXN, ["phi2", "alpha5", "nu5", "gamma1", "n_pipes", "tau1", "psi2", "cover_area", "cover_cond", "co2_resp",
-                   "hc_dT", "lamp_scr_loss", "s_rad", "dew_bl", "leak_shared", "rd_q10", "leak_stack"])
+                   "hc_dT", "lamp_scr_loss", "s_rad", "dew_bl", "leak_shared", "rd_q10", "leak_stack", "lamp_Pel"])
     append!(FIXV, [5.4, 1005.0, 1000.0, 1.0, 1.0, 0.65 / 0.9, 35556.0, 1.6, 1.0, 1.0,
-                   0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0])     # dew_bl: Note 85; leak_shared, rd_q10: Note 86; leak_stack: Note 88
+                   0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 117.0])     # dew_bl: Note 85; leak_shared, rd_q10: Note 86; leak_stack: Note 88; lamp_Pel = 187 umol / 1.6 umol J-1 (ReadMe), Note 90
     #  phi2 5.4 m mean air height | alpha5 c_p 1005 | nu5 = 0.10 x alpha6 vent area | rail pipe 1.0 m m-2 as ONE circuit
     #  (gamma1 1.0, n_pipes 1; PIPE2 folds the grow pipe in) | tau1 = 0.65/(1-eta1) -> PAR/global transmission 0.65 |
     #  psi2 = 12.8 g m-2 h-1 x alpha6 | cover 1.6 m2 per m2 floor | cover condensation and crop respiration ON
@@ -171,7 +171,7 @@ const params_cl = update_params(params, FIXN, FIXV)
 # ── free parameters ──────────────────────────────────────────────────────────
 const CQ_MODEL = N79 ?
     ["gamma4", "vent_scr_perm", "k_ground", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass",
-     "lamp_Pel", "lamp_fcan", "vs_gwind", "vs_cwind", "vs_exp", "nu4", "h_cover_out", "air_cap_mult", "leak_cs"] :
+     "lamp_fcan", "vs_gwind", "vs_cwind", "vs_exp", "nu4", "h_cover_out", "air_cap_mult", "leak_cs"] :
                  OLP ?
     ["gamma4", "vent_scr_perm", "hc_dT", "k_ground", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass",
      "lamp_Pel", "lamp_scr_loss", "lamp_fcan", "vs_gwind", "vs_cwind", "vs_exp",
