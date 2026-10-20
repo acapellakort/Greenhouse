@@ -1146,5 +1146,23 @@
         "desc": "Note 71 flag: photosynthesis scaled by the effective leaf area (1-exp(-0.7 LAI))/0.7 instead of the 2.0 'LAI = I9' quirk; 0 = V2.2. DEFAULT ON since Note 72",
         "latex": "",
         "comment": "Note 71"
+    },
+    "cover_area": {
+        "val": 1.0,
+        "units": "m2 cover / m2 floor",
+        "desc": "Note 79: cover-to-floor area ratio scaling the cover-sky FIR loss r13 (1.0 = V2.2; AGC compartment ~1.6)",
+        "latex": ""
+    },
+    "cover_cond": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 79 flag: condensation of vapour on the cover (Vanthoor MV_AirTop/Cov form, 6.4e-9*1.7|dT|^0.33*(VP-VPsat(Tcov))); 0 = V2.2",
+        "latex": ""
+    },
+    "co2_resp": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 79 flag: crop (non-leaf maintenance + growth) respiration as a CO2 source, from the CropResp input series, Q10=2 on canopy T; 0 = V2.2",
+        "latex": ""
     }
 }

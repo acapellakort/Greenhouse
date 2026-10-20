@@ -105,6 +105,7 @@ function simulate_growth_measured(p::NamedTuple, gp, season::MeasuredSeason; LAI
     s = init_growth_state(gp; LAI0 = LAI0)
     day = Int[]; LAI = Float64[]; yieldFW = Float64[]; Wfruit = Float64[]; Pg = Float64[]; node = Float64[]
     harv_n = Float64[]; harv_age = Float64[]
+    Wl = Float64[]; Ws = Float64[]; Wr = Float64[]; Ydw = Float64[]     # Note 79: organ masses for respiration
     live = Dict{UInt,Tuple{Int,Fruit}}()
     for d in 0:(season.ndays - 1)
         M = season.day_samples[d + 1]
@@ -122,8 +123,10 @@ function simulate_growth_measured(p::NamedTuple, gp, season::MeasuredSeason; LAI
         push!(day, d); push!(LAI, s.LAI); push!(yieldFW, s.yield_FW)
         push!(Wfruit, isempty(s.fruits) ? 0.0 : sum(f.W for f in s.fruits))
         push!(Pg, Pgd); push!(node, s.node); push!(harv_n, hn); push!(harv_age, hn > 0 ? ha / hn : NaN)
+        push!(Wl, s.W_leaf); push!(Ws, s.W_stem); push!(Wr, s.W_root); push!(Ydw, s.yield_DW)
     end
-    return (; day, LAI, yield_FW = yieldFW, W_fruit = Wfruit, Pg, node, harv_n, harv_age, state = s)
+    return (; day, LAI, yield_FW = yieldFW, W_fruit = Wfruit, Pg, node, harv_n, harv_age,
+            W_leaf = Wl, W_stem = Ws, W_root = Wr, yield_DW = Ydw, state = s)
 end
 
 """

@@ -196,6 +196,11 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     r11 = epsil4 * g3 * epsil3 * sigma * (I7^4 - I4_eff^4)
     r12 = eps_screen * (U1 * tau2) * SkyFIRBoltzmann   # energy screen (low-e); was epsil5=1 (full-emissivity)
     r13 = epsil6 * SkyFIRBoltzmann
+    # Note 79 (default 1 = V2.2): exterior cover area per floor area (AGC compartment: roof + one outside wall ~1.6).
+    # The air-cover exchange r13 scales with the cover area; the algebraic cover temperature does not (both of its
+    # sides scale alike).
+    cov_area = hasproperty(p, :cover_area) ? p.cover_area : 1.0
+    r13 = cov_area * r13
     r14 = epsil4 * epsil2 * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T2^4 - I7^4)
     r15 = epsil2 * epsil5 * (1 - exp(-beta2 * I1)) * g2 * sigma * (T1^4 - I4_eff^4)
 
@@ -267,6 +272,19 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
 
     kappa3 = (psi1 * phi2) / (omega2 * T2)
     dV1 = (1 / kappa3) * (p1 + p2 + p3 + p4 - p5 - p6 - p7 - p8 - p9)
+    # Note 79 (default-off): cover_cond = 1 -> condensation on the inside of the cover (Vanthoor MV_AirCov):
+    #   MV = 6.4e-9 * 1.7 |T_air - T_cov|^0.33 * (VP_air - Psat(T_cov)) per m2 cover, if VP_air > Psat(T_cov),
+    # times the cover area per floor area and the share of crop air in contact with the cover when the energy screen
+    # is closed (vent_scr_perm, the same through-screen exchange share used for ventilation). The latent heat goes to
+    # the cover (algebraic, lost to outside), not to the air.
+    if hasproperty(p, :cover_cond) && p.cover_cond > 0.5
+        VPc = Pws(I4_eff)
+        if V1 > VPc
+            fcov = 1.0 - U1 * (1.0 - p.vent_scr_perm)
+            p10  = cov_area * fcov * 6.4e-9 * 1.7 * abs(T2 - I4_eff)^0.33 * (V1 - VPc)
+            dV1 -= p10 / kappa3
+        end
+    end
 
     # --- dC1: CO2 ------------------------------------------------------------
     o1 = eta13 * U4 * lamb4 / alpha6

@@ -211,6 +211,13 @@ function rhs!(du, u, ctx::SimContext, t)
         I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, A,
         U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U12, p)
 
+    # Note 79 (default-off): co2_resp = 1 -> crop respiration (non-leaf maintenance + growth, from the calibrated crop
+    # model, input CropResp at 20 C) is a CO2 source, Q10 = 2 on the canopy temperature. Leaf dark respiration is
+    # already in A (FvCB Rd, with photo_lai).
+    if hasproperty(p, :co2_resp) && p.co2_resp > 0.5 && hasproperty(c, :CropResp) && !(c.CropResp isa Nothing)
+        dC1 += c.CropResp(tctrl) * 2.0^((T1 - 293.15) / 10.0) / p.phi2
+    end
+
     @inbounds begin
         dT2x, dT5 = floor_balance(T2, T5, Tdeep, p)
         # Note 46 (default-off): floor_full closes the floor energy balance; solar_split adds sun on the floor

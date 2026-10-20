@@ -24,7 +24,7 @@
 # =============================================================================
 
 ENV["OPTB_MODE"] = "setup"
-get(ENV, "PRIORS", "") in ("n54", "n58", "n61", "n61b") && !haskey(ENV, "PIPE2") && (ENV["PIPE2"] = "1")   # Note 54: both heating circuits
+get(ENV, "PRIORS", "") in ("n54", "n58", "n61", "n61b", "n79") && !haskey(ENV, "PIPE2") && (ENV["PIPE2"] = "1")   # Note 54: both heating circuits
 ENV["N_DAYS"]    = "115"
 include(joinpath(@__DIR__, "run_joint_inference_optionB.jl"))   # season inputs (ts, U*v, Tair_obs, ...)
 
@@ -38,8 +38,9 @@ const CBURN  = parse(Int, get(ENV, "BURN", "40000"))
 const RELTOL = parse(Float64, get(ENV, "RELTOL", "1e-3"))
 const CSMOKE = 200
 const PRIORS = get(ENV, "PRIORS", "n36")     # n36 = Note 36 priors; n37 = Note 34/37-informed controller priors + free vc_hband
-PRIORS in ("n36", "n37", "n39", "n43", "n46", "n49a", "n49b", "n54", "n58", "n61", "n61b") || error("PRIORS must be n36, n37, n39, n43, n46, n49a, n49b, n54, n58, n61 or n61b")   # n61b = Note 62: n61 with s_rad = 0 and f_mass up to 0.5 (physics vs sensor)
-const N61P = PRIORS in ("n61", "n61b")   # n61 = Note 61: n58 + air_cap_mult + s_rad (measurement), TRAIN + block 110-114   # n58 = Note 58d: OPEN LOOP, logged lee/wind vents (vent_split), lamp_full + screen loss   # n54 = Note 54b: n49b + full lamp heat (lamp_full) + both pipe circuits (PIPE2)   # n49a/b = Note 50: physical caps, free vent wind term; a = with daytime observation offset dday   # n46 = Notes 46-48: SF structure + solar-absorbing internal mass   # n43 = Note 43 structure: logged pipe + PI gaps, deep-soil state, logged min vent   # n39 = n37 + free vc_min_night (Note 40)
+PRIORS in ("n36", "n37", "n39", "n43", "n46", "n49a", "n49b", "n54", "n58", "n61", "n61b", "n79") || error("PRIORS must be n36, n37, n39, n43, n46, n49a, n49b, n54, n58, n61, n61b or n79")
+const N79 = PRIORS == "n79"   # Note 79: a-priori geometry fixed, cover condensation + crop respiration on, LAI and respiration from the n78 crop posterior, U10 from logged daily dosage, no bias terms   # n61b = Note 62: n61 with s_rad = 0 and f_mass up to 0.5 (physics vs sensor)
+const N61P = PRIORS in ("n61", "n61b", "n79")   # n61 = Note 61: n58 + air_cap_mult + s_rad (measurement), TRAIN + block 110-114   # n58 = Note 58d: OPEN LOOP, logged lee/wind vents (vent_split), lamp_full + screen loss   # n54 = Note 54b: n49b + full lamp heat (lamp_full) + both pipe circuits (PIPE2)   # n49a/b = Note 50: physical caps, free vent wind term; a = with daytime observation offset dday   # n46 = Notes 46-48: SF structure + solar-absorbing internal mass   # n43 = Note 43 structure: logged pipe + PI gaps, deep-soil state, logged min vent   # n39 = n37 + free vc_min_night (Note 40)
 const CTAG   = "$(TEAM)_climcal_cl_$(DESIGN)$(PRIORS == "n36" ? "" : "_" * PRIORS)_seed$(CSEED)"
 
 for k in (:vent_ctrl, :vc_gain, :vc_e0, :vc_tau, :vc_hum, :vc_hband, :pipe_lag, :black_scr, :heat_ctrl, :cond_heat)
@@ -58,7 +59,7 @@ const COMMON_TEST  = N61P ? vcat(wk(49, 62), wk(70, 76), wk(84, 90), wk(98, 109)
 
 # ── inputs (as diagnose_closed_loop.jl) ─────────────────────────────────────
 const VC_LEEW = vcols("VentLeew_Vip", 1:6); const VC_WIND = vcols("VentWind_Vip", 1:6); const VC_VMIN = vcols("VentLeewMin_Vip", 1:6)
-LeeZ = Float64[]; WindZ = Float64[]      # Note 58d: logged lee / wind openings (fractions, NaN -> 0)
+LeeZ = Float64[]; WindZ = Float64[]; gdayv = Int[]      # Note 58d: logged lee / wind openings (fractions, NaN -> 0)
 VentMinv = Float64[]; srcv = Int[]; VentSPv = Float64[]; HumSPv = Float64[]; Blackv = Float64[]; U8log = Float64[]
 for i in 1:n
     g = _num(gh.GHtime[i]); (isnan(g) || g < win_lo || g >= win_hi) && continue
@@ -67,6 +68,7 @@ for i in 1:n
     hv = filter(!isnan, [_num(vip[i, c]) for c in VC_HEAT])
     Th = isempty(hv) ? 20.0 : mean(hv)
     valid = (!isnan(pg) && pg > PIPE_MIN_VALID) || (!isnan(pl) && pl > PIPE_MIN_VALID)
+    push!(gdayv, floor(Int, g))
     push!(srcv, valid ? 1 : (To_val < Th - 2.0 && To_val < PIPE_WARM_TOUT) ? 2 : 3)
     vs = filter(!isnan, vcat([_num(vip[i, c]) for c in VC_LEEW], [_num(vip[i, c]) for c in VC_WIND]))
     push!(VentSPv, (isempty(vs) ? 25.0 : mean(vs)) + 273.15)
@@ -84,13 +86,46 @@ lai_d = vcat(0.0, Float64.(cm_days_all)); lai_v = vcat(0.5, cm_L_all)
 lai_of_day(x) = x <= lai_d[1] ? lai_v[1] : x >= lai_d[end] ? lai_v[end] :
     (i = searchsortedlast(lai_d, x); lai_v[i] + (x - lai_d[i]) / (lai_d[i+1] - lai_d[i]) * (lai_v[i+1] - lai_v[i]))
 LAI_row = [lai_of_day((t - t0) / 86400.0) for t in ts]
+# Note 79: LAI and crop respiration from the n78 crop posterior (test/crop_posterior_series.jl); CO2 valve from the
+# logged daily dosage: on-times from the CO2 setpoint rule, scaled per day so valve hours = CO2_dosage / 0.0128 kg m-2 h-1
+CropRespv = zeros(length(ts)); U10_scale = Float64[]
+if N79
+    csf = joinpath(@__DIR__, "posteriors", "AiCU_crop_series_n78.csv")
+    isfile(csf) || error("missing $csf -- run test/crop_posterior_series.jl first")
+    cs = DataFrame(CSV.File(csf))
+    cday(x) = clamp(floor(Int, x), cs.day[1], cs.day[end]) - cs.day[1] + 1
+    LAI_row   = [cs.LAI_floor[cday((t - t0) / 86400.0)] for t in ts]
+    CropRespv = [cs.CropResp20[cday((t - t0) / 86400.0)] for t in ts]
+    rc = DataFrame(CSV.File(joinpath(DATA, TEAM, "ResourceCalculations.csv")))
+    dos = Dict(floor(Int, rc.time[i]) => rc.CO2_dosage[i] for i in 1:nrow(rc) if !ismissing(rc.CO2_dosage[i]) && !isnan(rc.CO2_dosage[i]))
+    dtr = length(ts) > 1 ? median(diff(ts)) / 3600 : 300 / 3600          # h per row
+    for gd in unique(gdayv)
+        rows = findall(==(gd), gdayv); hlog = get(dos, gd, NaN) / 0.0128
+        on = [i for i in rows if U10v[i] > 0]; hon = length(on) * dtr
+        if isnan(hlog)
+            sc = 1.0; for i in on; U10v[i] = 1.0; end                          # no dosage logged: valve fully open when on
+        elseif hon > 0
+            sc = hlog / hon; for i in on; U10v[i] = min(sc, 1.0); end
+        else
+            sc = NaN; dayr = [i for i in rows if Ig_v[i] > 50.0]                # dosage but no on-signal: spread over daylight
+            for i in dayr; U10v[i] = isempty(dayr) ? 0.0 : min(hlog / (length(dayr) * dtr), 1.0); end
+        end
+        push!(U10_scale, sc)
+    end
+    sfin = filter(isfinite, U10_scale)
+    @printf("Note 79 inputs: LAI_floor %.2f-%.2f, CropResp20 mean %.4f mg/m2/s; CO2 valve scale per day median %.2f (%d of %d days capped at 1)\n",
+            minimum(LAI_row), maximum(LAI_row), mean(CropRespv), isempty(sfin) ? NaN : median(sfin), count(>(1.0), sfin), length(U10_scale))
+end
 const weather_c = WeatherInputs(A(Ig_v), A(Tsky_v), A(Tout_v), _t -> 273.15, _t -> 18.0 + 273.15,
                                 A(Wind_v), _t -> 834.7, A(VPout_v), A(Ig_v), A(LAI_row))
 U8z = [isnan(v) ? 0.0 : v for v in U8log]
-const N46P = PRIORS in ("n46", "n49a", "n49b", "n54", "n58", "n61", "n61b")   # Notes 46-48 structure
-const OLP  = PRIORS in ("n58", "n61", "n61b")     # Note 58d: open-loop calibration (vents are logged inputs, no vent likelihood)
-const N43P = PRIORS in ("n43", "n46", "n49a", "n49b", "n54", "n58", "n61", "n61b")     # structures with the Note 43 flags, VentMin input and deep-soil state
-const ctrl_x = OLP ?
+const N46P = PRIORS in ("n46", "n49a", "n49b", "n54", "n58", "n61", "n61b", "n79")   # Notes 46-48 structure
+const OLP  = PRIORS in ("n58", "n61", "n61b", "n79")     # Note 58d: open-loop calibration (vents are logged inputs, no vent likelihood)
+const N43P = PRIORS in ("n43", "n46", "n49a", "n49b", "n54", "n58", "n61", "n61b", "n79")     # structures with the Note 43 flags, VentMin input and deep-soil state
+const ctrl_x = N79 ?
+    ControlInputsX(Z(U1v), zc, zc, zc, zc, zc, Z(WindZ), Z(LeeZ), zc, Z(U10v), Z(U11v), Z(U12v), Z(Tpipe_meas),
+                   Z(VentSPv), Z(HumSPv), Z(Blackv), Z(VentMinv), Z(CropRespv)) :
+               OLP ?
     ControlInputsX(Z(U1v), zc, zc, zc, zc, zc, Z(WindZ), Z(LeeZ), zc, Z(U10v), Z(U11v), Z(U12v), Z(Tpipe_meas),
                    Z(VentSPv), Z(HumSPv), Z(Blackv), Z(VentMinv)) :
                N43P ?
@@ -118,10 +153,23 @@ if OLP   # Note 58d: open loop -- logged lee/wind openings drive vent_split; lam
     FIXV[findfirst(==("vent_ctrl"), FIXN)] = 0.0
     append!(FIXN, ["lamp_full", "vent_split", "vent_exp", "vs_clee"]); append!(FIXV, [1.0, 1.0, 1.0, 1.0])
 end
+if N79   # Note 79: physical description fixed a priori (AGC documents, Notes 67-68, 78); bias terms removed
+    append!(FIXN, ["phi2", "alpha5", "nu5", "gamma1", "n_pipes", "tau1", "psi2", "cover_area", "cover_cond", "co2_resp",
+                   "hc_dT", "lamp_scr_loss", "s_rad"])
+    append!(FIXV, [5.4, 1005.0, 1000.0, 1.0, 1.0, 0.65 / 0.9, 35556.0, 1.6, 1.0, 1.0,
+                   0.0, 0.0, 0.0])
+    #  phi2 5.4 m mean air height | alpha5 c_p 1005 | nu5 = 0.10 x alpha6 vent area | rail pipe 1.0 m m-2 as ONE circuit
+    #  (gamma1 1.0, n_pipes 1; PIPE2 folds the grow pipe in) | tau1 = 0.65/(1-eta1) -> PAR/global transmission 0.65 |
+    #  psi2 = 12.8 g m-2 h-1 x alpha6 | cover 1.6 m2 per m2 floor | cover condensation and crop respiration ON
+    allunique(FIXN) || error("duplicate FIXN entries")
+end
 const params_cl = update_params(params, FIXN, FIXV)
 
 # ── free parameters ──────────────────────────────────────────────────────────
-const CQ_MODEL = OLP ?
+const CQ_MODEL = N79 ?
+    ["gamma4", "vent_scr_perm", "k_ground", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass",
+     "lamp_Pel", "lamp_fcan", "vs_gwind", "vs_cwind", "vs_exp", "nu4", "h_cover_out", "air_cap_mult"] :
+                 OLP ?
     ["gamma4", "vent_scr_perm", "hc_dT", "k_ground", "gamma1", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass",
      "lamp_Pel", "lamp_scr_loss", "lamp_fcan", "vs_gwind", "vs_cwind", "vs_exp",
      (PRIORS == "n61" ? ["air_cap_mult", "s_rad"] : PRIORS == "n61b" ? ["air_cap_mult"] : String[])...] :
@@ -201,6 +249,16 @@ end
 if PRIORS == "n54"   # Note 54b: nu2 was pinned at 0.03 in n49b and OL is under-ventilated by day -> wider; lamp split free
     CQ_dict["nu2"]       = [0.03, 0.10, 0.5]
     CQ_dict["lamp_fcan"] = [0.1,  0.45, 0.7]   # share of lamp power absorbed by a closed canopy
+end
+if N79   # Note 78 prior table (approximate sub-models only)
+    for (k, v) in ("nu1" => [0.3, 0.65, 1.0], "nu2" => [0.005, 0.05, 0.3], "vs_exp" => [0.5, 0.9, 1.2],
+                   "vs_gwind" => [0.5, 1.5, 4.0], "vs_cwind" => [0.5, 1.0, 10.0], "nu4" => [1e-5, 4.5e-5, 1e-4],
+                   "gamma4" => [40.0, 82.0, 200.0], "lamp_Pel" => [100.0, 110.0, 120.0], "lamp_fcan" => [0.05, 0.3, 0.9],
+                   "k_ground" => [1.0, 8.0, 40.0], "C_soil" => [1.5e5, 6e5, 2e6], "k_deep" => [0.5, 1.5, 3.0],
+                   "C_mass" => [2e4, 4e4, 8e4], "h_mass" => [1.0, 5.0, 40.0], "f_mass" => [0.0, 0.15, 0.5],
+                   "h_cover_out" => [10.0, 25.0, 50.0], "air_cap_mult" => [1.0, 3.0, 12.0], "vent_scr_perm" => [0.0, 0.4, 1.0])
+        CQ_dict[k] = v
+    end
 end
 const ADDITIVE = Set(["hc_dT", "vc_e0"])        # jittered additively (centre 0 / negative)
 CSupp(z) = all(CQ_dict[CQ[k]][1] < z[k] < CQ_dict[CQ[k]][3] for k in eachindex(z))
@@ -434,6 +492,23 @@ if CMODE == "smoke"
 
     # [smoke 3] full-season check at the prior centre
     T2c, RHc, U8c = full_eval(centre[1:NM]); eval_table(T2c, RHc, U8c; label = "Full-season check at the PRIOR CENTRE (not calibrated):")
+    if N79   # [smoke 4] the two new processes at the prior centre: CO2 and night vapour (checks, not in the likelihood)
+        Cobs = A(CO2_obs).(predtimes); RHo = RHobs_g
+        println("\n[smoke 4] new processes at the prior centre, full season (CO2 and RH are checks / likelihood as before)")
+        @printf("  %-28s %9s %9s %9s %9s %9s\n", "variant", "CO2 RMSE", "CO2 bias", "CO2 nite", "RH nite", "RH day")
+        for (lab, fx) in (("both on", Pair{String,Float64}[]), ("crop respiration off", ["co2_resp" => 0.0]),
+                          ("cover condensation off", ["cover_cond" => 0.0]), ("both off", ["co2_resp" => 0.0, "cover_cond" => 0.0]))
+            pv = update_params(params_cl, CQ_MODEL, centre[1:NM])
+            isempty(fx) || (pv = update_params(pv, String[first(q) for q in fx], Float64[last(q) for q in fx]))
+            us = simdays(pv, days, u0_cl, RELTOL); us === nothing && (println("  $lab: solve failed"); continue)
+            C = us[3, :]; RHm = rhf.(us[2, :], us[4, :])
+            okc = .!isnan.(Cobs); okc[1] = false; okr = .!isnan.(RHo); okr[1] = false
+            mbx(v, o, k) = any(k) ? mean(v[k] .- o[k]) : NaN
+            @printf("  %-28s %9.0f %+9.0f %+9.0f %+9.2f %+9.2f\n", lab, sqrt(mean((C[okc] .- Cobs[okc]) .^ 2)), mbx(C, Cobs, okc),
+                    mbx(C, Cobs, okc .& nite), mbx(RHm, RHo, okr .& nite), mbx(RHm, RHo, okr .& dayt))
+        end
+        println("  CO2 in mg m-3 (x ~0.55 -> ppm); RH in % points; bias = model - observed.")
+    end
     println("\nSmoke done. Paste this output before launching `full`.")
     exit(0)
 end
