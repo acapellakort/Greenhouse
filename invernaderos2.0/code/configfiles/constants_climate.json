@@ -1182,5 +1182,17 @@
         "units": "-",
         "desc": "Note 86 flag: leaf dark respiration Rd_day x 2^((T_canopy - 25 C)/10); 0 = V2.2 (constant Rd)",
         "latex": ""
+    },
+    "leak_stack": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 88 flag: leakage nu4*sqrt(max(v,0.25)^2 + leak_cs*|T_air-T_out|) (stack effect) and full leakage in the heat balance (V2.2 used 0.5); 0 = V2.2",
+        "latex": ""
+    },
+    "leak_cs": {
+        "val": 0.0,
+        "units": "m2 s-2 K-1",
+        "desc": "Note 88: stack coefficient of the leakage (used only with leak_stack = 1)",
+        "latex": ""
     }
 }

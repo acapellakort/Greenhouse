@@ -168,6 +168,16 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     # Note 86 (default-off): leak_shared = 1 -> CO2 leaks through the same cracks as heat and vapour (nu4CO2 := nu4)
     nu4C  = (hasproperty(p, :leak_shared) && p.leak_shared > 0.5) ? nu4 : nu4CO2
     f6CO2 = max(I8 < 0.25 ? 0.25 * nu4C : nu4C * I8, nu4_min)
+    # Note 88 (default-off): leak_stack = 1 -> leakage driven by wind AND the inside-outside temperature difference
+    # (stack effect through cracks and screen gaps), same pressure sum as the roof-vent equation:
+    #   f_leak = nu4 * sqrt(max(v, 0.25)^2 + leak_cs * |T_air - T_out|)     (leak_cs = 0 -> wind-only V2.2 form)
+    # and the heat balance uses the FULL leakage (V2.2 heat used 0.5 * f6 while vapour and CO2 used f6).
+    lstack = hasproperty(p, :leak_stack) && p.leak_stack > 0.5
+    if lstack
+        wl    = sqrt(max(I8, 0.25)^2 + p.leak_cs * abs(T2 - I5))
+        f6    = max(nu4 * wl, nu4_min)
+        f6CO2 = max(nu4C * wl, nu4_min)
+    end
 
     f7t = max(omega1 * nu6 * (T2 - I5) / (T2 + I5) + n3 * I8^2, 0.0)
     # Ventilation RATE is a non-negative air-exchange rate (buoyancy magnitude);
@@ -261,7 +271,7 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     # air-exchange rate carries sensible heat regardless of what drives it, so the roof
     # vent must appear here too. Added f4. (Changes the venting-day forward map, so
     # climate inference should be re-checked -- unlike the sign fix, this is NOT identical.)
-    h7 = rho3 * alpha5 * (f2 + f4 + f3 + 0.5 * f6) * (T2 - I5)
+    h7 = rho3 * alpha5 * (f2 + f4 + f3 + (lstack ? 1.0 : 0.5) * f6) * (T2 - I5)
     h11 = 2 * nu7 * (T2 - I7) / (phi2 + nu8)
     h12 = (eta15 + eta16) * alpha12 * U12
     r8 = I2 * (eta1 * (tau1 * eta2 + (alpha2 + alpha7) * eta3) + (alpha8 * eta2 + alpha9 * eta3))
