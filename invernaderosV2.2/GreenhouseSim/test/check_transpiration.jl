@@ -57,7 +57,7 @@ function emod(pX, phys)
     end
     E
 end
-Emod  = emod(pT, false)
+Emod  = emod(update_params(pT, ["phys_light", "photo_lai"], [0.0, 0.0]), false)   # sun only (pre-Note 72 behaviour)
 EmodL = emod(pL, true)
 
 irr = DataFrame(CSV.File(joinpath(DATA, TEAM, "Irrigation.csv")))

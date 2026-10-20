@@ -10,7 +10,8 @@
 #   PAR_in = PARout * transmission (0.65) * (1 - 0.98 BlackScr) * (1 - 0.25 EnScr) + 187 umol * lamps.
 # Crop model: generic path (CUCUMBER_PARAMS = Marcelis 1994 via Aaron's port), with
 #   node rate = flower appearance (per stem), M94 light factor on the daily PAR (gen_parlight = 1),
-#   T clamped to the M94 domain (gen_clampT = 1), harvest when a fruit reaches 16 g DM (~400 g FW),
+#   Aaron's updated components (CUCUMBER_PARAMS_V2, Note 72: no 17.5-30 C windows; nodes = flowers linear above
+#   8.33 C), harvest when a fruit reaches 16 g DM (~400 g FW), stem density 2.6,
 #   fruits set = nodes x stems x KEPT SHARE (grower policy, CropManagement 'Pruning') x carbon gate (abortion).
 # Observations: weekly harvest (Production.csv), leaves per stem (N_leaves), fruit development time (FruitGrw).
 #   The derived LAI is NOT used: it is built from assumed leaf area and stem density (Note 68).
@@ -29,7 +30,7 @@ const NCHN  = parse(Int, get(ENV, "CHAIN", MODE == "smoke" ? "2000" : "150000"))
 const BURN  = parse(Int, get(ENV, "BURN", "40000"))
 const TRANS = parse(Float64, get(ENV, "TRANS", "0.65"))
 const TEAM  = "AiCU"
-const ZCLAMP = parse(Float64, get(ENV, "ZCLAMP", "0"))   # Note 70: 1 = fruits grow past stage 1, picked by size only
+const ZCLAMP = parse(Float64, get(ENV, "ZCLAMP", "1"))   # Note 70: 1 = fruits grow past stage 1, picked by size only
 
 INV   = normpath(joinpath(@__DIR__, "..", "..", ".."))
 DATA  = joinpath(INV, "invernaderos2.0", "data")
@@ -37,7 +38,7 @@ params = load_params(joinpath(INV, "invernaderos2.0", "code", "configfiles", "co
                      joinpath(INV, "invernaderos2.0", "code", "configfiles", "constants_cropphoto.json"))
 gp_base = load_growth_params(joinpath(@__DIR__, "..", "configfiles", "cucumber_growth.json"))
 gp_base = update_params(gp_base, ["set_start_day", "harvest_W", "gen_clampT", "gen_parlight", "gen_beta", "gen_kappa",
-                                  "gen_A", "gen_V", "gen_zclamp", "stem_density"], [15.0, 16.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, ZCLAMP, 2.6])
+                                  "gen_A", "gen_V", "gen_zclamp", "stem_density"], [15.0, 16.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, ZCLAMP, 2.6])
 
 season = load_measured_climate_par(joinpath(DATA, TEAM, "Greenhouse_climate.csv"), joinpath(DATA, "meteo.csv");
                                    transmission = TRANS, lamp_umol = 187.0)
@@ -82,7 +83,7 @@ PR = Dict("gen_beta" => [0.5, 1.0, 1.5],  "gen_kappa" => [0.5, 1.0, 2.5], "gen_A
 centre = [PR[q][2] for q in QoI]
 
 runmodel(z) = simulate_growth_measured(params, update_params(gp_base, QoI_G, z[1:NG]), season;
-                                       LAI0 = 0.5, generic_params = CUCUMBER_PARAMS, fruit_keep = keep)
+                                       LAI0 = 0.5, generic_params = CUCUMBER_PARAMS_V2, fruit_keep = keep)
 function resid(r)
     ry = Δy_obs .- weekly_incr(r.day, r.yield_FW, edges)
     rl = cm_N .- [at_day(r.node, d) for d in cm_days]

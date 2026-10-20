@@ -97,6 +97,30 @@ const CUCUMBER_PARAMS = GenericParameters(
 )
 
 """
+    CUCUMBER_PARAMS_V2 :: GenericParameters
+
+Note 72. Aaron Velez's updated Generic_Gh_Model (`modelo aaron/Generic_Gh_Model-main/models.py`): same M94
+coefficients, but the generic components are no longer cut at the M94 comparison ranges:
+  * appearance = beta1 * max(T - 0.75/0.09, 0) = max(beta0 + beta1 T, 0): linear above its own base 8.33 C,
+    no 17.5 C cliff and no 30 C cap (flowers = nodes per stem per day; PAR factor at 6.8 MJ as in models.py);
+  * development clock kappa * max(T - 10, 0): no clamp to 10-30 C;
+  * fruit sink: no temperature window, amplitude floored at zero (T > 10 C);
+  * vegetative demand V20 + VT (T - 20), floored at zero: no clamp to 18-24 C.
+Implemented by giving the V1 functions infinite domains (identical formulas inside the old ranges).
+"""
+const CUCUMBER_PARAMS_V2 = GenericParameters(
+    s = CUCUMBER_PARAMS.s, p = CUCUMBER_PARAMS.p, peak = CUCUMBER_PARAMS.peak,
+    A0 = CUCUMBER_PARAMS.A0, AT = CUCUMBER_PARAMS.AT,
+    kappa = CUCUMBER_PARAMS.kappa, alpha = CUCUMBER_PARAMS.alpha, base = CUCUMBER_PARAMS.base,
+    beta0 = CUCUMBER_PARAMS.beta0, beta1 = CUCUMBER_PARAMS.beta1,
+    V20 = CUCUMBER_PARAMS.V20, VT = CUCUMBER_PARAMS.VT,
+    clock_domain      = (-Inf, Inf),
+    appearance_domain = (-Inf, Inf),
+    sink_domain       = (-Inf, Inf),
+    vegetation_domain = (-Inf, Inf),
+)
+
+"""
     TOMATO_PARAMS :: GenericParameters
 
 Tomato parameterization from Heuvelink (1996) / TOMSIM cast into the generic form.

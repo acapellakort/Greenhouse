@@ -1127,9 +1127,9 @@
         "comment": "Note 61"
     },
     "phys_light": {
-        "val": 0.0,
+        "val": 1.0,
         "units": "-",
-        "desc": "Note 71 flag: stomata and photosynthesis see sun PAR through the screens (x(1-0.98 BlackScr)(1-0.25 EnScr)) plus lamp PAR lamp_par_W*U12; 0 = sun only (V2.2)",
+        "desc": "Note 71 flag: stomata and photosynthesis see sun PAR through the screens (x(1-0.98 BlackScr)(1-0.25 EnScr)) plus lamp PAR lamp_par_W*U12; 0 = sun only (V2.2). DEFAULT ON since Note 72 (user decision)",
         "latex": "",
         "comment": "Note 71"
     },
@@ -1141,9 +1141,9 @@
         "comment": "Note 71"
     },
     "photo_lai": {
-        "val": 0.0,
+        "val": 1.0,
         "units": "-",
-        "desc": "Note 71 flag: photosynthesis scaled by the effective leaf area (1-exp(-0.7 LAI))/0.7 instead of the 2.0 'LAI = I9' quirk; 0 = V2.2",
+        "desc": "Note 71 flag: photosynthesis scaled by the effective leaf area (1-exp(-0.7 LAI))/0.7 instead of the 2.0 'LAI = I9' quirk; 0 = V2.2. DEFAULT ON since Note 72",
         "latex": "",
         "comment": "Note 71"
     }

@@ -67,7 +67,7 @@ export SimBase, SimContext, rhs!, simulate, forward_map
 # Model kernels (exported for benchmarking / testing)
 export climate_rhs, assimilation, Pws, rhf, VPDf, floor_balance
 # Generic dry-matter partitioning (Marcelis 1994 / Heuvelink 1996)
-export GenericParameters, CUCUMBER_PARAMS, TOMATO_PARAMS
+export GenericParameters, CUCUMBER_PARAMS, CUCUMBER_PARAMS_V2, TOMATO_PARAMS
 export generic_appearance, generic_development_rate, generic_sink, generic_vegetation
 export allocate_daily
 # M94 / H96 reference functions (for validation)
