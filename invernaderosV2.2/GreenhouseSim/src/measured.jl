@@ -97,13 +97,14 @@ end
 Season simulation of the cucumber growth model driven by measured climate.
 Returns day, LAI, yield_FW [kg/m2], W_fruit, Pg, and the final state.
 """
-function simulate_growth_measured(p::NamedTuple, gp, season::MeasuredSeason; LAI0 = 0.5)
+function simulate_growth_measured(p::NamedTuple, gp, season::MeasuredSeason; LAI0 = 0.5,
+                                  generic_params::Union{Nothing, GenericParameters} = nothing)
     s = init_growth_state(gp; LAI0 = LAI0)
     day = Int[]; LAI = Float64[]; yieldFW = Float64[]; Wfruit = Float64[]; Pg = Float64[]; node = Float64[]
     for d in 0:(season.ndays - 1)
         M = season.day_samples[d + 1]
         Pgd = daily_assimilation_measured(M, s.LAI, p, season.dt, gp.k_ext)
-        grow!(s, Pgd, daily_mean_T(M), gp, d)
+        grow!(s, Pgd, daily_mean_T(M), gp, d; generic_params = generic_params)   # Note 66: generic path selectable
         push!(day, d); push!(LAI, s.LAI); push!(yieldFW, s.yield_FW)
         push!(Wfruit, isempty(s.fruits) ? 0.0 : sum(f.W for f in s.fruits))
         push!(Pg, Pgd); push!(node, s.node)

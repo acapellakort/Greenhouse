@@ -132,6 +132,7 @@ mutable struct GrowthState
     yield_DW::Float64      # cumulative harvested fruit dry weight [g/m2]
     yield_FW::Float64      # cumulative harvested fruit fresh weight [kg/m2]
     node::Float64          # main-stem node number
+    reserve::Float64       # assimilate carried to the next day [g DM/m2] (generic path only; 0 in the legacy path)
 end
 
 """
@@ -141,7 +142,7 @@ Young transplant: leaf mass set from LAI0 via SLA, small stem/root, no fruit.
 """
 function init_growth_state(gp; LAI0 = 0.5, stem0 = 8.0, root0 = 4.0)
     W_leaf0 = LAI0 / gp.SLA
-    return GrowthState(W_leaf0, stem0, root0, LAI0, Fruit[], 0.0, 0.0, 0.0)
+    return GrowthState(W_leaf0, stem0, root0, LAI0, Fruit[], 0.0, 0.0, 0.0, 0.0)
 end
 
 # smoothstep S(x)=x^2(3-2x); its derivative 6x(1-x) integrates to 1 over [0,1],
@@ -223,12 +224,18 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
 
     else
         # --- Generic path (Marcelis 1994 / Heuvelink 1996 Bell sigmoid) ---
-        # Vegetative demand: generic_vegetation scaled by planting density
-        veg_sink = generic_vegetation(Tmean_C, generic_params) * dens
+        # Vegetative demand: generic_vegetation is per PLANT -> multiply by the planting density [plants/m2]
+        # (Note 66 fix: was `* dens` = stem_density/REF_DENSITY = 1, i.e. one plant per m2)
+        plants = gp.stem_density
+        veg_sink = generic_vegetation(Tmean_C, generic_params) * plants
+        # Note 66 (default-off): gp.gen_clampT = 1 -> fruit sink and flower appearance use T clamped to their domain,
+        # as in Marcelis (1994) (cucumber_sink_m94 / cucumber_appearance_m94); the generic port returns 0 outside it.
+        Ts = (hasproperty(gp, :gen_clampT) && gp.gen_clampT > 0.5) ?
+             clamp(Tmean_C, generic_params.sink_domain[1], generic_params.sink_domain[2]) : Tmean_C
 
         # Per-fruit sink: generic Bell curve; f.n [fruits/m2] linearises directly
         fruit_sink_pre = isempty(s.fruits) ? 0.0 :
-                         sum(generic_sink(Tmean_C, f.dev, f.n, generic_params) for f in s.fruits)
+                         sum(generic_sink(Ts, f.dev, f.n, generic_params) for f in s.fruits)
         total_sink_pre = veg_sink + fruit_sink_pre
 
         # 5. fruit set regulated by carbohydrate status (same logic, generic appearance)
@@ -236,14 +243,14 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
             ss = dDM_pot / (total_sink_pre + 1e-9)
             set_frac = clamp((ss - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
             # Appearance rate [events/plant/day] × density [plants/m2] × carbon gate
-            n_new = generic_appearance(Tmean_C, generic_params) * dens * set_frac
+            n_new = generic_appearance(Ts, generic_params) * plants * set_frac
             n_new > 0.0 && push!(s.fruits, Fruit(0.0, 0.0, n_new))
         end
 
         # 6. allocate using M94 eq.4 / H96 eq.1 helper
-        fruit_sinks_vec = [generic_sink(Tmean_C, f.dev, f.n, generic_params) for f in s.fruits]
+        fruit_sinks_vec = [generic_sink(Ts, f.dev, f.n, generic_params) for f in s.fruits]
         potentials = vcat([veg_sink], fruit_sinks_vec)
-        growths, _ = allocate_daily(potentials, dDM_pot)
+        growths, s.reserve = allocate_daily(potentials, dDM_pot, s.reserve)   # M94 eq.4 with reserve carry-over (Note 66)
         veg_DM     = growths[1]
         s.W_leaf  += veg_DM * gp.frac_leaf
         s.W_stem  += veg_DM * gp.frac_stem
@@ -254,9 +261,12 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
     end
 
     # 7. harvest mature fruit
+    # Note 66 (generic path only, default-off): gp.harvest_W > 0 -> a cohort is also picked when its mean fruit dry
+    # weight reaches harvest_W [g DM/fruit] (growers pick cucumbers by size, not by age).
+    hw = (!isnothing(generic_params) && hasproperty(gp, :harvest_W)) ? gp.harvest_W : 0.0
     keep = Fruit[]
     for f in s.fruits
-        if f.dev >= 1.0
+        if f.dev >= 1.0 || (hw > 0.0 && f.n > 0.0 && f.W / f.n >= hw)
             s.yield_DW += f.W
             s.yield_FW += (f.W / gp.DMC_fruit) / 1000.0   # g DW -> kg FW / m2
         else
