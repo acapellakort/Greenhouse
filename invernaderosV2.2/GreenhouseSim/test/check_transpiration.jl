@@ -65,22 +65,22 @@ println("\n", "="^104)
 @printf("  %s transpiration check (posterior mean, %s); L per floor m2 per week\n", PRIORS, OLP ? "open loop" : "closed loop")
 @printf("  %-10s | %8s %8s | %8s %8s %8s | %6s %6s\n", "days", "net(96)", "fruit", "Eobs 96", "Eobs 76.8", "Emodel", "ratio96", "ratio77")
 W = Tuple{Int,Int}[(a, min(a + 6, N_DAYS - 1)) for a in 0:7:(N_DAYS - 1)]
-wk = Dict{Int,Vector{Float64}}()
+wkd = Dict{Int,Vector{Float64}}()
 for (a, b) in W
     ix = (a:b) .+ 1; ok = .!isnan.(net[ix]); count(ok) >= 6 || continue
     e96 = sum(Eobs(96.0)[ix][ok]); e77 = sum(Eobs(76.8)[ix][ok]); em = sum(Emod[ix][ok])
-    wk[a] = [e96, e77, em]
+    wkd[a] = [e96, e77, em]
     @printf("  d%-3d-%-4d | %8.2f %8.2f | %8.2f %8.2f %8.2f | %6.2f %6.2f\n", a, b, sum(net[ix][ok]), sum(fruitw[ix][ok]),
             e96, e77, em, em / e96, em / e77)
 end
 println("  ", "-"^102)
 for (lo, hi) in [(0, 8), (9, 48), (49, 100), (101, 114), (0, 114)]
-    ks = [k for k in keys(wk) if lo <= k <= hi]; isempty(ks) && continue
-    s = reduce(+, [wk[k] for k in ks])
+    ks = [k for k in keys(wkd) if lo <= k <= hi]; isempty(ks) && continue
+    s = reduce(+, [wkd[k] for k in ks])
     @printf("  d%-3d-%-4d | model / observed: %.2f (floor basis), %.2f (growing basis)   [%d weeks]\n", lo, hi, s[3] / s[1], s[3] / s[2], length(ks))
 end
-ks = sort(collect(keys(wk)))
-@printf("  weekly correlation (model, observed): %.2f\n", cor([wk[k][3] for k in ks], [wk[k][1] for k in ks]))
+ks = sort(collect(keys(wkd)))
+@printf("  weekly correlation (model, observed): %.2f\n", cor([wkd[k][3] for k in ks], [wkd[k][1] for k in ks]))
 println("""
   Read: ratio ~1 on one basis = the model transpiration is consistent with the water use on that area basis.
   Model LAI = interpolated derived LAI (2.5 plateau, per growing area) with no 0.8 floor factor. A ratio that
