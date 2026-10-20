@@ -155,9 +155,9 @@ if OLP   # Note 58d: open loop -- logged lee/wind openings drive vent_split; lam
 end
 if N79   # Note 79: physical description fixed a priori (AGC documents, Notes 67-68, 78); bias terms removed
     append!(FIXN, ["phi2", "alpha5", "nu5", "gamma1", "n_pipes", "tau1", "psi2", "cover_area", "cover_cond", "co2_resp",
-                   "hc_dT", "lamp_scr_loss", "s_rad"])
+                   "hc_dT", "lamp_scr_loss", "s_rad", "dew_bl"])
     append!(FIXV, [5.4, 1005.0, 1000.0, 1.0, 1.0, 0.65 / 0.9, 35556.0, 1.6, 1.0, 1.0,
-                   0.0, 0.0, 0.0])
+                   0.0, 0.0, 0.0, 1.0])     # dew_bl: Note 85
     #  phi2 5.4 m mean air height | alpha5 c_p 1005 | nu5 = 0.10 x alpha6 vent area | rail pipe 1.0 m m-2 as ONE circuit
     #  (gamma1 1.0, n_pipes 1; PIPE2 folds the grow pipe in) | tau1 = 0.65/(1-eta1) -> PAR/global transmission 0.65 |
     #  psi2 = 12.8 g m-2 h-1 x alpha6 | cover 1.6 m2 per m2 floor | cover condensation and crop respiration ON
