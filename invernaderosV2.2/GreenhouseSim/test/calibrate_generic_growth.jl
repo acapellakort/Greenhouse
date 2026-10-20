@@ -15,7 +15,8 @@
 #   fruits set = nodes x stems x KEPT SHARE (grower policy, CropManagement 'Pruning') x carbon gate (abortion).
 # Observations: weekly harvest (Production.csv), leaves per stem (N_leaves), fruit development time (FruitGrw).
 #   The derived LAI is NOT used: it is built from assumed leaf area and stem density (Note 68).
-# Inferred: gen_beta, gen_kappa, gen_A, gen_V, LAI_max, set_r_low, set_r_high, stem_density + 3 sigmas.
+# Inferred (Note 74, physical units, no multipliers): W_pot, E_fruit, beta1, V20 (M94); k_m_leaf, k_m_stem,
+#   k_m_fruit, LAI_max, set_r_low, set_r_high (growth); J_max (photosynthesis) + 3 sigmas. Stem density fixed 2.6.
 # =============================================================================
 
 using Pkg
@@ -73,17 +74,36 @@ function week_age(r, d0)     # n-weighted mean age of fruits harvested in days d
 end
 
 # --- parameters ----------------------------------------------------------------------------------------------
-QoI_G = ["gen_beta", "gen_kappa", "gen_A", "gen_V", "LAI_max", "set_r_low", "set_r_high"]   # stem_density fixed 2.6 (user, Note 71)
-QoI_S = ["sigma_y", "sigma_leaf", "sigma_fd"]
-QoI   = vcat(QoI_G, QoI_S); NG = length(QoI_G)
-PR = Dict("gen_beta" => [0.5, 1.0, 1.5],  "gen_kappa" => [0.5, 1.0, 2.5], "gen_A" => [0.2, 1.0, 2.0],
-          "gen_V" => [0.2, 1.0, 2.0],     "LAI_max" => [1.5, 2.5, 4.0],   "set_r_low" => [0.0, 0.3, 1.0],
-          "set_r_high" => [0.2, 1.0, 2.5],
-          "sigma_y" => [0.02, 0.3, 3.0],  "sigma_leaf" => [0.5, 3.0, 20.0], "sigma_fd" => [0.5, 3.0, 15.0])
+# Note 74: the model's own parameters in physical units, priors centred on Marcelis (1994) / the JSON values
+# (no multipliers). Stem density fixed 2.6 (user). Fruit sink keeps the M94 shape (rate 0.0170 per C d, inflection
+# 131 C d, Richards exponent); W_pot = potential fruit dry weight (M94 60.7 g), E_fruit = thermal time that maps to
+# stage 1 (M94 275 C d) -- stretching E stretches the whole fruit-growth time course, W_pot sets its height.
+QoI_GEN  = ["W_pot", "E_fruit", "beta1", "V20"]                                  # Aaron / M94 crop relations
+QoI_GP   = ["k_m_leaf", "k_m_stem", "k_m_fruit", "LAI_max", "set_r_low", "set_r_high"]   # growth.jl / JSON
+QoI_PH   = ["J_max"]                                                             # photosynthesis (FvCB)
+QoI_S    = ["sigma_y", "sigma_leaf", "sigma_fd"]
+QoI      = vcat(QoI_GEN, QoI_GP, QoI_PH, QoI_S)
+ix(q)    = findfirst(==(q), QoI)
+PR = Dict("W_pot" => [20.0, 60.7, 120.0],  "E_fruit" => [150.0, 275.0, 450.0], "beta1" => [0.05, 0.0882, 0.13],
+          "V20" => [2.0, 8.3, 16.0],
+          "k_m_leaf" => [0.01, 0.03, 0.06], "k_m_stem" => [0.005, 0.015, 0.03], "k_m_fruit" => [0.003, 0.01, 0.02],
+          "LAI_max" => [1.5, 2.5, 4.0], "set_r_low" => [0.0, 0.3, 1.0], "set_r_high" => [0.2, 1.0, 2.5],
+          "J_max" => [1.0e-4, 2.0e-4, 3.5e-4],
+          "sigma_y" => [0.02, 0.3, 3.0], "sigma_leaf" => [0.5, 3.0, 20.0], "sigma_fd" => [0.5, 3.0, 15.0])
 centre = [PR[q][2] for q in QoI]
 
-runmodel(z) = simulate_growth_measured(params, update_params(gp_base, QoI_G, z[1:NG]), season;
-                                       LAI0 = 0.5, generic_params = CUCUMBER_PARAMS_V2, fruit_keep = keep)
+const V2 = CUCUMBER_PARAMS_V2
+function genpar(W_pot, E, beta1, V20)        # M94 sink shape fixed in thermal age; W_pot, E, beta1, V20 free
+    AT = W_pot * V2.s * (V2.p - 1) / E       # total growth to the asymptote = W_pot for any E (s fixed in stage units)
+    GenericParameters(s = V2.s, p = V2.p, peak = V2.peak, A0 = -10.0 * AT, AT = AT, kappa = 1.0 / E, alpha = 1.0,
+                      base = 10.0, beta0 = -beta1 * (0.75 / 0.09), beta1 = beta1, V20 = V20, VT = V2.VT,
+                      clock_domain = V2.clock_domain, appearance_domain = V2.appearance_domain,
+                      sink_domain = V2.sink_domain, vegetation_domain = V2.vegetation_domain)
+end
+runmodel(z) = simulate_growth_measured(update_params(params, QoI_PH, [z[ix(q)] for q in QoI_PH]),
+                                       update_params(gp_base, QoI_GP, [z[ix(q)] for q in QoI_GP]), season;
+                                       LAI0 = 0.5, fruit_keep = keep,
+                                       generic_params = genpar(z[ix("W_pot")], z[ix("E_fruit")], z[ix("beta1")], z[ix("V20")]))
 function resid(r)
     ry = Δy_obs .- weekly_incr(r.day, r.yield_FW, edges)
     rl = cm_N .- [at_day(r.node, d) for d in cm_days]
@@ -92,11 +112,11 @@ function resid(r)
 end
 function energy(z)
     r = try runmodel(z) catch; return Inf end
-    ry, rl, rf = resid(r); σy, σl, σf = z[NG + 1], z[NG + 2], z[NG + 3]
+    ry, rl, rf = resid(r); σy, σl, σf = z[ix("sigma_y")], z[ix("sigma_leaf")], z[ix("sigma_fd")]
     length(ry) * log(σy) + sum(abs2, ry) / (2σy^2) + length(rl) * log(σl) + sum(abs2, rl) / (2σl^2) +
     length(rf) * log(σf) + sum(abs2, rf) / (2σf^2)
 end
-supp(z) = all(PR[q][1] < z[k] < PR[q][3] for (k, q) in enumerate(QoI)) && z[7] > z[6] + 0.05
+supp(z) = all(PR[q][1] < z[k] < PR[q][3] for (k, q) in enumerate(QoI)) && z[ix("set_r_high")] > z[ix("set_r_low")] + 0.05
 
 function report(z, tag)
     r = runmodel(z); ry, rl, rf = resid(r)
@@ -120,7 +140,7 @@ jit() = (for _ in 1:1000; x = centre .* (1 .+ 0.05 .* randn(length(QoI))); supp(
 t0 = time(); Run!(obj, T = NCHN, x0 = jit(), xp0 = jit())
 @printf("\n%d steps in %.0f s (%.2f s/step)\n", NCHN, time() - t0, (time() - t0) / NCHN)
 postdir = joinpath(@__DIR__, "posteriors"); mkpath(postdir)
-fn = joinpath(postdir, "$(TEAM)_growth_generic$(ZCLAMP > 0.5 ? "_zc" : "")_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
+fn = joinpath(postdir, "$(TEAM)_growth_generic_n74_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
 JLD2.@save fn chain=obj.Output QoI=QoI burn_in=BURN transmission=TRANS
 println("saved ", fn)
 b = MODE == "smoke" ? max(1, NCHN ÷ 2) : BURN
