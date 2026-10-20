@@ -34,7 +34,7 @@ function runcrop(gp, gen)
     for d in 0:(N_DAYS - 1)
         M  = season_A.day_samples[d + 1]
         Pg = daily_assimilation_measured(M, s.LAI, params, season_A.dt, gp.k_ext)
-        grow!(s, Pg, daily_mean_T(M), gp, d; generic_params = gen)
+        grow!(s, Pg, GreenhouseSim.daily_mean_T(M), gp, d; generic_params = gen)
         cur = Set(objectid(f) for f in s.fruits)
         for (k, (sd, f)) in collect(live)
             if !(k in cur); push!(hn, f.n); push!(hW, f.W); push!(hage, d - sd); delete!(live, k); end
@@ -57,7 +57,7 @@ runs = [("L    legacy (Note 21)", gpL, nothing),
         ("GWc  GW + T clamped to M94 domain", gpWc, CUCUMBER_PARAMS)]
 R = [runcrop(gp, gen) for (_, gp, gen) in runs]
 
-Tday = [daily_mean_T(season_A.day_samples[d + 1]) for d in 0:(N_DAYS - 1)]
+Tday = [GreenhouseSim.daily_mean_T(season_A.day_samples[d + 1]) for d in 0:(N_DAYS - 1)]
 @printf("\nDaily mean air T: mean %.1f C, min %.1f, max %.1f; days below 17.5 C (generic sink/appearance = 0): %d of %d\n",
         mean(Tday), minimum(Tday), maximum(Tday), count(<(17.5), Tday), N_DAYS)
 
