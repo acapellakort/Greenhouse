@@ -178,7 +178,15 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
     # 3. development: node appearance stops at topping; fruit cohorts always age
     active = day < gp.top_day                       # crop head still growing?
     if active
-        s.node += gp.node_rate * dT
+        # Note 66: in the generic (Aaron / Marcelis 1994) path a node appears with each flower, so the node rate is the
+        # flower-appearance rate per plant (stem) and day; gp.gen_node = 0 keeps the legacy thermal-time node rate.
+        if isnothing(generic_params) || (hasproperty(gp, :gen_node) && gp.gen_node < 0.5)
+            s.node += gp.node_rate * dT
+        else
+            Tn = (hasproperty(gp, :gen_clampT) && gp.gen_clampT > 0.5) ?
+                 clamp(Tmean_C, generic_params.appearance_domain[1], generic_params.appearance_domain[2]) : Tmean_C
+            s.node += generic_appearance(Tn, generic_params)
+        end
     end
     # Development increment per day: generic clock or legacy linear thermal time
     if isnothing(generic_params)

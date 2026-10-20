@@ -12,6 +12,7 @@
 #        sink and appearance = 0 when the daily mean T is outside 17.5-30 C
 #   GW   G + harvest by size: a cohort is picked when its mean fruit reaches Wf_max = 16 g DM (= 400 g FW)
 #   GWc  GW + T clamped to the M94 domain for sink and appearance (as M94's own equations)
+#   In G, GW and GWc the node rate = flower-appearance rate (one flower per node); L keeps node_rate*(T - 10).
 # Outputs: yield, weekly-yield fit, LAI fit, fruits set / harvested, harvested fruit size and age, and a figure.
 # =============================================================================
 
@@ -75,8 +76,12 @@ for ((nm, gp, _), r) in zip(runs, R)
 end
 yo = cum_at(days_obs, y_obs, N_DAYS - 1)
 @printf("  %-34s | %7.2f %8.2f |\n", "observed (Production.csv)", yo, yo - cum_at(days_obs, y_obs, 42))
-@printf("\n  Nodes at day %d (same in all runs; node_rate is shared): model %.1f, observed leaves %.1f\n",
-        cm_days[end], R[1].node[cm_days[end] + 1], cm_N[end])
+println("\n  Nodes vs observed leaf number (generic runs: node = flower appearance, Note 66)")
+for ((nm, _, _), r) in zip(runs, R)
+    nm_ = [r.node[d + 1] for d in cm_days]
+    @printf("  %-34s | node d%d %6.1f (obs %5.1f) | RMSE %5.2f | bias %+5.2f\n", nm, cm_days[end], nm_[end], cm_N[end],
+            sqrt(mean(abs2, nm_ .- cm_N)), mean(nm_ .- cm_N))
+end
 
 println("\n  Weekly yield (kg FW m-2 wk-1)")
 @printf("  %8s | %7s | %7s %7s %7s %7s\n", "week end", "obs", "L", "G", "GW", "GWc")
@@ -93,7 +98,9 @@ pW = scatter(edges[2:end], Δy_obs, color = :black, label = "observed", xlabel =
 for (w, l) in zip(W, labs); plot!(pW, edges[2:end], w, lw = 2, label = l); end
 pL = scatter(cm_days, cm_L, color = :black, label = "derived obs", xlabel = "day", ylabel = "LAI", title = "LAI")
 for (r, l) in zip(R, labs); plot!(pL, r.day, r.LAI, lw = 2, label = l); end
-fig = plot(pC, pW, pL, layout = (1, 3), size = (1500, 420), margin = 5Plots.mm)
+pN = scatter(cm_days, cm_N, color = :black, label = "observed leaves", xlabel = "day", ylabel = "nodes per stem", title = "Nodes")
+for (r, l) in zip(R, labs); plot!(pN, r.day, r.node, lw = 2, label = l); end
+fig = plot(pC, pW, pL, pN, layout = (1, 4), size = (1900, 420), margin = 5Plots.mm)
 fn = joinpath(figdir, "compare_generic_growth.png"); savefig(fig, fn); println("\n  figure: ", fn)
 println("""
   Read: G is Aaron's model as ported. Its fruits keep growing for 275 C d toward ~60 g DM, so harvest by age gives
