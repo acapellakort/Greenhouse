@@ -1164,5 +1164,11 @@
         "units": "-",
         "desc": "Note 79 flag: crop (non-leaf maintenance + growth) respiration as a CO2 source, from the CropResp input series, Q10=2 on canopy T; 0 = V2.2",
         "latex": ""
+    },
+    "dew_bl": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 85 flag: dew on the canopy (Psat(T_canopy) < VP_air) uses only the boundary-layer resistance gamma3, not the stomatal resistance; 0 = V2.2",
+        "latex": ""
     }
 }

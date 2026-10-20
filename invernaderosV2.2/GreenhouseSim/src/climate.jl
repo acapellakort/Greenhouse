@@ -151,6 +151,12 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     end
     q3 = gamma4 * q10 * q4 * q5         # canopy stomatal resistance
     q1 = (2 * rho3 * alpha5 * I1) / (gamma * gamma2 * (gamma3 + q3))  # VEC Can-Air
+    # Note 85 (default-off): dew_bl = 1 -> when the canopy is below the air dew point (Psat(T1) < V1) water condenses on
+    # the leaf SURFACE, so the canopy-air vapour exchange sees only the boundary-layer resistance gamma3, not the
+    # stomata. Same q1 feeds p1 (vapour) and l1 (latent heat to the canopy), so water and energy stay consistent.
+    if hasproperty(p, :dew_bl) && p.dew_bl > 0.5 && q2 < V1
+        q1 = (2 * rho3 * alpha5 * I1) / (gamma * gamma2 * gamma3)
+    end
 
     # ventilation rates
     n1 = nu1 * (1 - eta10 * U5)
