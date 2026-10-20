@@ -162,8 +162,20 @@ of the legacy smoothstep sink and capacity-fill vegetative demand. Default
 `nothing` preserves the original V2.2 behaviour exactly.
 """
 function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
-               generic_params::Union{Nothing, GenericParameters} = nothing)
+               generic_params::Union{Nothing, GenericParameters} = nothing,
+               fruit_keep::Float64 = NaN, par_MJ::Float64 = NaN)
     dT = max(Tmean_C - gp.T_base, 0.0)          # thermal drive above base
+    # Note 69 (generic path only, all default 1 / off): calibration multipliers on Aaron's (M94) relations --
+    #   gen_beta  flower = node appearance rate      gen_kappa  fruit development clock
+    #   gen_A     fruit sink amplitude                gen_V      vegetative demand
+    # gen_parlight = 1: appearance scaled by the M94 light factor (1 - exp(-0.5 - 0.5 PAR)) at the day's PAR [MJ m-2 d-1]
+    # instead of the fixed 6.8 MJ. fruit_keep (0-1, NaN = off): grower policy, share of new fruits kept per node.
+    gB = hasproperty(gp, :gen_beta)  ? gp.gen_beta  : 1.0
+    gK = hasproperty(gp, :gen_kappa) ? gp.gen_kappa : 1.0
+    gA = hasproperty(gp, :gen_A)     ? gp.gen_A     : 1.0
+    gV = hasproperty(gp, :gen_V)     ? gp.gen_V     : 1.0
+    fpar = (!isnothing(generic_params) && hasproperty(gp, :gen_parlight) && gp.gen_parlight > 0.5 && !isnan(par_MJ)) ?
+           (1.0 - exp(-0.5 - 0.5 * par_MJ)) / (1.0 - exp(-0.5 - 0.5 * 6.8)) : 1.0
 
     # 1. maintenance respiration (g CH2O/m2/day)
     W_fruit_tot = isempty(s.fruits) ? 0.0 : sum(f.W for f in s.fruits)
@@ -185,14 +197,14 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
         else
             Tn = (hasproperty(gp, :gen_clampT) && gp.gen_clampT > 0.5) ?
                  clamp(Tmean_C, generic_params.appearance_domain[1], generic_params.appearance_domain[2]) : Tmean_C
-            s.node += generic_appearance(Tn, generic_params)
+            s.node += generic_appearance(Tn, generic_params) * gB * fpar
         end
     end
     # Development increment per day: generic clock or legacy linear thermal time
     if isnothing(generic_params)
         ddev = dT / gp.DD_fruit
     else
-        ddev = generic_development_rate(Tmean_C, generic_params)
+        ddev = generic_development_rate(Tmean_C, generic_params) * gK
     end
     for f in s.fruits
         f.dev += ddev
@@ -235,7 +247,7 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
         # Vegetative demand: generic_vegetation is per PLANT -> multiply by the planting density [plants/m2]
         # (Note 66 fix: was `* dens` = stem_density/REF_DENSITY = 1, i.e. one plant per m2)
         plants = gp.stem_density
-        veg_sink = generic_vegetation(Tmean_C, generic_params) * plants
+        veg_sink = generic_vegetation(Tmean_C, generic_params) * plants * gV
         # Note 66 (default-off): gp.gen_clampT = 1 -> fruit sink and flower appearance use T clamped to their domain,
         # as in Marcelis (1994) (cucumber_sink_m94 / cucumber_appearance_m94); the generic port returns 0 outside it.
         Ts = (hasproperty(gp, :gen_clampT) && gp.gen_clampT > 0.5) ?
@@ -243,7 +255,7 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
 
         # Per-fruit sink: generic Bell curve; f.n [fruits/m2] linearises directly
         fruit_sink_pre = isempty(s.fruits) ? 0.0 :
-                         sum(generic_sink(Ts, f.dev, f.n, generic_params) for f in s.fruits)
+                         gA * sum(generic_sink(Ts, f.dev, f.n, generic_params) for f in s.fruits)
         total_sink_pre = veg_sink + fruit_sink_pre
 
         # 5. fruit set regulated by carbohydrate status (same logic, generic appearance)
@@ -251,12 +263,14 @@ function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
             ss = dDM_pot / (total_sink_pre + 1e-9)
             set_frac = clamp((ss - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
             # Appearance rate [events/plant/day] × density [plants/m2] × carbon gate
-            n_new = generic_appearance(Ts, generic_params) * plants * set_frac
+            # Note 69: with a fruit-keeping policy, fruits set = nodes per stem x stems x kept share x carbon gate
+            n_new = generic_appearance(Ts, generic_params) * gB * fpar * plants * set_frac *
+                    (isnan(fruit_keep) ? 1.0 : fruit_keep)
             n_new > 0.0 && push!(s.fruits, Fruit(0.0, 0.0, n_new))
         end
 
         # 6. allocate using M94 eq.4 / H96 eq.1 helper
-        fruit_sinks_vec = [generic_sink(Ts, f.dev, f.n, generic_params) for f in s.fruits]
+        fruit_sinks_vec = [gA * generic_sink(Ts, f.dev, f.n, generic_params) for f in s.fruits]
         potentials = vcat([veg_sink], fruit_sinks_vec)
         growths, s.reserve = allocate_daily(potentials, dDM_pot, s.reserve)   # M94 eq.4 with reserve carry-over (Note 66)
         veg_DM     = growths[1]

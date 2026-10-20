@@ -79,7 +79,7 @@ export rhs_dyn!, day_assimilation, grow!, simulate_growth
 export LeafCohort, CohortState, init_cohort_state, grow_cohort!, simulate_cohort_measured
 export daily_assimilation_layered, canopy_light_profile
 # Measured-climate calibration support
-export MeasuredSeason, load_measured_climate, simulate_growth_measured
+export MeasuredSeason, load_measured_climate, simulate_growth_measured, load_measured_climate_par, load_fruit_keep, daily_mean_T
 export daily_assimilation_measured, load_production, load_cropmanagement
 
 end # module

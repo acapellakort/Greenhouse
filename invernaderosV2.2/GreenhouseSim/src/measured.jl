@@ -98,18 +98,87 @@ Season simulation of the cucumber growth model driven by measured climate.
 Returns day, LAI, yield_FW [kg/m2], W_fruit, Pg, and the final state.
 """
 function simulate_growth_measured(p::NamedTuple, gp, season::MeasuredSeason; LAI0 = 0.5,
-                                  generic_params::Union{Nothing, GenericParameters} = nothing)
+                                  generic_params::Union{Nothing, GenericParameters} = nothing,
+                                  fruit_keep = nothing)
+    # Note 69: fruit_keep = per-day vector (index d+1) of the grower's kept-fruit share (generic path); harvested fruit
+    # numbers and their mean age (days since set) are tracked per day (harv_n, harv_age) for the FruitGrw observation.
     s = init_growth_state(gp; LAI0 = LAI0)
     day = Int[]; LAI = Float64[]; yieldFW = Float64[]; Wfruit = Float64[]; Pg = Float64[]; node = Float64[]
+    harv_n = Float64[]; harv_age = Float64[]
+    live = Dict{UInt,Tuple{Int,Fruit}}()
     for d in 0:(season.ndays - 1)
         M = season.day_samples[d + 1]
         Pgd = daily_assimilation_measured(M, s.LAI, p, season.dt, gp.k_ext)
-        grow!(s, Pgd, daily_mean_T(M), gp, d; generic_params = generic_params)   # Note 66: generic path selectable
+        parMJ = size(M, 2) == 0 ? NaN : sum(@view M[3, :]) * season.dt * 1e-6      # daily canopy PAR [MJ m-2 d-1]
+        keep = (fruit_keep === nothing) ? NaN : Float64(fruit_keep[min(d + 1, length(fruit_keep))])
+        grow!(s, Pgd, daily_mean_T(M), gp, d; generic_params = generic_params, fruit_keep = keep, par_MJ = parMJ)
+        cur = Set(objectid(f) for f in s.fruits); hn = 0.0; ha = 0.0
+        for (k, (sd, f)) in collect(live)
+            if !(k in cur); hn += f.n; ha += f.n * (d - sd); delete!(live, k); end
+        end
+        for f in s.fruits
+            k = objectid(f); (!haskey(live, k) && f.n > 0.0) && (live[k] = (d, f))
+        end
         push!(day, d); push!(LAI, s.LAI); push!(yieldFW, s.yield_FW)
         push!(Wfruit, isempty(s.fruits) ? 0.0 : sum(f.W for f in s.fruits))
-        push!(Pg, Pgd); push!(node, s.node)
+        push!(Pg, Pgd); push!(node, s.node); push!(harv_n, hn); push!(harv_age, hn > 0 ? ha / hn : NaN)
     end
-    return (; day, LAI, yield_FW = yieldFW, W_fruit = Wfruit, Pg, node, state = s)
+    return (; day, LAI, yield_FW = yieldFW, W_fruit = Wfruit, Pg, node, harv_n, harv_age, state = s)
+end
+
+"""
+    load_measured_climate_par(gh_csv, meteo_csv; transmission, lamp_umol, day0_serial, dt) -> MeasuredSeason
+
+Note 69. Canopy light from the organisers' formula (AGC-2018 'Autonomous greenhouse control', p. 8):
+    PAR_in = PARout * transmission * (1 - 0.98 BlackScr) * (1 - 0.25 EnScr) + lamp_umol * lamps     [umol m-2 s-1]
+converted to W m-2 PAR with 4.6 umol/J (the photosynthesis convention). PARout missing -> 2.16 * Iglob.
+transmission: greenhouse light transmission (organisers: about 0.60-0.70); lamp_umol: installed lamp PAR (187).
+"""
+function load_measured_climate_par(gh_csv::AbstractString, meteo_csv::AbstractString;
+                                   transmission::Float64 = 0.65, lamp_umol::Float64 = 187.0,
+                                   day0_serial::Float64 = 43326.0, dt::Float64 = 300.0)
+    gh = DataFrame(CSV.File(gh_csv)); mt = DataFrame(CSV.File(meteo_csv)); n = min(nrow(gh), nrow(mt))
+    isnum(x) = (x isa Number) && !isnan(x)
+    v(x, dflt) = isnum(x) ? Float64(x) : dflt
+    buckets = Dict{Int, Vector{NTuple{3,Float64}}}()
+    for i in 1:n
+        g = gh.GHtime[i]; isnum(g) || continue
+        Tc = gh.Tair[i]; Co = gh.CO2air[i]; (isnum(Tc) && isnum(Co)) || continue
+        d = _excel_day(g, day0_serial); d >= 0 || continue
+        Ig  = v(mt.Iglob[i], 0.0); Pout = v(mt.PARout[i], 2.16 * Ig)
+        bs  = clamp(v(gh.BlackScr[i], 0.0) / 100, 0.0, 1.0); es = clamp(v(gh.EnScr[i], 0.0) / 100, 0.0, 1.0)
+        lam = clamp(v(gh.AssimLight[i], 0.0) / 100, 0.0, 1.0)
+        par = max(Pout, 0.0) * transmission * (1 - 0.98 * bs) * (1 - 0.25 * es) + lamp_umol * lam
+        push!(get!(buckets, d, NTuple{3,Float64}[]), (Tc + 273.15, _co2_ppm_to_mgm3(Co, Tc), par / 4.6))
+    end
+    ndays = isempty(buckets) ? 0 : maximum(keys(buckets)) + 1
+    day_samples = Vector{Matrix{Float64}}(undef, ndays)
+    for d in 0:(ndays - 1)
+        vv = get(buckets, d, NTuple{3,Float64}[]); M = Matrix{Float64}(undef, 3, length(vv))
+        for (j, t) in enumerate(vv); M[1, j] = t[1]; M[2, j] = t[2]; M[3, j] = t[3]; end
+        day_samples[d + 1] = M
+    end
+    return MeasuredSeason(ndays, day_samples, dt)
+end
+
+"""
+    load_fruit_keep(cm_csv; ndays, day0_date) -> Vector{Float64}
+
+Note 69. Grower policy 'fruits maintained per internode' (CropManagement.csv column `Pruning`, %), as a per-day share
+(index d+1), held constant within the week and carried forward over missing weeks (first value before the first week).
+"""
+function load_fruit_keep(cm_csv::AbstractString; ndays::Int = 116, day0_date::Date = Date(2018, 8, 14))
+    df = DataFrame(CSV.File(cm_csv))
+    wk = [Dates.value((Date(2018, 1, 1) + Day((Int(w) - 1) * 7)) - day0_date) for w in df.weeks]
+    pv = [x isa Number && !isnan(x) ? Float64(x) / 100 : NaN for x in df.Pruning]
+    first_ok = findfirst(!isnan, pv); first_ok === nothing && error("no Pruning values")
+    keep = fill(pv[first_ok], ndays); cur = pv[first_ok]
+    for d in 0:(ndays - 1)
+        i = findlast(<=(d), wk)
+        if i !== nothing && !isnan(pv[i]); cur = pv[i]; end
+        keep[d + 1] = cur
+    end
+    return keep
 end
 
 """
