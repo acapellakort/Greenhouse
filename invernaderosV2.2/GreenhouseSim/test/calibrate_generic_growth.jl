@@ -94,7 +94,7 @@ QoI_GP   = ["k_m_leaf", "k_m_stem", "k_m_fruit", "LAI_max", "set_r_low", "set_r_
 QoI_PH   = ["J_max"]                                                             # photosynthesis (FvCB)
 QoI_LT   = ["transmission"]                                                      # greenhouse light transmission
 QoI_S    = ["sigma_y", "sigma_leaf", "sigma_fd"]
-QoI      = vcat(QoI_GEN, QoI_GP, QoI_PH, QoI_LT, QoI_S)
+QoI      = vcat(QoI_GEN, QoI_GP, QoI_PH, QoI_S)   # Note 78: transmission fixed at TRANS (0.65, user decision)
 ix(q)    = findfirst(==(q), QoI)
 PR = Dict("W_pot" => [20.0, 60.7, 120.0],  "E_fruit" => [150.0, 275.0, 450.0], "beta1" => [0.05, 0.0882, 0.13],
           "V20" => [2.0, 8.3, 16.0],
@@ -114,7 +114,7 @@ function genpar(W_pot, E, beta1, V20)        # M94 sink shape fixed in thermal a
                       sink_domain = V2.sink_domain, vegetation_domain = V2.vegetation_domain)
 end
 const HARVEST_FW = 400.0      # g FW per fruit at picking (A class >= 375 g; Elings: ~400 g)
-runmodel(z) = (set_trans!(z[ix("transmission")]); simulate_growth_measured(update_params(params, QoI_PH, [z[ix(q)] for q in QoI_PH]),
+runmodel(z) = (set_trans!(TRANS); simulate_growth_measured(update_params(params, QoI_PH, [z[ix(q)] for q in QoI_PH]),
                                        update_params(gp_base, vcat(QoI_GP, ["harvest_W"]),
                                                      vcat([z[ix(q)] for q in QoI_GP], HARVEST_FW * z[ix("DMC_fruit")])), season;
                                        LAI0 = 0.5, fruit_keep = keep,
@@ -145,7 +145,7 @@ function report(z, tag)
     for (d, v) in zip(fd_start, fd_val); @printf("  %10d | %5.1f / %5.1f\n", d, v, week_age(r, d)); end
 end
 
-println("\nGeneric (Aaron/M94) crop calibration -- mode=$MODE seed=$SEED transmission inferred 0.60-0.70 zclamp=$ZCLAMP")
+println("\nGeneric (Aaron/M94) crop calibration -- mode=$MODE seed=$SEED transmission=$TRANS (fixed) zclamp=$ZCLAMP")
 report(centre, "prior centre")
 @printf("  energy at centre %.1f\n", energy(centre))
 MODE == "centre" && exit()
@@ -155,7 +155,7 @@ jit() = (for _ in 1:1000; x = centre .* (1 .+ 0.05 .* randn(length(QoI))); supp(
 t0 = time(); Run!(obj, T = NCHN, x0 = jit(), xp0 = jit())
 @printf("\n%d steps in %.0f s (%.2f s/step)\n", NCHN, time() - t0, (time() - t0) / NCHN)
 postdir = joinpath(@__DIR__, "posteriors"); mkpath(postdir)
-fn = joinpath(postdir, "$(TEAM)_growth_generic_n76_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
+fn = joinpath(postdir, "$(TEAM)_growth_generic_n78_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
 JLD2.@save fn chain=obj.Output QoI=QoI burn_in=BURN transmission=TRANS
 println("saved ", fn)
 b = MODE == "smoke" ? max(1, NCHN ÷ 2) : BURN
