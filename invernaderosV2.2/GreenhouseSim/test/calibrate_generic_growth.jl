@@ -79,7 +79,7 @@ end
 # 131 C d, Richards exponent); W_pot = potential fruit dry weight (M94 60.7 g), E_fruit = thermal time that maps to
 # stage 1 (M94 275 C d) -- stretching E stretches the whole fruit-growth time course, W_pot sets its height.
 QoI_GEN  = ["W_pot", "E_fruit", "beta1", "V20"]                                  # Aaron / M94 crop relations
-QoI_GP   = ["k_m_leaf", "k_m_stem", "k_m_fruit", "LAI_max", "set_r_low", "set_r_high"]   # growth.jl / JSON
+QoI_GP   = ["k_m_leaf", "k_m_stem", "k_m_fruit", "LAI_max", "set_r_low", "set_r_high", "DMC_fruit"]   # growth.jl / JSON
 QoI_PH   = ["J_max"]                                                             # photosynthesis (FvCB)
 QoI_S    = ["sigma_y", "sigma_leaf", "sigma_fd"]
 QoI      = vcat(QoI_GEN, QoI_GP, QoI_PH, QoI_S)
@@ -88,6 +88,7 @@ PR = Dict("W_pot" => [20.0, 60.7, 120.0],  "E_fruit" => [150.0, 275.0, 450.0], "
           "V20" => [2.0, 8.3, 16.0],
           "k_m_leaf" => [0.01, 0.03, 0.06], "k_m_stem" => [0.005, 0.015, 0.03], "k_m_fruit" => [0.003, 0.01, 0.02],
           "LAI_max" => [1.5, 2.5, 4.0], "set_r_low" => [0.0, 0.3, 1.0], "set_r_high" => [0.2, 1.0, 2.5],
+          "DMC_fruit" => [0.025, 0.035, 0.045],   # Note 75: fruit dry-matter content (cultivar); picking at 400 g FW
           "J_max" => [1.0e-4, 2.0e-4, 3.5e-4],
           "sigma_y" => [0.02, 0.3, 3.0], "sigma_leaf" => [0.5, 3.0, 20.0], "sigma_fd" => [0.5, 3.0, 15.0])
 centre = [PR[q][2] for q in QoI]
@@ -100,8 +101,10 @@ function genpar(W_pot, E, beta1, V20)        # M94 sink shape fixed in thermal a
                       clock_domain = V2.clock_domain, appearance_domain = V2.appearance_domain,
                       sink_domain = V2.sink_domain, vegetation_domain = V2.vegetation_domain)
 end
+const HARVEST_FW = 400.0      # g FW per fruit at picking (A class >= 375 g; Elings: ~400 g)
 runmodel(z) = simulate_growth_measured(update_params(params, QoI_PH, [z[ix(q)] for q in QoI_PH]),
-                                       update_params(gp_base, QoI_GP, [z[ix(q)] for q in QoI_GP]), season;
+                                       update_params(gp_base, vcat(QoI_GP, ["harvest_W"]),
+                                                     vcat([z[ix(q)] for q in QoI_GP], HARVEST_FW * z[ix("DMC_fruit")])), season;
                                        LAI0 = 0.5, fruit_keep = keep,
                                        generic_params = genpar(z[ix("W_pot")], z[ix("E_fruit")], z[ix("beta1")], z[ix("V20")]))
 function resid(r)
@@ -140,10 +143,10 @@ jit() = (for _ in 1:1000; x = centre .* (1 .+ 0.05 .* randn(length(QoI))); supp(
 t0 = time(); Run!(obj, T = NCHN, x0 = jit(), xp0 = jit())
 @printf("\n%d steps in %.0f s (%.2f s/step)\n", NCHN, time() - t0, (time() - t0) / NCHN)
 postdir = joinpath(@__DIR__, "posteriors"); mkpath(postdir)
-fn = joinpath(postdir, "$(TEAM)_growth_generic_n74_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
+fn = joinpath(postdir, "$(TEAM)_growth_generic_n75_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
 JLD2.@save fn chain=obj.Output QoI=QoI burn_in=BURN transmission=TRANS
 println("saved ", fn)
 b = MODE == "smoke" ? max(1, NCHN ÷ 2) : BURN
 post = obj.Output[b:end, 1:end-1]; pm = vec(mean(post, dims = 1)); ps = vec(std(post, dims = 1))
-println("\nposterior (mean ± sd):"); for (k, q) in enumerate(QoI); @printf("  %-13s %8.4f ± %.4f\n", q, pm[k], ps[k]); end
+println("\nposterior (mean ± sd):"); for (k, q) in enumerate(QoI); @printf("  %-13s %10.4g ± %.3g\n", q, pm[k], ps[k]); end
 report(pm, "posterior mean")
