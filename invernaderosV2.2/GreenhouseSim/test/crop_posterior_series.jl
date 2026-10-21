@@ -17,7 +17,9 @@ include(joinpath(@__DIR__, "..", "src", "GreenhouseSim.jl"))
 using .GreenhouseSim
 using CSV, DataFrames, Dates, JLD2, Statistics, Printf
 
-const TRANS = 0.65; const TEAM = "AiCU"; const BURN = 40000
+const TRANS = 0.65; const TEAM = "AiCU"
+const BURN  = parse(Int, get(ENV, "BURN", "40000"))                        # Note 108: set to the run's burn-in (n105 long: 150000)
+const SEEDS = parse.(Int, split(get(ENV, "SEEDS", "1,2"), ","))            # Note 108: pick seeds (one mode), e.g. SEEDS=2
 const CROPTAG = get(ENV, "CROPTAG", "n78")       # Note 94: n94 = canopy model, everything already per m2 floor
 const CANOPY  = CROPTAG in ("n94", "n105")      # Note 105: n105 = n94 + par_below
 const FLOOR   = CANOPY ? 1.0 : 0.8
@@ -36,14 +38,14 @@ keep = load_fruit_keep(joinpath(DATA, TEAM, "CropManagement.csv"); ndays = seaso
 
 # pooled posterior mean of the n78 seeds
 chains = Matrix{Float64}[]; QoI = String[]
-for s in 1:2
+for s in SEEDS
     fn = joinpath(@__DIR__, "posteriors", CANOPY ? "$(TEAM)_growth_canopy_$(CROPTAG)_seed$(s).jld2" : "$(TEAM)_growth_generic_n78_seed$(s).jld2")
     isfile(fn) || (println("missing ", fn); continue)
     d = JLD2.load(fn); push!(chains, d["chain"][BURN:end, 1:end-1]); global QoI = d["QoI"]
 end
 isempty(chains) && error("no n78 crop chains found")
 pm = vec(mean(vcat(chains...), dims = 1)); ix(q) = findfirst(==(q), QoI)
-println("n78 pooled posterior mean ($(length(chains)) seeds):")
+println("$(CROPTAG) posterior mean, seeds $(SEEDS), burn-in $(BURN) ($(length(chains)) chains):")
 for (k, q) in enumerate(QoI); @printf("  %-11s %.4g\n", q, pm[k]); end
 
 const V2 = CUCUMBER_PARAMS_V2
