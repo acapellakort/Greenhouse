@@ -47,7 +47,8 @@ Every differential equation is given with its complete right-hand side; every st
 input and control is defined where it first appears; and the physical, biochemical and
 physiological principles behind each block are explained. Numerical values of all constants are
 collected in the appendices. Sections~\ref{sec:climate}--\ref{sec:control} specify the V2.2 base
-model; Section~\ref{sec:flags} documents the default-off extension flags added since (state of
+model, except Section~\ref{sec:aaron}, which specifies the crop model in use (A.~V\'elez's generic canopy
+model; the legacy crop of Section~\ref{sec:growth} is no longer used); Section~\ref{sec:flags} documents the default-off extension flags added since (state of
 21 October 2026, commit \texttt{a4cce2e}), Section~\ref{sec:best} the best configuration found so far,
 Section~\ref{sec:inference} the parameter-inference scheme and Section~\ref{sec:gaps} the known structural
 gaps. Reinforcement-learning layers are out of scope.
@@ -498,7 +499,10 @@ one used by the leaf-cohort crop model (Section~\ref{sec:cohort}), where the lay
 cohorts; scheme (a) is used by the single-pool crop model (Section~\ref{sec:biggrow}).
 
 %======================================================================
-\section{Crop-growth subsystem}\label{sec:growth}
+\section{Crop-growth subsystem (legacy V2.2 model)}\label{sec:growth}
+
+\noindent\textbf{Status.} This is the crop model of V2.2. It is \emph{not} used in the current calibrations; the crop in use is Aaron V\'elez's generic canopy model, Section~\ref{sec:aaron}.
+
 %======================================================================
 
 \paragraph{What this section contains.} The daily crop model: how the day's assimilate $P_g$ is
@@ -685,6 +689,160 @@ canopy (raises LAI) faster and intercepts light earlier; because interception sa
 finite \emph{optimal} density, and its value is governed primarily by the light-extinction
 coefficient $k$ (Section~\ref{sec:lightext}). The initial canopy is also scaled by density,
 $\mathrm{LAI}_0\!\leftarrow\!\mathrm{LAI}_0\,\mathrm{d}$.
+
+
+%======================================================================
+\section{Crop-growth subsystem in use: Aaron's generic canopy model}\label{sec:aaron}
+%======================================================================
+
+\paragraph{What this section contains.} The crop model used in every calibration since Note 94 (runs n94,
+n105). It is the generic dry-matter partitioning model of A.~V\'elez (\texttt{Generic\_Gh\_Model}, \texttt{models.py}
+and \texttt{main.tex}, Oct.~2026), which casts Marcelis (1994, ``M94'') for cucumber and Heuvelink (1996) for tomato
+into one generic form and adds a canopy (leaf mass, LAI, pruning) extension. The Julia port is
+\texttt{src/generic\_growth.jl} (generic functions, \texttt{CUCUMBER\_PARAMS\_V2}) and \texttt{\_grow\_canopy!} in
+\texttt{src/growth.jl} (daily step, flag \texttt{gen\_canopy}=1). It replaces the legacy crop of
+Section~\ref{sec:growth} (\texttt{generic\_params = nothing} keeps the legacy model, bit for bit).
+Equations are per \emph{stem} (one stem = one modelled plant) inside the generic functions and per
+m$^2$ \emph{floor} for the states, with stem density $\rho=3.6$\,m$^{-2}$ (Hemming et al.\ 2019).
+Day $k$, daily mean temperature $T$ [$^\circ$C].
+
+\subsection{States}
+\begin{center}\small
+\begin{tabular}{lll}
+\toprule
+symbol & meaning & unit\\
+\midrule
+$W_L$ & attached leaf dry mass & g DM m$^{-2}$\\
+$W_S$, $W_R$ & stem and root dry mass (``non-leaf'' $W_B=W_S+W_R$) & g DM m$^{-2}$\\
+$L$ & leaf area index & m$^2$\,m$^{-2}$\\
+$N_L$ & retained leaves per stem & --\\
+$C_N$ & node counter per stem (fractional progress kept) & --\\
+$(z_i,W_i,n_i)$ & fruit cohort $i$: stage, dry mass, number & --, g DM m$^{-2}$, m$^{-2}$\\
+$R$ & carbohydrate reserve (DM equivalent) & g DM m$^{-2}$\\
+$Y_{DW}$, $Y_{FW}$ & cumulative harvest & g DM m$^{-2}$, kg FW m$^{-2}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Generic sub-models}
+\paragraph{Node (flower) appearance} (Aaron eq.~g-appearance; M94 eq.~7 rate used as node rate):
+\begin{equation}\label{eq:a-app}
+a(T,\mathrm{PAR})=g_B\,\max(\beta_0+\beta_1T,\,0)\;f_{\text{PAR}},\qquad \beta_0=-\beta_1\,\frac{0.75}{0.09},
+\qquad f_{\text{PAR}}=\frac{1-e^{-0.5-0.5\,\mathrm{PAR}_k}}{1-e^{-0.5-0.5\cdot6.8}},
+\end{equation}
+nodes stem$^{-1}$\,d$^{-1}$, i.e.\ linear above its own base $8.33\,^\circ$C. M94 fitted the rate at a fixed
+PAR $=6.8$\,MJ\,m$^{-2}$\,d$^{-1}$ ($\beta_1=0.09(1-e^{-0.5-3.4})=0.0882$); $f_{\text{PAR}}$ restores the M94 light
+dependence on the day's canopy PAR (project flag \texttt{gen\_parlight}). Appearance stops at topping (day 104).
+
+\paragraph{Fruit development clock} (eq.~g-clock):
+\begin{equation}
+\dot z=g_K\,\kappa\max(T-10,0),\qquad \kappa=1/E_{\text{fruit}},
+\end{equation}
+so $z=1$ after $E_{\text{fruit}}$ degree-days above 10\,$^\circ$C (M94: 275\,$^\circ$C\,d).
+
+\paragraph{Fruit sink} (eqs.~g-u, g-sink, exact mapping of M94 eq.~6):
+\begin{equation}\label{eq:a-sink}
+P_i=g_A\,n_i\,\max(A_0+A_TT,0)\,\frac{u(z_i)}{\bigl(1+u(z_i)\bigr)^{p}},\qquad
+u(z)=\frac{e^{-s(z-z_{\text{peak}})}}{p-1},
+\end{equation}
+with $s=0.0170\cdot275=4.675$, $p=1+1/0.0111=91.09$, $z_{\text{peak}}=131/275=0.476$. The project parametrises
+the amplitude by the potential fruit dry mass $W_{\text{pot}}$ (M94: 60.7\,g):
+\begin{equation}
+A_T=\frac{W_{\text{pot}}\,s\,(p-1)}{E_{\text{fruit}}},\qquad A_0=-10A_T
+\quad\Rightarrow\quad \int_0^1 P_i\,\frac{\mathrm{d}z}{\dot z}\simeq n_iW_{\text{pot}},
+\end{equation}
+so $W_{\text{pot}}$ sets the final fruit size and $E_{\text{fruit}}$ the duration, independently of temperature.
+With \texttt{gen\_zclamp}=1 a fruit past $z=1$ keeps the sink of $z=1$ (as M94 clamps thermal age) and is
+picked by size.
+
+\paragraph{Vegetative demand} (eq.~g-vegetation; M94 linear rule including roots):
+\begin{equation}
+P_V=\rho\,g_V\max\bigl(V_{20}+V_T(T-20),\,0\bigr),\qquad V_T=0.25,
+\end{equation}
+$V_{20}$ in g DM stem$^{-1}$\,d$^{-1}$ (M94 8.3 per plant at 1.4 plants\,m$^{-2}$; prior centre 3.2 per stem).
+In \texttt{CUCUMBER\_PARAMS\_V2} (Aaron's update, Note 72) none of the four sub-models is cut to the M94
+temperature windows. The multipliers $g_B,g_K,g_A,g_V$ are 1.
+
+\subsection{Daily step}\label{sec:canopystep}
+Following Aaron's ``Daily timing'' (growth and development at day end; allocation on the start-of-day inventory):
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Supply.} Daily gross assimilation $P_g$ [g CH$_2$O\,m$^{-2}$\,d$^{-1}$] from the FvCB canopy model of
+Section~\ref{sec:photo} on measured T, \ce{CO2} and canopy PAR (times $g(L)$ with \texttt{par\_below}).
+Maintenance (host, not part of Aaron's model)
+\begin{equation}
+\begin{aligned}
+R_m&=2^{(T-25)/10}\bigl(k_{m,L}W_L+k_{m,S}W_S+k_{m,R}W_R+k_{m,F}\textstyle\sum_iW_i\bigr),\\
+B&=\max(P_g-R_m,0)/c,\qquad c=1.4,
+\end{aligned}
+\end{equation}
+with one common construction cost $c$ [g CH$_2$O (g DM)$^{-1}$] (Aaron eq.~cho-allocation).
+\item \textbf{Allocation} (M94 eq.~4 with reserve, Aaron eq.~allocation): with $P=P_V+\sum_iP_i$,
+\begin{equation}
+\Delta W_j=\frac{P_j}{P}\min(B+R,\;P),\qquad R\leftarrow B+R-\textstyle\sum_j\Delta W_j .
+\end{equation}
+\item \textbf{Vegetative growth} (Aaron eqs.~canopy-growth, seasonal-sla):
+\begin{equation}
+\begin{aligned}
+&\Delta W_L=f_L\Delta W_V,\quad \Delta W_B=(1-f_L)\Delta W_V,\quad \Delta L=S(d)\,\Delta W_L,\\
+&S(d)=10^{-4}\Bigl[266+88\sin\frac{2\pi(d+68)}{365}\Bigr],
+\end{aligned}
+\end{equation}
+$f_L=0.59$, $W_B$ split stem:root $=0.32:0.08$, $d=226+k$ (transplant 14 Aug). Existing area is never
+recomputed from today's SLA. Fruit masses $W_i\mathrel{+}=\Delta W_i$.
+\item \textbf{Development and appearance.} $z_i\mathrel{+}=\dot z$; $C_N\mathrel{+}=a(T,\mathrm{PAR})$. Every completed
+node adds a leaf ($N_L\mathrel{+}=1$); nodes $\ge5$ carry a flower. From day 15, the flowers set
+\begin{equation}\label{eq:a-set}
+n_{\text{new}}=n_{\text{fl}}\;\rho\;\phi_k\;\mathrm{clamp}\Bigl(\frac{B/P-r_{\text{low}}}{r_{\text{high}}-r_{\text{low}}},0,1\Bigr)
+\end{equation}
+fruits, a new cohort at $z=0$, $W=0$ that grows from the next day. $\phi_k=1-\text{Pruning}_k/100$ is the grower's
+kept share (CropManagement log); the clamp is a carbon gate on fruit set (project addition, Note 74).
+\item \textbf{Harvest} (host): a cohort is picked when $W_i/n_i\ge323\,\text{g}\times\mathrm{DMC}_{\text{fruit}}$
+(observed mean harvested fruit) or $z_i\ge3$; $Y_{DW}\mathrel{+}=W_i$, $Y_{FW}\mathrel{+}=W_i/\mathrm{DMC}_{\text{fruit}}/1000$.
+\item \textbf{Pruning} (Aaron eqs.~pruning-control, canopy-pruning): if $N_L>N_{\text{target}}$, with
+$r=N_{\text{target}}/N_L$: $W_L\leftarrow rW_L$, $L\leftarrow rL$, $N_L\leftarrow N_{\text{target}}$; the removed
+leaf mass and area go to a ledger, non-leaf mass is untouched.
+\end{enumerate}
+\textbf{Initial state} (transplant of 25-day plants): $C_N=N_0$, $N_L=\lfloor N_0\rfloor$, $L_0=0.25$,
+$W_L=L_0/S(226)$, $W_B=W_L(1-f_L)/f_L$, no fruits.
+
+\subsection{Differences from Aaron's reference implementation}
+\begin{itemize}[nosep]
+\item States per m$^2$ floor with stems as plants (Aaron: per plant, $\Delta L=\rho\Delta A$).
+\item Pruning is applied every day the count exceeds the target (Aaron: a management decision $u_k$ and a target);
+the target $N_{\text{target}}$ is inferred (prior 20--30).
+\item Project additions not in Aaron's model: light factor on appearance; carbon gate and kept share on fruit set;
+harvest by size; maintenance respiration with $Q_{10}$; transplant state.
+\item $W_{\text{pot}}$, $E_{\text{fruit}}$ re-parametrise M94's sink amplitude and clock (the shape $s,p,z_{\text{peak}}$
+stays M94).
+\item SLA coefficients are Heuvelink's tomato regression, provisionally used for cucumber (as in Aaron's document).
+\end{itemize}
+
+\subsection{Parameters}
+\begin{center}\small
+\begin{tabular}{llll}
+\toprule
+parameter & meaning & value / prior & status\\
+\midrule
+$W_{\text{pot}}$ & potential fruit DM & 20--60.7--120 g & inferred\\
+$E_{\text{fruit}}$ & fruit duration & 150--275--450\,$^\circ$C\,d & inferred\\
+$\beta_1$ & appearance slope & 0.05--0.0882--0.13 & inferred\\
+$V_{20}$ & vegetative demand at 20\,$^\circ$C & 1--3.2--8 g stem$^{-1}$\,d$^{-1}$ & inferred\\
+$k_{m,L},k_{m,S},k_{m,F}$ & maintenance at 25\,$^\circ$C & see Section~\ref{sec:inference} & inferred\\
+$k_{m,R}$ & root maintenance & 0.01 & fixed\\
+$N_{\text{target}}$, $N_0$ & leaf target; nodes at transplant & 20--25--30; 2--4--8 & inferred\\
+$r_{\text{low}},r_{\text{high}}$ & fruit-set gate & 0--0.3--1; 0.2--1--2.5 & inferred\\
+$\mathrm{DMC}_{\text{fruit}}$ & fruit dry-matter content & 0.025--0.035--0.045 & inferred\\
+$\rho$ & stems & 3.6 m$^{-2}$ & fixed\\
+$f_L$; stem:root & vegetative split & 0.59; 0.32:0.08 & fixed\\
+$c$, $Q_{10}$ & construction cost; respiration & 1.4; 2 & fixed\\
+$s,p,z_{\text{peak}}$, $V_T$ & M94 sink shape; demand slope & 4.675, 91.09, 0.476; 0.25 & fixed\\
+SLA $(\overline S,a_S,\phi_S)$ & seasonal SLA & 266, 88, 68 & fixed\\
+flower node, set start, topping & architecture & 5; day 15; day 104 & fixed\\
+\bottomrule
+\end{tabular}
+\end{center}
+Posterior results: Section~\ref{sec:best} and Notes 102, 108 (n105 is bimodal in $W_{\text{pot}}$,
+$E_{\text{fruit}}$, $r_{\text{high}}$; the data prefer $W_{\text{pot}}\approx67$\,g, $E_{\text{fruit}}\approx360$).
 
 %======================================================================
 \section{Control variables and management strategies}\label{sec:control}
@@ -1017,27 +1175,8 @@ For a season under the n79 inputs the shares are canopy 0.371, floor 0.139, air 
 \texttt{par\_below} it is multiplied by $g(L)=(D_{\text{top}}+\rho_2D_{\text{floor}})/\tau_r$ from the same column
 with screens retracted ($g=1.55$ at $L=0.5$, $1.15$ at $2.3$, $1.03$ at $5$).
 
-\subsection{Crop: Aaron's canopy step (\texttt{gen\_canopy})}\label{sec:canopystep}
-The crop used since Note 94 is the generic Marcelis (1994) cucumber model (Aaron V\'elez's port, \texttt{CUCUMBER\_PARAMS\_V2})
-with Aaron's canopy extension, run daily per m$^2$ floor with 3.6 stems\,m$^{-2}$. States: leaf DW, stem and root DW,
-LAI, retained leaves per stem, node progress, fruit cohorts (stage, mass, number), reserve. Daily order:
-\begin{enumerate}[nosep]
-\item maintenance $R_m=Q_{10}^{(T-25)/10}\sum_o k_{m,o}W_o$; supply $\Delta DM=\max(P_g-R_m,0)/1.4$;
-\item potentials of the start-of-day inventory: vegetative demand $V(T)\cdot$stems and fruit sinks
-(M94 Richards shape, amplitude set by $W_{\text{pot}}$, clock $1/E_{\text{fruit}}$); allocation proportional to
-potentials with a carried reserve (M94 eq.~4);
-\item vegetative growth: leaf share 0.59; new leaf area = seasonal SLA(day of year) $\times$ new leaf DW;
-\item development; node appearance $\beta_0+\beta_1T$ per stem per day $\times$ M94 light factor
-$(1-e^{-0.5-0.5\,\mathrm{PAR}})/(1-e^{-0.5-0.5\cdot6.8})$; a leaf at every node; flowers from node 5;
-fruits set $=$ flowers $\times$ stems $\times$ kept share (grower log) $\times$ carbon gate
-\[\mathrm{clamp}\Bigl(\frac{\Delta DM/\text{potential}-r_{\text{low}}}{r_{\text{high}}-r_{\text{low}}},0,1\Bigr);\]
-\item harvest when a fruit reaches 323\,g FW ($\times$ DMC) or stage 3;
-\item pruning to \texttt{gen\_leaf\_target} retained leaves (leaf DW and LAI removed proportionally).
-\end{enumerate}
-Photosynthesis is the FvCB model of Section~\ref{sec:photo} on the daily measured T, \ce{CO2} and PAR
-(with \texttt{par\_below}, $\times g(L)$). Crop flags in use: \texttt{gen\_canopy}=1, \texttt{gen\_parlight}=1,
-\texttt{gen\_zclamp}=1 (sink held at stage 1, picked by size), \texttt{gen\_clampT}=0, multipliers
-\texttt{gen\_A}, \texttt{gen\_V}, \texttt{gen\_beta}, \texttt{gen\_kappa} $=1$.
+\subsection{Crop model}
+The crop in use (Aaron V\'elez's generic canopy model, flag \texttt{gen\_canopy}) is specified in Section~\ref{sec:aaron}.
 
 \paragraph{Coupling.} One-way and offline: the crop is calibrated on measured climate, and
 \texttt{crop\_posterior\_series.jl} writes the daily LAI, crop respiration at 20\,$^\circ$C and standing fresh
