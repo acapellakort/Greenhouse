@@ -31,7 +31,7 @@ gp_base = update_params(gp_base, ["set_start_day", "harvest_W", "gen_clampT", "g
 CANOPY && (gp_base = update_params(gp_base, ["gen_canopy", "gen_doy0", "gen_fL", "gen_flower_node"], [1.0, 226.0, 0.59, 5.0]))
 season = load_measured_climate_par(joinpath(DATA, TEAM, "Greenhouse_climate.csv"), joinpath(DATA, "meteo.csv");
                                    transmission = TRANS, lamp_umol = 187.0)
-keep = load_fruit_keep(joinpath(DATA, TEAM, "CropManagement.csv"); ndays = season.ndays)
+keep = load_fruit_keep(joinpath(DATA, TEAM, "CropManagement.csv"); ndays = season.ndays, as_removal = CANOPY)   # Note 97
 
 # pooled posterior mean of the n78 seeds
 chains = Matrix{Float64}[]; QoI = String[]

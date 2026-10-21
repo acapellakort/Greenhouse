@@ -177,10 +177,13 @@ end
 Note 69. Grower policy 'fruits maintained per internode' (CropManagement.csv column `Pruning`, %), as a per-day share
 (index d+1), held constant within the week and carried forward over missing weeks (first value before the first week).
 """
-function load_fruit_keep(cm_csv::AbstractString; ndays::Int = 116, day0_date::Date = Date(2018, 8, 14))
+function load_fruit_keep(cm_csv::AbstractString; ndays::Int = 116, day0_date::Date = Date(2018, 8, 14),
+                         as_removal::Bool = false)
+    # Note 97: `Pruning` is the % of fruits REMOVED (Hemming et al. 2019: "removing alternately 50% and 67% of the
+    # fruits"); as_removal = true returns the kept share 1 - Pruning/100. Default false reproduces Notes 69-95.
     df = DataFrame(CSV.File(cm_csv))
     wk = [Dates.value((Date(2018, 1, 1) + Day((Int(w) - 1) * 7)) - day0_date) for w in df.weeks]
-    pv = [x isa Number && !isnan(x) ? Float64(x) / 100 : NaN for x in df.Pruning]
+    pv = [x isa Number && !isnan(x) ? (as_removal ? 1.0 - Float64(x) / 100 : Float64(x) / 100) : NaN for x in df.Pruning]
     first_ok = findfirst(!isnan, pv); first_ok === nothing && error("no Pruning values")
     keep = fill(pv[first_ok], ndays); cur = pv[first_ok]
     for d in 0:(ndays - 1)

@@ -61,7 +61,7 @@ function set_trans!(tr)
 end
 set_trans!(TRANS)
 cm_csv = joinpath(DATA, TEAM, "CropManagement.csv")
-keep   = load_fruit_keep(cm_csv; ndays = season.ndays)
+keep   = load_fruit_keep(cm_csv; ndays = season.ndays, as_removal = true)   # Note 97: Pruning = % removed
 
 # --- observations --------------------------------------------------------------------------------------------
 days_obs, y_obs = load_production(joinpath(DATA, TEAM, "Production.csv"))
