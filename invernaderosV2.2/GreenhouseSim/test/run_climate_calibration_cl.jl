@@ -40,6 +40,7 @@ const CSMOKE = 200
 const PRIORS = get(ENV, "PRIORS", "n36")     # n36 = Note 36 priors; n37 = Note 34/37-informed controller priors + free vc_hband
 PRIORS in ("n36", "n37", "n39", "n43", "n46", "n49a", "n49b", "n54", "n58", "n61", "n61b", "n79") || error("PRIORS must be n36, n37, n39, n43, n46, n49a, n49b, n54, n58, n61, n61b or n79")
 const N79 = PRIORS == "n79"   # Note 79: a-priori geometry fixed, cover condensation + crop respiration on, LAI and respiration from the n78 crop posterior, U10 from logged daily dosage, no bias terms   # n61b = Note 62: n61 with s_rad = 0 and f_mass up to 0.5 (physics vs sensor)
+const SOLARC = get(ENV, "SOLARC", "1") == "1"   # Note 104: n79 with the energy-conserving solar column (Notes 101-103); SOLARC=0 = Note 79 solar terms
 const N61P = PRIORS in ("n61", "n61b", "n79")   # n61 = Note 61: n58 + air_cap_mult + s_rad (measurement), TRAIN + block 110-114   # n58 = Note 58d: OPEN LOOP, logged lee/wind vents (vent_split), lamp_full + screen loss   # n54 = Note 54b: n49b + full lamp heat (lamp_full) + both pipe circuits (PIPE2)   # n49a/b = Note 50: physical caps, free vent wind term; a = with daytime observation offset dday   # n46 = Notes 46-48: SF structure + solar-absorbing internal mass   # n43 = Note 43 structure: logged pipe + PI gaps, deep-soil state, logged min vent   # n39 = n37 + free vc_min_night (Note 40)
 const CTAG   = "$(TEAM)_climcal_cl_$(DESIGN)$(PRIORS == "n36" ? "" : "_" * PRIORS)_seed$(CSEED)"
 
@@ -166,6 +167,9 @@ if N79   # Note 79: physical description fixed a priori (AGC documents, Notes 67
     #  phi2 5.4 m mean air height | alpha5 c_p 1005 | nu5 = 0.10 x alpha6 vent area | rail pipe 1.0 m m-2 as ONE circuit
     #  (gamma1 1.0, n_pipes 1; PIPE2 folds the grow pipe in) | tau1 = 0.65/(1-eta1) -> PAR/global transmission 0.65 |
     #  psi2 = 12.8 g m-2 h-1 x alpha6 | cover 1.6 m2 per m2 floor | cover condensation and crop respiration ON
+    if SOLARC   # Note 104: solar_cons (roof/screens/LAI canopy/floor column) + internal mass as a share of floor-level solar
+        append!(FIXN, ["solar_cons", "solar_mass_share"]); append!(FIXV, [1.0, 1.0])
+    end
     allunique(FIXN) || error("duplicate FIXN entries")
 end
 const params_cl = update_params(params, FIXN, FIXV)
@@ -263,7 +267,7 @@ if N79   # Note 78 prior table (approximate sub-models only)
                    "vs_gwind" => [0.5, 1.5, 4.0], "vs_cwind" => [0.5, 1.0, 10.0], "nu4" => [1e-5, 4.5e-5, 1e-4],
                    "gamma4" => [40.0, 82.0, 200.0], "lamp_Pel" => [100.0, 110.0, 120.0], "lamp_fcan" => [0.05, 0.3, 0.9],
                    "k_ground" => [1.0, 8.0, 40.0], "C_soil" => [1.5e5, 6e5, 2e6], "k_deep" => [0.5, 1.5, 3.0],
-                   "C_mass" => [2e4, 5e4, 1.2e5], "h_mass" => [1.0, 5.0, 40.0], "f_mass" => [0.0, 0.15, 0.5],
+                   "C_mass" => [2e4, 5e4, 1.2e5], "h_mass" => [1.0, 5.0, 40.0], "f_mass" => (SOLARC ? [0.0, 0.3, 1.0] : [0.0, 0.15, 0.5]),   # Note 104: share 0-1 of floor-level solar
                    "h_cover_out" => [10.0, 25.0, 50.0], "air_cap_mult" => [1.0, 3.0, 12.0], "vent_scr_perm" => [0.0, 0.4, 1.0],
                    "leak_cs" => [0.0, 0.3, 1.0])     # Note 88: stack term of the leakage, m2 s-2 K-1
         CQ_dict[k] = v
@@ -525,6 +529,37 @@ if CMODE == "smoke"
                     mbx(C, Cobs, okc .& nite), mbx(RHm, RHo, okr .& nite), mbx(RHm, RHo, okr .& dayt))
         end
         println("  CO2 in mg m-3 (x ~0.55 -> ppm); RH in % points; bias = model - observed.")
+    end
+    if N79   # [smoke 5] Note 104: solar column at the prior centre -- season budget and T with / without it
+        println("\n[smoke 5] solar column (Notes 101-104) at the prior centre, full season")
+        pC = update_params(params_cl, CQ_MODEL, centre[1:NM])
+        Igt = A(Ig_v).(predtimes); ESt = clamp.(A(U1v).(predtimes), 0, 1); BSt = clamp.(A(Blackv).(predtimes), 0, 1)
+        LAt = A(LAI_row).(predtimes)
+        if pC.solar_cons > 0.5
+            tot = zeros(7)          # canopy, floor-level, air, cover, sky, screens, I2
+            for k in eachindex(Igt)
+                so = GreenhouseSim.solar_column(Igt[k], ESt[k], BSt[k], LAt[k], pC)
+                tot .+= (so.Qcan, so.Qflr, so.Qair, so.Qcov, so.Qout, so.Qscr, Igt[k])
+            end
+            @printf("  season shares of I2: canopy %.3f | floor level %.3f (mass %.3f of it) | air %.3f | cover %.3f | sky %.3f | sum %.6f\n",
+                    tot[1] / tot[7], tot[2] / tot[7], pC.f_mass, tot[3] / tot[7], tot[4] / tot[7], tot[5] / tot[7],
+                    sum(tot[1:5]) / tot[7])
+            @printf("  screens absorb %.3f of I2 (inside air and cover above); mean LAI %.2f, screened daylight hours %.0f %%\n",
+                    tot[6] / tot[7], mean(LAt), 100 * mean((ESt .> 0.5 .|| BSt .> 0.5)[dayt]))
+        end
+        scr = dayt .& ((ESt .> 0.5) .| (BSt .> 0.5)); opn = dayt .& .!scr
+        okT = .!isnan.(Tobs_g); okT[1] = false
+        @printf("  %-34s %8s %8s %8s %8s %8s\n", "variant", "T RMSE", "bias day", "day scr", "day open", "night")
+        for (lab, pv) in (("solar column on (n79 now)", pC),
+                          ("solar column off (Note 79 terms)", update_params(pC, ["solar_cons", "solar_mass_share"], [0.0, 0.0])))
+            us = simdays(pv, days, u0_cl, RELTOL); us === nothing && (println("  $lab: solve failed"); continue)
+            T2 = us[2, :]; mb(m) = any(m) ? mean(T2[m] .- Tobs_g[m]) : NaN
+            @printf("  %-34s %8.2f %+8.2f %+8.2f %+8.2f %+8.2f\n", lab, sqrt(mean((T2[okT] .- Tobs_g[okT]) .^ 2)),
+                    mb(okT .& dayt), mb(okT .& scr), mb(okT .& opn), mb(okT .& nite))
+        end
+        println("  K; bias = model - observed; day = Iglob > 50 W m-2; scr = energy or blackout screen > 50 % closed.")
+        println("  'off' keeps the re-centred f_mass value but uses it as a share of Iglob (Note 79 meaning), so it is not")
+        println("  the Note 96 configuration; it isolates the solar bookkeeping at the same parameter vector.")
     end
     println("\nSmoke done. Paste this output before launching `full`.")
     exit(0)
