@@ -19,12 +19,13 @@ using CSV, DataFrames, Dates, JLD2, Statistics, Printf
 
 const TRANS = 0.65; const TEAM = "AiCU"; const BURN = 40000
 const CROPTAG = get(ENV, "CROPTAG", "n78")       # Note 94: n94 = canopy model, everything already per m2 floor
-const CANOPY  = CROPTAG == "n94"
+const CANOPY  = CROPTAG in ("n94", "n105")      # Note 105: n105 = n94 + par_below
 const FLOOR   = CANOPY ? 1.0 : 0.8
 INV  = normpath(joinpath(@__DIR__, "..", "..", ".."))
 DATA = joinpath(INV, "invernaderos2.0", "data")
 params = load_params(joinpath(INV, "invernaderos2.0", "code", "configfiles", "constants_climate.json"),
                      joinpath(INV, "invernaderos2.0", "code", "configfiles", "constants_cropphoto.json"))
+CROPTAG == "n105" && (params = update_params(params, ["par_below", "tau1"], [1.0, 0.65 / 0.9]))
 gp_base = load_growth_params(joinpath(@__DIR__, "..", "configfiles", "cucumber_growth.json"))
 gp_base = update_params(gp_base, ["set_start_day", "harvest_W", "gen_clampT", "gen_parlight", "gen_beta", "gen_kappa",
                                   "gen_A", "gen_V", "gen_zclamp", "stem_density"], [15.0, 16.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, CANOPY ? 3.6 : 2.6])
@@ -36,7 +37,7 @@ keep = load_fruit_keep(joinpath(DATA, TEAM, "CropManagement.csv"); ndays = seaso
 # pooled posterior mean of the n78 seeds
 chains = Matrix{Float64}[]; QoI = String[]
 for s in 1:2
-    fn = joinpath(@__DIR__, "posteriors", CANOPY ? "$(TEAM)_growth_canopy_n94_seed$(s).jld2" : "$(TEAM)_growth_generic_n78_seed$(s).jld2")
+    fn = joinpath(@__DIR__, "posteriors", CANOPY ? "$(TEAM)_growth_canopy_$(CROPTAG)_seed$(s).jld2" : "$(TEAM)_growth_generic_n78_seed$(s).jld2")
     isfile(fn) || (println("missing ", fn); continue)
     d = JLD2.load(fn); push!(chains, d["chain"][BURN:end, 1:end-1]); global QoI = d["QoI"]
 end

@@ -41,6 +41,9 @@ INV   = normpath(joinpath(@__DIR__, "..", "..", ".."))
 DATA  = joinpath(INV, "invernaderos2.0", "data")
 params = load_params(joinpath(INV, "invernaderos2.0", "code", "configfiles", "constants_climate.json"),
                      joinpath(INV, "invernaderos2.0", "code", "configfiles", "constants_cropphoto.json"))
+const PARBELOW = get(ENV, "PARBELOW", "0") == "1"   # Note 105: photosynthesis sees PAR on both canopy faces (floor light)
+const RUNTAG   = PARBELOW ? "n105" : "n94"           # n105 = n94 + par_below (own output files)
+PARBELOW && (params = update_params(params, ["par_below", "tau1"], [1.0, 0.65 / 0.9]))   # roof tau = 0.65 as n79
 gp_base = load_growth_params(joinpath(@__DIR__, "..", "configfiles", "cucumber_growth.json"))
 gp_base = update_params(gp_base, ["set_start_day", "harvest_W", "gen_clampT", "gen_parlight", "gen_beta", "gen_kappa",
                                   "gen_A", "gen_V", "gen_zclamp", "stem_density", "gen_canopy", "gen_doy0", "gen_fL",
@@ -165,7 +168,7 @@ function report(z, tag)
     for (d, v) in zip(fd_start, fd_val); @printf("  %10d | %5.1f / %5.1f\n", d, v, week_age(r, d)); end
 end
 
-println("\nCanopy (Aaron Oct 2026) crop calibration n94 -- mode=$MODE seed=$SEED transmission=$TRANS zclamp=$ZCLAMP stems 3.6/m2")
+println("\nCanopy (Aaron Oct 2026) crop calibration $RUNTAG -- mode=$MODE seed=$SEED transmission=$TRANS zclamp=$ZCLAMP stems 3.6/m2")
 report(centre, "prior centre")
 @printf("  energy at centre %.1f\n", energy(centre))
 MODE == "centre" && exit()
@@ -175,7 +178,7 @@ jit() = (for _ in 1:1000; x = centre .* (1 .+ 0.05 .* randn(length(QoI))); supp(
 t0 = time(); Run!(obj, T = NCHN, x0 = jit(), xp0 = jit())
 @printf("\n%d steps in %.0f s (%.2f s/step)\n", NCHN, time() - t0, (time() - t0) / NCHN)
 postdir = joinpath(@__DIR__, "posteriors"); mkpath(postdir)
-fn = joinpath(postdir, "$(TEAM)_growth_canopy_n94_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
+fn = joinpath(postdir, "$(TEAM)_growth_canopy_$(RUNTAG)_seed$(SEED)$(MODE == "smoke" ? "_smoke" : "").jld2")
 JLD2.@save fn chain=obj.Output QoI=QoI burn_in=BURN transmission=TRANS
 println("saved ", fn)
 b = MODE == "smoke" ? max(1, NCHN ÷ 2) : BURN
