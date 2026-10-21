@@ -763,6 +763,72 @@ $V_{20}$ in g DM stem$^{-1}$\,d$^{-1}$ (M94 8.3 per plant at 1.4 plants\,m$^{-2}
 In \texttt{CUCUMBER\_PARAMS\_V2} (Aaron's update, Note 72) none of the four sub-models is cut to the M94
 temperature windows. The multipliers $g_B,g_K,g_A,g_V$ are 1.
 
+\subsection{Leaf area index (LAI) model}\label{sec:lai}
+In Aaron's canopy extension (his Section ``Canopy growth, LAI and event-based pruning'') the LAI is a
+\emph{state} driven by leaf mass and leaf events. There is no prescribed maximum LAI (the legacy cap
+\texttt{LAI\_max} is not used), no recomputation of the standing area and no leaf senescence. All
+retained leaves share the canopy's current mean mass and area (equal-mean-leaf approximation).
+
+\paragraph{Leaf events.} The node counter $C_N$ (eq.~\eqref{eq:a-app}) is the only appearance state. For cucumber every
+node carries a leaf, so the initiated leaves are $\lfloor C_N\rfloor$ and the retained count grows by the number of
+nodes completed today,
+\begin{equation}
+N_L^-=N_{L,k}+n_{\text{new leaves},k},\qquad n_{\text{new leaves},k}=\lfloor C_{N,k+1}\rfloor-\lfloor C_{N,k}\rfloor .
+\end{equation}
+Appearance alone creates neither mass nor area.
+
+\paragraph{Leaf mass and area growth.} The vegetative increment $\Delta W_{V,k}$ allocated in the daily step
+(eq.~\eqref{eq:a-alloc}) is split and converted to area with the day's specific leaf area:
+\begin{equation}\label{eq:lai-growth}
+\Delta W_{L,k}=f_L\,\Delta W_{V,k},\qquad
+\Delta L_k=S(d_k)\,\Delta W_{L,k},\qquad
+L^-=L_k+\Delta L_k ,
+\end{equation}
+with $f_L=0.59$, masses per m$^2$ floor (Aaron writes it per plant, $\Delta L=\rho\,S\,\Delta W_L^{\text{plant}}$;
+identical with $\rho=3.6$ stems\,m$^{-2}$). The seasonal SLA [m$^2$\,(g leaf DM)$^{-1}$] is
+\begin{equation}\label{eq:sla}
+S(d)=10^{-4}\Bigl[\overline S+a_S\sin\frac{2\pi(d+\phi_S)}{365}\Bigr],\qquad (\overline S,a_S,\phi_S)=(266,88,68),
+\qquad d_k=226+k ,
+\end{equation}
+($d=1$ is 1 January; transplant 14 August), ranging from 0.0178 to 0.0354\,m$^2$\,g$^{-1}$. It applies only to
+\emph{new} leaf mass: $L$ is never replaced by $S(d)W_L$, so the canopy ratio $L/W_L$ is a running mixture of
+past SLAs. Source: Heuvelink (1999) eq.~3 via P\'erez Guerrero (2021) eq.~123, a tomato canopy regression used
+provisionally for cucumber.
+
+\paragraph{Pruning.} With a retained-leaf target $N_{\text{target}}$ (leaves per stem),
+\begin{equation}\label{eq:lai-prune}
+r_k=\begin{cases}N_{\text{target}}/N_L^-, & N_L^->N_{\text{target}}\\ 1,&\text{otherwise}\end{cases},\qquad
+N_{L,k+1}=r_kN_L^-,\quad W_{L,k+1}=r_kW_L^-,\quad L_{k+1}=r_kL^-,
+\end{equation}
+and the removed area $H_{A,k}=(1-r_k)L^-$ and mass $H_{L,k}=(1-r_k)W_L^-$ go to a ledger (no carbohydrate is
+recovered). Non-leaf mass is untouched. The balance
+\begin{equation}
+L_{k+1}+H_{A,k}=L_k+\Delta L_k
+\end{equation}
+holds every day. In Aaron's formulation pruning is a management input (a daily decision $u_k$ plus the target); in the
+calibration it is applied whenever the count exceeds the target, and $N_{\text{target}}$ is inferred (prior 20--30, centred
+on Aaron's illustrative cucumber target of 25).
+
+\paragraph{Initial state.} At transplant (25-day plants) $L_0=0.25$ (about 4 leaves per stem, assumed),
+$N_L=\lfloor N_0\rfloor$, $W_L=L_0/S(226)$.
+
+\paragraph{Where LAI is used.}
+\begin{itemize}[nosep]
+\item Crop photosynthesis: the FvCB rate is scaled by the effective leaf area $(1-e^{-k L})/k$ with
+$k=$ \texttt{k\_ext} $=0.75$ (crop path; the climate model's \texttt{photo\_lai} uses 0.70), and with \texttt{par\_below}
+by the floor-light factor $g(L)$.
+\item Climate model (input $I_1$, written by \texttt{crop\_posterior\_series.jl} as \texttt{LAI\_floor}; factor 1 for the
+canopy path, 0.8 growing-area factor for the older paths): canopy heat capacity $\alpha_1L$, transpiration
+conductance $q_1\propto L$, canopy--air convection $h_1\propto L$, the solar column ($e^{-\beta L}$ for PAR and NIR),
+long-wave terms, lamp canopy share and photosynthesis.
+\end{itemize}
+
+\paragraph{Observability and caveats.} LAI is not measured in the AGC data. The leaf count per stem is observed
+(CropManagement), which constrains $N_L$ through $\beta_1$, $N_0$ and $N_{\text{target}}$; the area itself is constrained
+only indirectly through yield and assimilation. The ``LAI'' derivable from the grower's leaf counts uses an assumed
+leaf area and is not used in the likelihood (Note 68). SLA for cucumber, leaf senescence and a layered canopy are
+open items.
+
 \subsection{Daily step}\label{sec:canopystep}
 Following Aaron's ``Daily timing'' (growth and development at day end; allocation on the start-of-day inventory):
 \begin{enumerate}[leftmargin=*]
@@ -777,10 +843,10 @@ B&=\max(P_g-R_m,0)/c,\qquad c=1.4,
 \end{equation}
 with one common construction cost $c$ [g CH$_2$O (g DM)$^{-1}$] (Aaron eq.~cho-allocation).
 \item \textbf{Allocation} (M94 eq.~4 with reserve, Aaron eq.~allocation): with $P=P_V+\sum_iP_i$,
-\begin{equation}
+\begin{equation}\label{eq:a-alloc}
 \Delta W_j=\frac{P_j}{P}\min(B+R,\;P),\qquad R\leftarrow B+R-\textstyle\sum_j\Delta W_j .
 \end{equation}
-\item \textbf{Vegetative growth} (Aaron eqs.~canopy-growth, seasonal-sla):
+\item \textbf{Vegetative growth and LAI} (Aaron eqs.~canopy-growth, seasonal-sla; Section~\ref{sec:lai}):
 \begin{equation}
 \begin{aligned}
 &\Delta W_L=f_L\Delta W_V,\quad \Delta W_B=(1-f_L)\Delta W_V,\quad \Delta L=S(d)\,\Delta W_L,\\
