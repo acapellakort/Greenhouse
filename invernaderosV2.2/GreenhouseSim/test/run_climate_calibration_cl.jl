@@ -168,7 +168,7 @@ if N79   # Note 79: physical description fixed a priori (AGC documents, Notes 67
     #  (gamma1 1.0, n_pipes 1; PIPE2 folds the grow pipe in) | tau1 = 0.65/(1-eta1) -> PAR/global transmission 0.65 |
     #  psi2 = 12.8 g m-2 h-1 x alpha6 | cover 1.6 m2 per m2 floor | cover condensation and crop respiration ON
     if SOLARC   # Note 104: solar_cons (roof/screens/LAI canopy/floor column) + internal mass as a share of floor-level solar
-        append!(FIXN, ["solar_cons", "solar_mass_share"]); append!(FIXV, [1.0, 1.0])
+        append!(FIXN, ["solar_cons", "solar_mass_share", "par_below"]); append!(FIXV, [1.0, 1.0, 1.0])   # par_below: Note 105
     end
     allunique(FIXN) || error("duplicate FIXN entries")
 end

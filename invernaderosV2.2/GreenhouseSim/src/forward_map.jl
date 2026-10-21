@@ -62,7 +62,10 @@ photosynthesis only; the energy balance keeps its own radiation terms. phys_ligh
     (hasproperty(p, :phys_light) && p.phys_light > 0.5) || return I9
     lp = hasproperty(p, :lamp_par_W) ? p.lamp_par_W : 187.0 / 4.6
     # Note 101 (scr_solar): sun PAR below the screens from the same optics as the solar heat terms (I9 = r4 / Sp)
-    solar_mode(so) == 0 || return (solar_mode(so) == 2 ? so.ParTop : I9 * so.Spar) + lp * clamp(U12, 0.0, 1.0)   # Note 103: column PAR
+    # Note 105: par_below = 1 (with solar_cons) adds the PAR reaching the canopy underside (floor-reflected) to the
+    # photosynthesis / stomata light: ParTop + ParBot = absorbed canopy PAR / a, the light on both canopy faces.
+    pb = (hasproperty(p, :par_below) && p.par_below > 0.5 && solar_mode(so) == 2) ? so.ParBot : 0.0
+    solar_mode(so) == 0 || return (solar_mode(so) == 2 ? so.ParTop + pb : I9 * so.Spar) + lp * clamp(U12, 0.0, 1.0)   # Note 103: column PAR
     bs = (hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing)) ? clamp(c.BlackScr(tctrl), 0.0, 1.0) : 0.0
     es = clamp(U1, 0.0, 1.0)
     return I9 * (1 - 0.98 * bs) * (1 - 0.25 * es) + lp * clamp(U12, 0.0, 1.0)

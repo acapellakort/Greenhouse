@@ -1308,5 +1308,11 @@
         "units": "-",
         "desc": "Note 103 flag (with solar_cons): the internal mass takes f_mass of the floor-level solar absorption (conserving) instead of f_mass * Iglob on top of everything (V2.2). f_mass then means a share 0-1 of floor-level absorption, so its prior must be re-centred",
         "latex": ""
+    },
+    "par_below": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 105 flag: photosynthesis and stomata see the PAR on BOTH canopy faces (top + floor-reflected light reaching the underside, after all returns): climate model with solar_cons (ParTop + ParBot = absorbed canopy PAR / a); crop calibration on measured light via par_both_faces_factor(LAI). 0 = top-of-canopy PAR only",
+        "latex": ""
     }
 }

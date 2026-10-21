@@ -92,6 +92,19 @@ let so = solar_column(I2, 1.0, 0.0, 2.3, pON)
     check("  cover node gets Qcov once and no cov_abs I2 on top", isapprox(dTc, so.Qcov / (2kR + pON.h_cover_out); rtol = 1e-12))
     pp = GS.phys_par(999.0, 1.0, 0.0, (BlackScr = t -> 0.0,), 0.0, pON; so = so)
     check("  plant sun PAR = column ParTop (same field as the heat terms)", pp == so.ParTop)
+    # Note 105: par_below = 1 -> photosynthesis light = PAR on both canopy faces = absorbed canopy PAR / a
+    pB = update_params(pON, ["par_below"], [1.0])
+    for L in (0.5, 2.3, 5.0), (nm, ue, ub) in cases
+        sb = solar_column(I2, ue, ub, L, pB); t, r = canopy_layer(pB.beta1, pB.rho1, L); a = 1 - t - r
+        pq = GS.phys_par(999.0, ue, 0.0, (BlackScr = t -> ub,), 0.0, pB; so = sb)
+        check(@sprintf("  LAI %.1f %-11s par_below: plant PAR = ParTop + ParBot = Qcan_PAR / a (%.1f + %.1f)", L, nm, sb.ParTop, sb.ParBot),
+              pq == sb.ParTop + sb.ParBot && isapprox(sb.ParTop + sb.ParBot, sb.QcanP / a; rtol = 1e-12) && sb.ParBot >= 0)
+    end
+    for L in (0.0, 0.5, 2.3, 5.0)
+        s0 = solar_column(1.0, 0.0, 0.0, L, pB); trp0 = roof_props(pB)[1]
+        check(@sprintf("  crop path factor g(LAI %.1f) = %.3f = (ParTop + ParBot)/(eta2 tau_roof), >= 1", L, par_both_faces_factor(L, pB)),
+              isapprox(par_both_faces_factor(L, pB), (s0.ParTop + s0.ParBot) / (pB.eta2 * trp0); rtol = 1e-12) && par_both_faces_factor(L, pB) >= 1)
+    end
 end
 check("  flag off: climate_rhs(so = nothing) is the V2.2 call", rhs(I2, 2.3, 0.5, nothing, pOFF) == rhs(I2, 2.3, 0.5, nothing, base))
 

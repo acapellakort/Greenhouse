@@ -79,8 +79,11 @@ function daily_assimilation_measured(M::Matrix{Float64}, lai::Float64, p::NamedT
                                      k_ext::Float64 = K_EXT)
     size(M, 2) == 0 && return 0.0
     s = 0.0
+    # Note 105 (default-off): par_below = 1 -> the measured canopy-top PAR is scaled to the PAR on both canopy faces
+    # (floor-reflected light included), the same light the climate model's phys_par uses with solar_cons + par_below
+    g = (hasproperty(p, :par_below) && p.par_below > 0.5) ? par_both_faces_factor(lai, p) : 1.0
     @inbounds for j in 1:size(M, 2)
-        s += assimilation(M[1, j], M[2, j], M[3, j], lai_eff(lai, k_ext), p)   # canopy interception
+        s += assimilation(M[1, j], M[2, j], g * M[3, j], lai_eff(lai, k_ext), p)   # canopy interception
     end
     return s * dt * 1e-3 * (30.0 / 44.0)                        # -> g CH2O m^-2 d^-1
 end

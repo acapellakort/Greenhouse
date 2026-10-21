@@ -48,9 +48,10 @@ struct SolarOut
     Qrefl::Float64
     ParTop::Float64
     NirTop::Float64
+    ParBot::Float64     # Note 105: PAR reaching the canopy UNDERSIDE (floor-reflected, after all returns)
 end
 SolarOut(mode; Spar = 1.0, Snir = 1.0, kw...) = SolarOut(mode, Spar, Snir,
-get(kw, :Qcan, 0.0), get(kw, :QcanP, 0.0), get(kw, :QcanN, 0.0), get(kw, :Qflr, 0.0), get(kw, :QflrP, 0.0), get(kw, :QflrN, 0.0), get(kw, :Qair, 0.0), get(kw, :Qst, 0.0), get(kw, :Qsa, 0.0), get(kw, :Qcov, 0.0), get(kw, :Qroof, 0.0), get(kw, :Qscr, 0.0), get(kw, :Qes, 0.0), get(kw, :Qbl, 0.0), get(kw, :Qout, 0.0), get(kw, :Qrefl, 0.0), get(kw, :ParTop, 0.0), get(kw, :NirTop, 0.0))
+get(kw, :Qcan, 0.0), get(kw, :QcanP, 0.0), get(kw, :QcanN, 0.0), get(kw, :Qflr, 0.0), get(kw, :QflrP, 0.0), get(kw, :QflrN, 0.0), get(kw, :Qair, 0.0), get(kw, :Qst, 0.0), get(kw, :Qsa, 0.0), get(kw, :Qcov, 0.0), get(kw, :Qroof, 0.0), get(kw, :Qscr, 0.0), get(kw, :Qes, 0.0), get(kw, :Qbl, 0.0), get(kw, :Qout, 0.0), get(kw, :Qrefl, 0.0), get(kw, :ParTop, 0.0), get(kw, :NirTop, 0.0), get(kw, :ParBot, 0.0))
 const SOLAR_NONE = SolarOut(0)
 "0 for V2.2 calls (so = nothing or SOLAR_NONE), else the SolarOut mode."
 @inline solar_mode(so::Nothing) = 0
@@ -133,7 +134,7 @@ Qcov = (1 - scr_abs_air) * Qscr + extra roof absorption (to the cover/structure 
     Qrf  = Ip * f.P.dAr + In * f.N.dAr
     Qair = p.scr_abs_air * Qscr
     return SolarOut(1, f.P.S, f.N.S, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Qair, 0.0, Qair, Qscr - Qair + Qrf, Qrf, Qscr,
-                    Ip * f.P.Aes + In * f.N.Aes, Ip * f.P.Abl + In * f.N.Abl, 0.0, Ip * f.P.dR + In * f.N.dR, 0.0, 0.0)
+                    Ip * f.P.Aes + In * f.N.Aes, Ip * f.P.Abl + In * f.N.Abl, 0.0, Ip * f.P.dR + In * f.N.dR, 0.0, 0.0, 0.0)
 end
 
 # =============================================================================
@@ -171,7 +172,7 @@ Rout + A1 + A2 + A3 + A4 + Af = 1. Dcan = downward flux incident on the top of l
             A2 = (1.0 - t2 - r2) * (D2 + R3 * D3),
             A3 = (1.0 - t3 - r3) * (D3 + R4 * D4),
             A4 = (1.0 - t4 - r4) * (D4 + rf * D5),
-            Af = (1.0 - rf) * D5, Dcan = D4)
+            Af = (1.0 - rf) * D5, Dcan = D4, Dflr = D5)
 end
 
 "Canopy as a homogeneous layer (Vanthoor 2011, eqs 8.31-8.32): (t, r) for extinction k and high-LAI reflection rho_inf."
@@ -208,8 +209,23 @@ the screens | Qout reflected to the sky | ParTop downward sun PAR on the canopy 
     Qscr  = Qes + Qbl
     Qsa   = p.scr_abs_air * Qscr
     # fields: mode, Spar, Snir, Qcan, QcanP, QcanN, Qflr, QflrP, QflrN, Qair, Qst, Qsa, Qcov, Qroof, Qscr, Qes, Qbl,
-    #         Qout, Qrefl, ParTop, NirTop
+    #         Qout, Qrefl, ParTop, NirTop, ParBot
     return SolarOut(2, 1.0, 1.0, Ip * P.A4 + In * N.A4, Ip * P.A4, In * N.A4, Ip * P.Af + In * N.Af, Ip * P.Af, In * N.Af,
                     Qst + Qsa, Qst, Qsa, (Qroof - Qst) + (Qscr - Qsa), Qroof, Qscr, Qes, Qbl,
-                    Ip * P.Rout + In * N.Rout, 0.0, Ip * P.Dcan, In * N.Dcan)
+                    Ip * P.Rout + In * N.Rout, 0.0, Ip * P.Dcan, In * N.Dcan, Ip * p.rho2 * P.Dflr)
+end
+
+"""
+    par_both_faces_factor(LAI, p) -> g >= 1
+
+Note 105, crop calibration path (measured light): PAR on both canopy faces per unit PAR transmitted by the roof,
+g = (D_top + rho2 D_floor) / tau_roof from the PAR column with the screens retracted. Multiplies the measured
+canopy-top PAR so the crop model sees the same light as the climate model's phys_par with par_below = 1
+(the screen interaction of the returning light is ignored here; Note 105).
+"""
+@inline function par_both_faces_factor(LAI, p)
+    trp, rrp, _, _ = roof_props(p)
+    cP = canopy_layer(p.beta1, p.rho1, LAI)
+    c  = column4(trp, rrp, 1.0, 0.0, 1.0, 0.0, cP[1], cP[2], p.rho2)
+    return (c.Dcan + p.rho2 * c.Dflr) / trp
 end
