@@ -137,6 +137,10 @@ mutable struct GrowthState
     yield_FW::Float64      # cumulative harvested fruit fresh weight [kg/m2]
     node::Float64          # main-stem node number
     reserve::Float64       # assimilate carried to the next day [g DM/m2] (generic path only; 0 in the legacy path)
+    # Note 94 (canopy path, gen_canopy = 1; Aaron's canopy extension): retained leaves per stem and removal ledger
+    leaves::Float64        # retained leaf count per stem (integer-valued)
+    rem_leaf_DW::Float64   # cumulative pruned leaf dry weight [g/m2]
+    rem_LAI::Float64       # cumulative pruned leaf area [m2/m2]
 end
 
 """
@@ -146,7 +150,7 @@ Young transplant: leaf mass set from LAI0 via SLA, small stem/root, no fruit.
 """
 function init_growth_state(gp; LAI0 = 0.5, stem0 = 8.0, root0 = 4.0)
     W_leaf0 = LAI0 / gp.SLA
-    return GrowthState(W_leaf0, stem0, root0, LAI0, Fruit[], 0.0, 0.0, 0.0, 0.0)
+    return GrowthState(W_leaf0, stem0, root0, LAI0, Fruit[], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 end
 
 # smoothstep S(x)=x^2(3-2x); its derivative 6x(1-x) integrates to 1 over [0,1],
@@ -168,6 +172,10 @@ of the legacy smoothstep sink and capacity-fill vegetative demand. Default
 function grow!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int;
                generic_params::Union{Nothing, GenericParameters} = nothing,
                fruit_keep::Float64 = NaN, par_MJ::Float64 = NaN)
+    # Note 94: Aaron's canopy extension (generic path, default-off) -- separate daily routine
+    if !isnothing(generic_params) && hasproperty(gp, :gen_canopy) && gp.gen_canopy > 0.5
+        return _grow_canopy!(s, Pg, Tmean_C, gp, day, generic_params, fruit_keep, par_MJ)
+    end
     dT = max(Tmean_C - gp.T_base, 0.0)          # thermal drive above base
     # Note 69 (generic path only, all default 1 / off): calibration multipliers on Aaron's (M94) relations --
     #   gen_beta  flower = node appearance rate      gen_kappa  fruit development clock
@@ -369,4 +377,96 @@ function simulate_growth(p::NamedTuple, gp, weather, controls, start_unix::Float
     end
 
     return (; day, LAI, W_leaf, W_stem, W_fruit, yield_FW, Pg = Pg_hist, Tmean = Tmean_h, state = s)
+end
+
+
+# ===========================================================================
+# Note 94 -- Aaron's canopy extension (Generic_Gh_Model models.py / main.tex, Oct 2026), gen_canopy = 1
+# ===========================================================================
+# States per m2 FLOOR (stem density gp.stem_density stems/m2 floor, one stem = one modelled plant):
+#   W_leaf, W_stem + W_root (= non-leaf DW, split stem:root by frac_stem:frac_root), LAI, retained leaves per stem,
+#   node progress per stem (fractional progress kept). Daily order (main.tex sec. "Daily timing"):
+#   1 maintenance (host) -> available CHO;  2 potentials of the START-of-day inventory (vegetation once + fruits),
+#   allocation with one construction cost (gp.asrq = 1.4 g CHO/g DM, reserve carried); 3 vegetative growth:
+#   leaf share gen_fL, new leaf AREA = seasonal SLA(day of year) x new leaf DW (existing LAI never recomputed);
+#   4 development of existing fruits; node appearance (nodes/stem/day above its own base, x light factor);
+#   every completed node adds a leaf, nodes >= gen_flower_node add a flower -> fruits set = flowers x stems x kept
+#   share x carbon gate, created at stage 0 AFTER allocation (grow from the next day); 5 harvest (host, by size);
+#   6 pruning: whenever retained leaves exceed gen_leaf_target, remove the excess, leaf DW and LAI proportionally.
+"Seasonal SLA (Heuvelink 1999 eq. 3 via Perez Guerrero 2021 eq. 123), m2 per g leaf DM; doy = day of year."
+@inline seasonal_sla_m2g(doy, gp) =
+    1e-4 * (gp.sla_mean + gp.sla_amp * sin(2pi * mod((doy + gp.sla_phase) / 365.0, 1.0)))
+
+function _grow_canopy!(s::GrowthState, Pg::Float64, Tmean_C::Float64, gp, day::Int,
+                       G::GenericParameters, fruit_keep::Float64, par_MJ::Float64)
+    gB = hasproperty(gp, :gen_beta)  ? gp.gen_beta  : 1.0
+    gK = hasproperty(gp, :gen_kappa) ? gp.gen_kappa : 1.0
+    gA = hasproperty(gp, :gen_A)     ? gp.gen_A     : 1.0
+    gV = hasproperty(gp, :gen_V)     ? gp.gen_V     : 1.0
+    zc   = hasproperty(gp, :gen_zclamp) && gp.gen_zclamp > 0.5
+    zmax = zc ? 3.0 : 1.0
+    fpar = (hasproperty(gp, :gen_parlight) && gp.gen_parlight > 0.5 && !isnan(par_MJ)) ?
+           (1.0 - exp(-0.5 - 0.5 * par_MJ)) / (1.0 - exp(-0.5 - 0.5 * 6.8)) : 1.0
+    stems = gp.stem_density
+
+    # 1. maintenance (host) and available CHO -> DM-equivalent supply (common construction cost asrq)
+    W_fruit_tot = isempty(s.fruits) ? 0.0 : sum(f.W for f in s.fruits)
+    q10f = gp.Q10_resp ^ ((Tmean_C - 25.0) / 10.0)
+    Rm = q10f * (gp.k_m_leaf * s.W_leaf + gp.k_m_stem * s.W_stem + gp.k_m_root * s.W_root + gp.k_m_fruit * W_fruit_tot)
+    dDM_pot = max(Pg - Rm, 0.0) / gp.asrq
+
+    # 2. potentials of the start-of-day inventory and allocation (M94 eq. 4 with reserve)
+    Ts = (hasproperty(gp, :gen_clampT) && gp.gen_clampT > 0.5) ? clamp(Tmean_C, G.sink_domain[1], G.sink_domain[2]) : Tmean_C
+    veg_sink = generic_vegetation(Tmean_C, G) * stems * gV
+    fsinks = [gA * generic_sink(Ts, zc ? min(f.dev, 1.0) : f.dev, f.n, G) for f in s.fruits]
+    total_pot = veg_sink + (isempty(fsinks) ? 0.0 : sum(fsinks))
+    growths, s.reserve = allocate_daily(vcat([veg_sink], fsinks), dDM_pot, s.reserve)
+
+    # 3. vegetative growth: leaf / non-leaf split; new area from today's SLA on NEW leaf DW only
+    vegDM = growths[1]
+    leafG = gp.gen_fL * vegDM; nonleaf = vegDM - leafG
+    fst = gp.frac_stem / (gp.frac_stem + gp.frac_root)
+    s.W_leaf += leafG; s.W_stem += fst * nonleaf; s.W_root += (1.0 - fst) * nonleaf
+    s.LAI    += seasonal_sla_m2g(gp.gen_doy0 + day, gp) * leafG
+    for (i, f) in enumerate(s.fruits); f.W += growths[i + 1]; end
+
+    # 4. development of existing fruits; node appearance; organs at completed nodes
+    ddev = generic_development_rate(Tmean_C, G) * gK
+    for f in s.fruits; f.dev += ddev; end
+    if day < gp.top_day
+        Tn = (hasproperty(gp, :gen_clampT) && gp.gen_clampT > 0.5) ?
+             clamp(Tmean_C, G.appearance_domain[1], G.appearance_domain[2]) : Tmean_C
+        old = s.node
+        s.node += generic_appearance(Tn, G) * gB * fpar          # nodes per stem per day (above the appearance base)
+        k0 = floor(Int, old) + 1; k1 = floor(Int, s.node)
+        if k1 >= k0
+            s.leaves += k1 - k0 + 1                               # cucumber: a leaf at every node
+            nfl = count(j -> j >= gp.gen_flower_node, k0:k1)      # flowers from node gen_flower_node (5)
+            if nfl > 0 && day >= gp.set_start_day
+                set_frac = clamp((dDM_pot / (total_pot + 1e-9) - gp.set_r_low) / (gp.set_r_high - gp.set_r_low), 0.0, 1.0)
+                n_new = nfl * stems * set_frac * (isnan(fruit_keep) ? 1.0 : fruit_keep)
+                n_new > 0.0 && push!(s.fruits, Fruit(0.0, 0.0, n_new))   # stage 0, grows from tomorrow
+            end
+        end
+    end
+
+    # 5. harvest (host): by size (harvest_W, g DM per fruit) or development safety cap
+    hw = hasproperty(gp, :harvest_W) ? gp.harvest_W : 0.0
+    keepf = Fruit[]
+    for f in s.fruits
+        if f.dev >= zmax || (hw > 0.0 && f.n > 0.0 && f.W / f.n >= hw)
+            s.yield_DW += f.W; s.yield_FW += (f.W / gp.DMC_fruit) / 1000.0
+        else
+            push!(keepf, f)
+        end
+    end
+    s.fruits = keepf
+
+    # 6. pruning: whenever retained leaves exceed the target, remove the excess; leaf DW and LAI proportionally
+    if s.leaves > gp.gen_leaf_target
+        r = gp.gen_leaf_target / s.leaves
+        s.rem_leaf_DW += (1.0 - r) * s.W_leaf; s.rem_LAI += (1.0 - r) * s.LAI
+        s.W_leaf *= r; s.LAI *= r; s.leaves = gp.gen_leaf_target
+    end
+    return W_fruit_tot
 end

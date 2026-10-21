@@ -93,7 +93,7 @@ LAI_row = [lai_of_day((t - t0) / 86400.0) for t in ts]
 # logged daily dosage: on-times from the CO2 setpoint rule, scaled per day so valve hours = CO2_dosage / 0.0128 kg m-2 h-1
 CropRespv = zeros(length(ts)); CropFWv = zeros(length(ts)); U10_scale = Float64[]
 if N79
-    csf = joinpath(@__DIR__, "posteriors", "AiCU_crop_series_n78.csv")
+    csf = joinpath(@__DIR__, "posteriors", "AiCU_crop_series_$(get(ENV, "CROPTAG", "n78")).csv")   # Note 94: CROPTAG=n94 after the canopy recalibration
     isfile(csf) || error("missing $csf -- run test/crop_posterior_series.jl first")
     cs = DataFrame(CSV.File(csf))
     cday(x) = clamp(floor(Int, x), cs.day[1], cs.day[end]) - cs.day[1] + 1
@@ -161,7 +161,7 @@ end
 if N79   # Note 79: physical description fixed a priori (AGC documents, Notes 67-68, 78); bias terms removed
     append!(FIXN, ["phi2", "alpha5", "nu5", "gamma1", "n_pipes", "tau1", "psi2", "cover_area", "cover_cond", "co2_resp",
                    "hc_dT", "lamp_scr_loss", "s_rad", "dew_bl", "leak_shared", "rd_q10", "leak_stack", "lamp_Pel", "crop_cap", "crop_cp"])
-    append!(FIXV, [5.4, 1005.0, 1000.0, 1.0, 1.0, 0.65 / 0.9, 35556.0, 1.6, 1.0, 1.0,
+    append!(FIXV, [5.4, 1005.0, 3000.0, 1.0, 1.0, 0.65 / 0.9, 35556.0, 1.6, 1.0, 1.0,   # nu5 = 0.30 x alpha6 (Note 92)
                    0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 117.0, 1.0, 3800.0])   # crop_cap, crop_cp (J kg-1 K-1): Note 91     # dew_bl: Note 85; leak_shared, rd_q10: Note 86; leak_stack: Note 88; lamp_Pel = 187 umol / 1.6 umol J-1 (ReadMe), Note 90
     #  phi2 5.4 m mean air height | alpha5 c_p 1005 | nu5 = 0.10 x alpha6 vent area | rail pipe 1.0 m m-2 as ONE circuit
     #  (gamma1 1.0, n_pipes 1; PIPE2 folds the grow pipe in) | tau1 = 0.65/(1-eta1) -> PAR/global transmission 0.65 |

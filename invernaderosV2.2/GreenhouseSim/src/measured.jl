@@ -103,9 +103,16 @@ function simulate_growth_measured(p::NamedTuple, gp, season::MeasuredSeason; LAI
     # Note 69: fruit_keep = per-day vector (index d+1) of the grower's kept-fruit share (generic path); harvested fruit
     # numbers and their mean age (days since set) are tracked per day (harv_n, harv_age) for the FruitGrw observation.
     s = init_growth_state(gp; LAI0 = LAI0)
+    if hasproperty(gp, :gen_canopy) && gp.gen_canopy > 0.5      # Note 94: transplant state for the canopy path
+        s.node = gp.gen_N0; s.leaves = floor(gp.gen_N0)
+        s.W_leaf = LAI0 / seasonal_sla_m2g(gp.gen_doy0, gp)    # leaf DW behind the supplied initial LAI
+        nl = s.W_leaf * (1.0 - gp.gen_fL) / gp.gen_fL           # non-leaf DW in the vegetative split
+        fst = gp.frac_stem / (gp.frac_stem + gp.frac_root); s.W_stem = fst * nl; s.W_root = (1.0 - fst) * nl
+    end
     day = Int[]; LAI = Float64[]; yieldFW = Float64[]; Wfruit = Float64[]; Pg = Float64[]; node = Float64[]
     harv_n = Float64[]; harv_age = Float64[]
     Wl = Float64[]; Ws = Float64[]; Wr = Float64[]; Ydw = Float64[]     # Note 79: organ masses for respiration
+    Lv = Float64[]                                                       # Note 94: retained leaves per stem
     live = Dict{UInt,Tuple{Int,Fruit}}()
     for d in 0:(season.ndays - 1)
         M = season.day_samples[d + 1]
@@ -123,10 +130,10 @@ function simulate_growth_measured(p::NamedTuple, gp, season::MeasuredSeason; LAI
         push!(day, d); push!(LAI, s.LAI); push!(yieldFW, s.yield_FW)
         push!(Wfruit, isempty(s.fruits) ? 0.0 : sum(f.W for f in s.fruits))
         push!(Pg, Pgd); push!(node, s.node); push!(harv_n, hn); push!(harv_age, hn > 0 ? ha / hn : NaN)
-        push!(Wl, s.W_leaf); push!(Ws, s.W_stem); push!(Wr, s.W_root); push!(Ydw, s.yield_DW)
+        push!(Wl, s.W_leaf); push!(Ws, s.W_stem); push!(Wr, s.W_root); push!(Ydw, s.yield_DW); push!(Lv, s.leaves)
     end
     return (; day, LAI, yield_FW = yieldFW, W_fruit = Wfruit, Pg, node, harv_n, harv_age,
-            W_leaf = Wl, W_stem = Ws, W_root = Wr, yield_DW = Ydw, state = s)
+            W_leaf = Wl, W_stem = Ws, W_root = Wr, yield_DW = Ydw, leaves = Lv, state = s)
 end
 
 """

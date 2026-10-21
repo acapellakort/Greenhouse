@@ -26,5 +26,14 @@
   "LAI_deleaf": 99.0,
   "leaf_per_node": 0.04,
   "leaf_lifespan_dd": 600.0,
-  "resp_diurnal": 0.0
+  "resp_diurnal": 0.0,
+  "gen_canopy": 0.0,
+  "gen_fL": 0.59,
+  "gen_flower_node": 5.0,
+  "gen_leaf_target": 25.0,
+  "gen_N0": 4.0,
+  "gen_doy0": 226.0,
+  "sla_mean": 266.0,
+  "sla_amp": 88.0,
+  "sla_phase": 68.0
 }
