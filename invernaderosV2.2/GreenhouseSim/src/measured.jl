@@ -146,7 +146,9 @@ transmission: greenhouse light transmission (organisers: about 0.60-0.70); lamp_
 """
 function load_measured_climate_par(gh_csv::AbstractString, meteo_csv::AbstractString;
                                    transmission::Float64 = 0.65, lamp_umol::Float64 = 187.0,
-                                   day0_serial::Float64 = 43326.0, dt::Float64 = 300.0)
+                                   day0_serial::Float64 = 43326.0, dt::Float64 = 300.0, screen_p = nothing)
+    # Note 101 (default nothing = organisers' formula): screen_p = climate parameters with the scr_* optics -> the
+    # screen factor is screen_factors(EnScr, BlackScr, screen_p).P.S, the same PAR factor the climate model uses.
     gh = DataFrame(CSV.File(gh_csv)); mt = DataFrame(CSV.File(meteo_csv)); n = min(nrow(gh), nrow(mt))
     isnum(x) = (x isa Number) && !isnan(x)
     v(x, dflt) = isnum(x) ? Float64(x) : dflt
@@ -158,7 +160,8 @@ function load_measured_climate_par(gh_csv::AbstractString, meteo_csv::AbstractSt
         Ig  = v(mt.Iglob[i], 0.0); Pout = v(mt.PARout[i], 2.16 * Ig)
         bs  = clamp(v(gh.BlackScr[i], 0.0) / 100, 0.0, 1.0); es = clamp(v(gh.EnScr[i], 0.0) / 100, 0.0, 1.0)
         lam = clamp(v(gh.AssimLight[i], 0.0) / 100, 0.0, 1.0)
-        par = max(Pout, 0.0) * transmission * (1 - 0.98 * bs) * (1 - 0.25 * es) + lamp_umol * lam
+        sf  = screen_p === nothing ? (1 - 0.98 * bs) * (1 - 0.25 * es) : screen_factors(es, bs, screen_p).P.S
+        par = max(Pout, 0.0) * transmission * sf + lamp_umol * lam
         push!(get!(buckets, d, NTuple{3,Float64}[]), (Tc + 273.15, _co2_ppm_to_mgm3(Co, Tc), par / 4.6))
     end
     ndays = isempty(buckets) ? 0 : maximum(keys(buckets)) + 1

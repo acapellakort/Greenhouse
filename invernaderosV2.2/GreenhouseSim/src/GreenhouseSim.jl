@@ -49,6 +49,7 @@ using CSV
 include("parameters.jl")
 include("weather.jl")
 include("controls.jl")
+include("screen_optics.jl")   # Note 101: roof + screen solar optics (flag scr_solar)
 include("climate.jl")
 include("photosynthesis.jl")
 include("generic_growth.jl")   # GenericParameters, CUCUMBER_PARAMS, TOMATO_PARAMS
@@ -66,6 +67,7 @@ export ControlInputs, ControlInputsX, load_measured_controls
 export SimBase, SimContext, rhs!, simulate, forward_map
 # Model kernels (exported for benchmarking / testing)
 export climate_rhs, assimilation, Pws, rhf, VPDf, floor_balance
+export screen_solar, screen_factors, stack3, layer_eff
 # Generic dry-matter partitioning (Marcelis 1994 / Heuvelink 1996)
 export GenericParameters, CUCUMBER_PARAMS, CUCUMBER_PARAMS_V2, TOMATO_PARAMS
 export generic_appearance, generic_development_rate, generic_sink, generic_vegetation

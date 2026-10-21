@@ -29,10 +29,11 @@ VPDf(VP_sat, rh) = VP_sat * (1 - rh / 100)
 Algebraic cover temperature (Note 29 cover node). With solar_split = 1 (Note 46) the cover also absorbs
 cov_abs * I2 of the global radiation:  Tc = (kR(T2 + I4) + h_cover_out*I5 + R_cov) / (2kR + h_cover_out).
 """
-@inline function cover_T(T2, I4, I5, I2, p)
+@inline function cover_T(T2, I4, I5, I2, p; Rx = 0.0)
     kR  = 4.0 * p.epsil3 * p.sigma * (0.5 * (T2 + I4))^3
     Rc  = (hasproperty(p, :solar_split) && p.solar_split > 0.5) ? p.cov_abs * I2 : 0.0
-    return (kR * (T2 + I4) + p.h_cover_out * I5 + Rc) / (2.0 * kR + p.h_cover_out)
+    # Note 101: Rx = screen-intercepted solar booked on the cover/structure node (screen_solar Qcov; 0 by default)
+    return (kR * (T2 + I4) + p.h_cover_out * I5 + Rc + Rx) / (2.0 * kR + p.h_cover_out)
 end
 
 """
@@ -66,12 +67,12 @@ Note 46. Re-books the floor terms of climate_rhs so the floor energy balance clo
 With solar_split = 1 the floor also absorbs the transmitted sun not intercepted by the canopy.
 Returns corrections to dT1, dT2 [K/s] and the extra net flux into the floor [W m^-2].
 """
-@inline function floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p; V1 = NaN)
+@inline function floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p; V1 = NaN, so = nothing)
     (; epsil2, epsil3, epsil4, sigma, gamma1, phi1, tau1, tau3, beta1, beta3, eta1, eta2, eta3,
        rho2, alpha1, alpha5, alpha7, rho3, phi2, nu7, nu8, use_cover_node) = p
     Qf = 0.0; c1 = 0.0; c2 = 0.0
     if hasproperty(p, :floor_full) && p.floor_full > 0.5
-        Tc  = use_cover_node > 0.5 ? cover_T(T2, I4, I5, I2, p) : I4
+        Tc  = use_cover_node > 0.5 ? cover_T(T2, I4, I5, I2, p; Rx = so === nothing ? 0.0 : so.Qcov) : I4
         if use_cover_node > 0.5 && cond_on(p) && isfinite(V1)      # Note 81: same cover T as climate_rhs
             Tc = cover_latent(Tc, T2, V1, U1, 4.0 * epsil3 * sigma * (0.5 * (T2 + I4))^3, p)
         end
@@ -87,7 +88,8 @@ Returns corrections to dT1, dT2 [K/s] and the extra net flux into the floor [W m
         Qf = h11 + r14n - r11
     end
     if hasproperty(p, :solar_split) && p.solar_split > 0.5
-        Qf += (1 - eta1) * tau1 * I2 * (eta2 * exp(-beta1 * I1) * (1 - rho2) + eta3 * exp(-beta3 * I1) * alpha7)
+        Sp = so === nothing ? 1.0 : so.Spar; Sn = so === nothing ? 1.0 : so.Snir     # Note 101 screen factors
+        Qf += (1 - eta1) * tau1 * I2 * (eta2 * Sp * exp(-beta1 * I1) * (1 - rho2) + eta3 * Sn * exp(-beta3 * I1) * alpha7)
     end
     return c1, c2, Qf
 end
@@ -101,7 +103,12 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
 """
 @inline function climate_rhs(T1, T2, C1, V1,
         I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, A,
-        U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U12, p)
+        U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U12, p; so = nothing)
+
+    # Note 101 (scr_solar, default off): band factors of the roof + screen optics (screen_optics.jl). so = nothing
+    # gives 1.0 exactly, so every solar term below is bit-for-bit unchanged.
+    Sp = so === nothing ? 1.0 : so.Spar     # PAR
+    Sn = so === nothing ? 1.0 : so.Snir     # solar NIR
 
     # --- all physical constants, read once from the concrete NamedTuple ------
     (; alpha1, alpha2, alpha3, alpha4, alpha5, alpha6, alpha7, alpha8, alpha9, alpha12,
@@ -212,7 +219,7 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
 
     # PAR / NIR / FIR radiation
     g1 = 0.49 * (1 - exp(-beta3 * I1))
-    r4 = (1 - eta1) * tau1 * eta2 * I2
+    r4 = (1 - eta1) * tau1 * eta2 * I2 * Sp      # Note 101: PAR above the canopy, below the screens
     r2 = r4 * (1 - rho1) * (1 - exp(-beta1 * I1))
     r3 = r4 * exp(-beta1 * I1) * rho2 * (1 - rho1) * (1 - exp(-beta2 * I1))
 
@@ -230,8 +237,8 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
         (kR_cov * (T2 + I4) + h_cover_out * I5) / (2.0 * kR_cov + h_cover_out) : I4
     # Note 46 (default-off): solar_split = 1 -> the global radiation absorbed by the cover (cov_abs * I2) heats
     # the cover node instead of the greenhouse air (see r8 below). Only active with use_cover_node = 1.
-    if hasproperty(p, :solar_split) && p.solar_split > 0.5 && use_cover_node > 0.5
-        I4_eff = cover_T(T2, I4, I5, I2, p)
+    if ((hasproperty(p, :solar_split) && p.solar_split > 0.5) || so !== nothing) && use_cover_node > 0.5
+        I4_eff = cover_T(T2, I4, I5, I2, p; Rx = so === nothing ? 0.0 : so.Qcov)   # Note 101: + screen share
     end
     # Note 81: with cover condensation on, its latent heat warms the cover (self-limiting condensation)
     if use_cover_node > 0.5 && cond_on(p)
@@ -252,7 +259,7 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
 
     # --- dT1: canopy temperature ---------------------------------------------
     r1 = r2 + r3
-    r5 = (1 - eta1) * alpha2 * (eta3 * I2 + eta14 * alpha12 * U12)
+    r5 = (1 - eta1) * alpha2 * (eta3 * I2 * Sn + eta14 * alpha12 * U12)   # Note 101: sun NIR x Sn; lamps below the screens
     r6 = alpha3 * epsil1 * epsil2 * g1 * sigma * (I3^4 - T1^4)
     h1 = 2 * alpha4 * I1 * (T1 - T2)
     l1 = gamma2 * q1 * (q2 - V1)
@@ -274,18 +281,19 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     h7 = rho3 * alpha5 * (f2 + f4 + f3 + (lstack ? 1.0 : 0.5) * f6) * (T2 - I5)
     h11 = 2 * nu7 * (T2 - I7) / (phi2 + nu8)
     h12 = (eta15 + eta16) * alpha12 * U12
-    r8 = I2 * (eta1 * (tau1 * eta2 + (alpha2 + alpha7) * eta3) + (alpha8 * eta2 + alpha9 * eta3))
+    r8 = I2 * (eta1 * (tau1 * eta2 * Sp + (alpha2 + alpha7) * eta3 * Sn) + (alpha8 * eta2 + alpha9 * eta3))
     # Note 46 (default-off): V2.0 adds (alpha8*eta2 + alpha9*eta3)*I2 = 1.0*I2 ("cover absorption", values not
     # given -> 1) to the AIR, so the air receives ~108 % of the outside global radiation on top of the canopy share.
     # In Vanthoor (2011) the cover-absorbed part heats the cover (R_Glob_Cov), not the air. solar_split = 1 keeps
     # only R_Glob_Air here; the cover part goes to the cover node (cover_T) and a floor share to the floor (forward_map).
     if hasproperty(p, :solar_split) && p.solar_split > 0.5
-        r8 = I2 * eta1 * (tau1 * eta2 + (alpha2 + alpha7) * eta3)
+        r8 = I2 * eta1 * (tau1 * eta2 * Sp + (alpha2 + alpha7) * eta3 * Sn)   # Note 101: x screen factors
     end
     r10 = r11 + r12 + r13
     l2 = gamma2 * U9 * phi9 / alpha6
 
-    dT2 = (1 / (phi2 * rho3 * alpha5)) * (h1 + h2 + h4 - h7 - h11 + h12 + r8 - r10 - l2)
+    Qsa = so === nothing ? 0.0 : so.Qair  # Note 101: screen-absorbed solar, crop-air side
+    dT2 = (1 / (phi2 * rho3 * alpha5)) * (h1 + h2 + h4 - h7 - h11 + h12 + r8 - r10 - l2 + Qsa)
 
     # --- dV1: vapour pressure ------------------------------------------------
     p1 = q1 * (q2 - V1)

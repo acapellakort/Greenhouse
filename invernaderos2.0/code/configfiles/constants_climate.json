@@ -1206,5 +1206,89 @@
         "units": "J kg-1 K-1",
         "desc": "Note 91: specific heat of fresh plant tissue",
         "latex": ""
+    },
+    "scr_solar": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 101 flag: one roof + screen solar calculation (screen_optics.jl, PAR and solar NIR, repeated reflections) attenuates plant PAR AND every below-screen solar heat term (r2, r3, r5 sun, r8, floor, f_mass); screen-intercepted power split into reflection, roof absorption and screen absorption. 0 = V2.2",
+        "latex": ""
+    },
+    "scr_es_tau_par": {
+        "val": 0.75,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; energy-screen PAR transmission at full closure (organisers: 25 % light interception)",
+        "latex": ""
+    },
+    "scr_es_rho_par": {
+        "val": 0.15,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; energy-screen PAR reflection; absorption = 1 - tau - rho",
+        "latex": ""
+    },
+    "scr_es_tau_nir": {
+        "val": 0.75,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; energy-screen solar-NIR transmission, assumed equal to PAR",
+        "latex": ""
+    },
+    "scr_es_rho_nir": {
+        "val": 0.15,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; energy-screen solar-NIR reflection, assumed equal to PAR",
+        "latex": ""
+    },
+    "scr_bl_tau_par": {
+        "val": 0.02,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; blackout-screen PAR transmission at full closure (organisers: 98 % light interception)",
+        "latex": ""
+    },
+    "scr_bl_rho_par": {
+        "val": 0.5,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; blackout-screen PAR reflection; absorption = 1 - tau - rho",
+        "latex": ""
+    },
+    "scr_bl_tau_nir": {
+        "val": 0.02,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; blackout-screen solar-NIR transmission, assumed equal to PAR",
+        "latex": ""
+    },
+    "scr_bl_rho_nir": {
+        "val": 0.5,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; blackout-screen solar-NIR reflection, assumed equal to PAR",
+        "latex": ""
+    },
+    "roof_rho_par": {
+        "val": 0.13,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; roof (glass + structure) PAR reflection, seen from either side; roof PAR transmission is (1 - eta1) tau1",
+        "latex": ""
+    },
+    "roof_rho_nir": {
+        "val": 0.13,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; roof solar-NIR reflection",
+        "latex": ""
+    },
+    "roof_tau_nir": {
+        "val": -1.0,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; roof solar-NIR transmission for the screen stack; < 0 = same as PAR, (1 - eta1) tau1",
+        "latex": ""
+    },
+    "scr_order": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; 0 = energy screen above the blackout screen, 1 = blackout above (changes only how absorption splits between the screens)",
+        "latex": ""
+    },
+    "scr_abs_air": {
+        "val": 0.5,
+        "units": "-",
+        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; share of the solar absorbed by the screens released to the crop air (lower face); the rest goes to the cover/structure node",
+        "latex": ""
     }
 }
