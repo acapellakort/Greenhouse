@@ -71,6 +71,12 @@ weekly_incr(dd, cum, e) = diff([cum_at(dd, cum, x) for x in e])
 const LAST = min(season.ndays - 1, days_obs[end])
 const edges = let e = collect(0:7:LAST); e[end] < LAST && push!(e, LAST); e end
 const Δy_obs = weekly_incr(days_obs, y_obs, edges)
+# Note 98: weekly harvested fruit NUMBER (Production.csv ProdA_num + ProdB_num, per day, fruits per m2 floor)
+const prod = DataFrame(CSV.File(joinpath(DATA, TEAM, "Production.csv")))
+numv(x) = x isa Number && !isnan(x) ? Float64(x) : 0.0
+const cnt_days = [Int(round(t - 43326)) for t in prod.time]
+const cnt_cum  = cumsum([numv(a) + numv(b) for (a, b) in zip(prod.ProdA_num, prod.ProdB_num)])
+const Δn_obs   = weekly_incr(cnt_days, cnt_cum, edges)
 cm_days, cm_N, _ = load_cropmanagement(cm_csv)
 keepcm = cm_days .<= season.ndays - 1; cm_days = cm_days[keepcm]; cm_N = cm_N[keepcm]
 cmdf = DataFrame(CSV.File(cm_csv))
@@ -99,17 +105,18 @@ QoI_GEN  = ["W_pot", "E_fruit", "beta1", "V20"]                                 
 QoI_GP   = ["k_m_leaf", "k_m_stem", "k_m_fruit", "gen_leaf_target", "gen_N0", "set_r_low", "set_r_high", "DMC_fruit"]   # Note 94
 QoI_PH   = ["J_max"]                                                             # photosynthesis (FvCB)
 QoI_LT   = ["transmission"]                                                      # greenhouse light transmission
-QoI_S    = ["sigma_y", "sigma_leaf", "sigma_fd"]
+QoI_S    = ["sigma_y", "sigma_leaf", "sigma_fd", "sigma_n"]   # Note 98: + weekly fruit number
 QoI      = vcat(QoI_GEN, QoI_GP, QoI_PH, QoI_S)   # Note 78: transmission fixed at TRANS (0.65, user decision)
 ix(q)    = findfirst(==(q), QoI)
 PR = Dict("W_pot" => [20.0, 60.7, 120.0],  "E_fruit" => [150.0, 275.0, 450.0], "beta1" => [0.05, 0.0882, 0.13],
-          "V20" => [2.0, 8.3, 16.0],
+          "V20" => [1.0, 3.2, 8.0],     # Note 95: per STEM (M94 7.8-9.3 g/plant/d at 1.4 plants/m2 -> ~3.2 at 3.6 stems/m2)
           "k_m_leaf" => [0.01, 0.03, 0.06], "k_m_stem" => [0.005, 0.015, 0.03], "k_m_fruit" => [0.003, 0.01, 0.02],
           "gen_leaf_target" => [20.0, 25.0, 30.0], "gen_N0" => [2.0, 4.0, 8.0],   # Note 94: leaves/stem; nodes at transplant
           "set_r_low" => [0.0, 0.3, 1.0], "set_r_high" => [0.2, 1.0, 2.5],
           "DMC_fruit" => [0.025, 0.035, 0.045],   # Note 75: fruit dry-matter content (cultivar); picking at 400 g FW
           "J_max" => [1.0e-4, 2.0e-4, 3.5e-4], "transmission" => [0.60, 0.65, 0.70],
-          "sigma_y" => [0.02, 0.3, 3.0], "sigma_leaf" => [0.5, 3.0, 20.0], "sigma_fd" => [0.5, 3.0, 15.0])
+          "sigma_y" => [0.02, 0.3, 3.0], "sigma_leaf" => [0.5, 3.0, 20.0], "sigma_fd" => [0.5, 3.0, 15.0],
+          "sigma_n" => [0.3, 3.0, 20.0])     # fruits m-2 week-1
 centre = [PR[q][2] for q in QoI]
 
 const V2 = CUCUMBER_PARAMS_V2
@@ -131,18 +138,19 @@ function resid(r)
     ry = Δy_obs .- weekly_incr(r.day, r.yield_FW, edges)
     rl = cm_N .- [at_day(r.node, d) for d in cm_days]
     rf = [isnan(week_age(r, d)) ? v : v - week_age(r, d) for (d, v) in zip(fd_start, fd_val)]   # no harvest = full miss
-    ry, rl, rf
+    rn = Δn_obs .- weekly_incr(r.day, cumsum(r.harv_n), edges)                                  # Note 98
+    ry, rl, rf, rn
 end
 function energy(z)
     r = try runmodel(z) catch; return Inf end
-    ry, rl, rf = resid(r); σy, σl, σf = z[ix("sigma_y")], z[ix("sigma_leaf")], z[ix("sigma_fd")]
+    ry, rl, rf, rn = resid(r); σy, σl, σf, σn = z[ix("sigma_y")], z[ix("sigma_leaf")], z[ix("sigma_fd")], z[ix("sigma_n")]
     length(ry) * log(σy) + sum(abs2, ry) / (2σy^2) + length(rl) * log(σl) + sum(abs2, rl) / (2σl^2) +
-    length(rf) * log(σf) + sum(abs2, rf) / (2σf^2)
+    length(rf) * log(σf) + sum(abs2, rf) / (2σf^2) + length(rn) * log(σn) + sum(abs2, rn) / (2σn^2)
 end
 supp(z) = all(PR[q][1] < z[k] < PR[q][3] for (k, q) in enumerate(QoI)) && z[ix("set_r_high")] > z[ix("set_r_low")] + 0.05
 
 function report(z, tag)
-    r = runmodel(z); ry, rl, rf = resid(r)
+    r = runmodel(z); ry, rl, rf, rn = resid(r)
     @printf("\n  %s: final yield %.2f kg FW/m2 (obs %.2f) | weekly-yield RMSE %.3f | leaves RMSE %.2f (final %.1f vs %.1f) | fruit-age RMSE %.2f d\n",
             tag, r.yield_FW[end], cum_at(days_obs, y_obs, LAST), sqrt(mean(abs2, ry)), sqrt(mean(abs2, rl)),
             at_day(r.node, cm_days[end]), cm_N[end], sqrt(mean(abs2, rf)))
@@ -150,6 +158,7 @@ function report(z, tag)
             sum(r.harv_n), sum(r.harv_n) > 0 ? 1000 * r.yield_FW[end] / sum(r.harv_n) : NaN, r.LAI[end], mean(r.Pg),
             mean(r.Pg[1:49]), mean(r.Pg[50:end]))
     nh = sum(r.harv_n)
+    @printf("  weekly fruit-number RMSE %.2f /m2/week (obs total %.0f, model %.0f)\n", sqrt(mean(abs2, rn)), sum(Δn_obs), sum(Δn_obs .- rn))
     @printf("  harvested fruits %.0f /m2 (obs A+B 116, mean 323 g); LAI max %.2f end %.2f; retained leaves end %.0f; pruned leaf DW %.0f g/m2\n",
             nh, maximum(r.LAI), r.LAI[end], r.leaves[end], r.state.rem_leaf_DW)
     println("  week start | fruit dev. time obs / model (d)")
