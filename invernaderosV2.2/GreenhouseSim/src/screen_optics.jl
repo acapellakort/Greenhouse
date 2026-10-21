@@ -19,6 +19,43 @@
 # roof absorption, to the algebraic cover/structure node.
 # =============================================================================
 
+
+"""
+    SolarOut
+
+One concrete type for the solar terms handed to climate_rhs (keeps rhs! type-stable, no allocations).
+mode 0 = V2.2 (no screen optics; every factor 1, every flux 0), 1 = scr_solar (Note 101), 2 = solar_cons (Note 103).
+"""
+struct SolarOut
+    mode::Int
+    Spar::Float64
+    Snir::Float64
+    Qcan::Float64
+    QcanP::Float64
+    QcanN::Float64
+    Qflr::Float64
+    QflrP::Float64
+    QflrN::Float64
+    Qair::Float64
+    Qst::Float64
+    Qsa::Float64
+    Qcov::Float64
+    Qroof::Float64
+    Qscr::Float64
+    Qes::Float64
+    Qbl::Float64
+    Qout::Float64
+    Qrefl::Float64
+    ParTop::Float64
+    NirTop::Float64
+end
+SolarOut(mode; Spar = 1.0, Snir = 1.0, kw...) = SolarOut(mode, Spar, Snir,
+get(kw, :Qcan, 0.0), get(kw, :QcanP, 0.0), get(kw, :QcanN, 0.0), get(kw, :Qflr, 0.0), get(kw, :QflrP, 0.0), get(kw, :QflrN, 0.0), get(kw, :Qair, 0.0), get(kw, :Qst, 0.0), get(kw, :Qsa, 0.0), get(kw, :Qcov, 0.0), get(kw, :Qroof, 0.0), get(kw, :Qscr, 0.0), get(kw, :Qes, 0.0), get(kw, :Qbl, 0.0), get(kw, :Qout, 0.0), get(kw, :Qrefl, 0.0), get(kw, :ParTop, 0.0), get(kw, :NirTop, 0.0))
+const SOLAR_NONE = SolarOut(0)
+"0 for V2.2 calls (so = nothing or SOLAR_NONE), else the SolarOut mode."
+@inline solar_mode(so::Nothing) = 0
+@inline solar_mode(so::SolarOut) = so.mode
+
 "Screen deployed by fraction u: effective (tau, rho) (Vanthoor 2011, eqs 8.14-8.17)."
 @inline layer_eff(tau, rho, u) = (1.0 - u * (1.0 - tau), u * rho)
 
@@ -95,9 +132,8 @@ Qcov = (1 - scr_abs_air) * Qscr + extra roof absorption (to the cover/structure 
     Qscr = Ip * (f.P.Aes + f.P.Abl) + In * (f.N.Aes + f.N.Abl)
     Qrf  = Ip * f.P.dAr + In * f.N.dAr
     Qair = p.scr_abs_air * Qscr
-    return (Spar = f.P.S, Snir = f.N.S, Qscr = Qscr, Qair = Qair, Qcov = Qscr - Qair + Qrf, Qroof = Qrf,
-            Qrefl = Ip * f.P.dR + In * f.N.dR,
-            Qes = Ip * f.P.Aes + In * f.N.Aes, Qbl = Ip * f.P.Abl + In * f.N.Abl)
+    return SolarOut(1, f.P.S, f.N.S, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Qair, 0.0, Qair, Qscr - Qair + Qrf, Qrf, Qscr,
+                    Ip * f.P.Aes + In * f.N.Aes, Ip * f.P.Abl + In * f.N.Abl, 0.0, Ip * f.P.dR + In * f.N.dR, 0.0, 0.0)
 end
 
 # =============================================================================
@@ -171,9 +207,9 @@ the screens | Qout reflected to the sky | ParTop downward sun PAR on the canopy 
     Qbl   = top ? Ip * P.A2 + In * N.A2 : Ip * P.A3 + In * N.A3
     Qscr  = Qes + Qbl
     Qsa   = p.scr_abs_air * Qscr
-    return (Qcan = Ip * P.A4 + In * N.A4, QcanP = Ip * P.A4, QcanN = In * N.A4,
-            Qflr = Ip * P.Af + In * N.Af, QflrP = Ip * P.Af, QflrN = In * N.Af,
-            Qair = Qst + Qsa, Qst = Qst, Qsa = Qsa, Qcov = (Qroof - Qst) + (Qscr - Qsa), Qroof = Qroof,
-            Qscr = Qscr, Qes = Qes, Qbl = Qbl, Qout = Ip * P.Rout + In * N.Rout,
-            ParTop = Ip * P.Dcan, NirTop = In * N.Dcan)
+    # fields: mode, Spar, Snir, Qcan, QcanP, QcanN, Qflr, QflrP, QflrN, Qair, Qst, Qsa, Qcov, Qroof, Qscr, Qes, Qbl,
+    #         Qout, Qrefl, ParTop, NirTop
+    return SolarOut(2, 1.0, 1.0, Ip * P.A4 + In * N.A4, Ip * P.A4, In * N.A4, Ip * P.Af + In * N.Af, Ip * P.Af, In * N.Af,
+                    Qst + Qsa, Qst, Qsa, (Qroof - Qst) + (Qscr - Qsa), Qroof, Qscr, Qes, Qbl,
+                    Ip * P.Rout + In * N.Rout, 0.0, Ip * P.Dcan, In * N.Dcan)
 end

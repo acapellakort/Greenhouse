@@ -67,7 +67,7 @@ end
 check("  per band: sky + roof + 2 screens + canopy + floor = 1, all in [0,1] (30 states x 2 bands)", true)
 check("  W m-2: canopy + floor-level + air + cover + sky = I2 (30 states)", true)
 let so = solar_column(0.0, 1.0, 1.0, 2.3, pON)
-    check("  I2 = 0: every solar flux is 0", all(getfield(so, k) == 0 for k in keys(so)))
+    check("  I2 = 0: every solar flux is 0", all(getfield(so, k) == 0 for k in fieldnames(SolarOut) if !(k in (:mode, :Spar, :Snir))))
 end
 
 println("\n== 4. engine books each flux once (cover node off isolates the solar terms) ==")
@@ -94,6 +94,10 @@ let so = solar_column(I2, 1.0, 0.0, 2.3, pON)
     check("  plant sun PAR = column ParTop (same field as the heat terms)", pp == so.ParTop)
 end
 check("  flag off: climate_rhs(so = nothing) is the V2.2 call", rhs(I2, 2.3, 0.5, nothing, pOFF) == rhs(I2, 2.3, 0.5, nothing, base))
+
+let pb = update_params(p0, ["solar_cons"], [0.0])
+    check("  rhs! path: SolarOut is concrete (isconcretetype)", isconcretetype(SolarOut) && solar_mode(SOLAR_NONE) == 0)
+end
 
 println("\n== 5. tables (I2 = 500 W m-2) ==")
 println("  screens retracted, by LAI: canopy PAR | canopy NIR | floor-level PAR | floor-level NIR | sky | plant PAR on top")

@@ -62,7 +62,7 @@ photosynthesis only; the energy balance keeps its own radiation terms. phys_ligh
     (hasproperty(p, :phys_light) && p.phys_light > 0.5) || return I9
     lp = hasproperty(p, :lamp_par_W) ? p.lamp_par_W : 187.0 / 4.6
     # Note 101 (scr_solar): sun PAR below the screens from the same optics as the solar heat terms (I9 = r4 / Sp)
-    so === nothing || return (hasproperty(so, :ParTop) ? so.ParTop : I9 * so.Spar) + lp * clamp(U12, 0.0, 1.0)   # Note 103: column PAR
+    solar_mode(so) == 0 || return (solar_mode(so) == 2 ? so.ParTop : I9 * so.Spar) + lp * clamp(U12, 0.0, 1.0)   # Note 103: column PAR
     bs = (hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing)) ? clamp(c.BlackScr(tctrl), 0.0, 1.0) : 0.0
     es = clamp(U1, 0.0, 1.0)
     return I9 * (1 - 0.98 * bs) * (1 - 0.25 * es) + lp * clamp(U12, 0.0, 1.0)
@@ -118,7 +118,7 @@ function rhs!(du, u, ctx::SimContext, t)
     # Note 101 (default-off): scr_solar = 1 -> one roof + screen solar calculation (screen_optics.jl) feeds the plant
     # light and every below-screen solar heat term. Uses the raw logged closures (fractions 0-1), before any
     # controller or black_scr insulation rule modifies U1.
-    so = nothing
+    so = SOLAR_NONE                       # concrete SolarOut in every branch (type-stable)
     if hasproperty(p, :solar_cons) && p.solar_cons > 0.5
         # Note 103 (default-off): energy-conserving column roof -> screens -> canopy (LAI I1) -> floor, PAR and NIR
         bs0 = (hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing)) ? c.BlackScr(tctrl) : 0.0
@@ -127,7 +127,7 @@ function rhs!(du, u, ctx::SimContext, t)
         bs0 = (hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing)) ? c.BlackScr(tctrl) : 0.0
         so  = screen_solar(I2, U1, bs0, p)
     end
-    cons = so !== nothing && hasproperty(so, :Qcan)
+    cons = solar_mode(so) == 2
 
     # Note 71 (default-off): crop physiology sees sun (through the screens) + lamp PAR (phys_light), and photosynthesis
     # is scaled by the effective leaf area instead of the 2.0 'LAI = I9' quirk (photo_lai). Computed from the raw logged
@@ -256,7 +256,7 @@ function rhs!(du, u, ctx::SimContext, t)
             if hasproperty(p, :crop_cap) && p.crop_cap > 0.5 && hasproperty(c, :CropFW) && !(c.CropFW isa Nothing)
                 Cm += p.crop_cp * c.CropFW(tctrl)
             end
-            Sg   = (so === nothing || cons) ? 1.0 : p.eta2 * so.Spar + p.eta3 * so.Snir   # Note 101: mass below the screens
+            Sg   = solar_mode(so) == 1 ? p.eta2 * so.Spar + p.eta3 * so.Snir : 1.0   # Note 101: mass below the screens
             Qsm  = p.f_mass * I2 * Sg
             if cons   # Note 103: solar_mass_share = 1 -> the mass takes f_mass of the FLOOR-LEVEL absorption (conserving);
                       # 0 -> V2.2's f_mass * Iglob stays (a source outside the column, reported in Note 103)
