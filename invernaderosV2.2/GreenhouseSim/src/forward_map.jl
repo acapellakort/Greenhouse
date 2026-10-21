@@ -62,7 +62,7 @@ photosynthesis only; the energy balance keeps its own radiation terms. phys_ligh
     (hasproperty(p, :phys_light) && p.phys_light > 0.5) || return I9
     lp = hasproperty(p, :lamp_par_W) ? p.lamp_par_W : 187.0 / 4.6
     # Note 101 (scr_solar): sun PAR below the screens from the same optics as the solar heat terms (I9 = r4 / Sp)
-    so === nothing || return I9 * so.Spar + lp * clamp(U12, 0.0, 1.0)
+    so === nothing || return (hasproperty(so, :ParTop) ? so.ParTop : I9 * so.Spar) + lp * clamp(U12, 0.0, 1.0)   # Note 103: column PAR
     bs = (hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing)) ? clamp(c.BlackScr(tctrl), 0.0, 1.0) : 0.0
     es = clamp(U1, 0.0, 1.0)
     return I9 * (1 - 0.98 * bs) * (1 - 0.25 * es) + lp * clamp(U12, 0.0, 1.0)
@@ -119,10 +119,15 @@ function rhs!(du, u, ctx::SimContext, t)
     # light and every below-screen solar heat term. Uses the raw logged closures (fractions 0-1), before any
     # controller or black_scr insulation rule modifies U1.
     so = nothing
-    if hasproperty(p, :scr_solar) && p.scr_solar > 0.5
+    if hasproperty(p, :solar_cons) && p.solar_cons > 0.5
+        # Note 103 (default-off): energy-conserving column roof -> screens -> canopy (LAI I1) -> floor, PAR and NIR
+        bs0 = (hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing)) ? c.BlackScr(tctrl) : 0.0
+        so  = solar_column(I2, U1, bs0, I1, p)
+    elseif hasproperty(p, :scr_solar) && p.scr_solar > 0.5
         bs0 = (hasproperty(c, :BlackScr) && !(c.BlackScr isa Nothing)) ? c.BlackScr(tctrl) : 0.0
         so  = screen_solar(I2, U1, bs0, p)
     end
+    cons = so !== nothing && hasproperty(so, :Qcan)
 
     # Note 71 (default-off): crop physiology sees sun (through the screens) + lamp PAR (phys_light), and photosynthesis
     # is scaled by the effective leaf area instead of the 2.0 'LAI = I9' quirk (photo_lai). Computed from the raw logged
@@ -235,7 +240,7 @@ function rhs!(du, u, ctx::SimContext, t)
     @inbounds begin
         dT2x, dT5 = floor_balance(T2, T5, Tdeep, p)
         # Note 46 (default-off): floor_full closes the floor energy balance; solar_split adds sun on the floor
-        if (hasproperty(p, :floor_full) && p.floor_full > 0.5) || (hasproperty(p, :solar_split) && p.solar_split > 0.5)
+        if (hasproperty(p, :floor_full) && p.floor_full > 0.5) || (hasproperty(p, :solar_split) && p.solar_split > 0.5) || cons
             c1, c2, Qf = floor_full_fluxes(T1, T2, T5, I1, I2, I4, I5, U1, p; V1 = V1, so = so)
             dT1 += c1; dT2x += c2; dT5 += Qf / p.C_soil
         end
@@ -251,8 +256,13 @@ function rhs!(du, u, ctx::SimContext, t)
             if hasproperty(p, :crop_cap) && p.crop_cap > 0.5 && hasproperty(c, :CropFW) && !(c.CropFW isa Nothing)
                 Cm += p.crop_cp * c.CropFW(tctrl)
             end
-            Sg   = so === nothing ? 1.0 : p.eta2 * so.Spar + p.eta3 * so.Snir   # Note 101: mass below the screens
-            dTm  = (Qam + p.f_mass * I2 * Sg) / Cm
+            Sg   = (so === nothing || cons) ? 1.0 : p.eta2 * so.Spar + p.eta3 * so.Snir   # Note 101: mass below the screens
+            Qsm  = p.f_mass * I2 * Sg
+            if cons   # Note 103: solar_mass_share = 1 -> the mass takes f_mass of the FLOOR-LEVEL absorption (conserving);
+                      # 0 -> V2.2's f_mass * Iglob stays (a source outside the column, reported in Note 103)
+                Qsm = (hasproperty(p, :solar_mass_share) && p.solar_mass_share > 0.5) ? p.f_mass * so.Qflr : p.f_mass * I2
+            end
+            dTm  = (Qam + Qsm) / Cm
         end
         # Note 54 (default-off): lamp_full = 1 -> the lamps release their full electrical power lamp_Pel*U12
         # (AGC-2018 ReadMe: 187 umol m-2 s-1 at 1.6 umol/J = 117 W m-2). V2.0 puts only (eta15+eta16)*alpha12 = 29 W m-2

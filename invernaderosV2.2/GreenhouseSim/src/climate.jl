@@ -29,9 +29,10 @@ VPDf(VP_sat, rh) = VP_sat * (1 - rh / 100)
 Algebraic cover temperature (Note 29 cover node). With solar_split = 1 (Note 46) the cover also absorbs
 cov_abs * I2 of the global radiation:  Tc = (kR(T2 + I4) + h_cover_out*I5 + R_cov) / (2kR + h_cover_out).
 """
-@inline function cover_T(T2, I4, I5, I2, p; Rx = 0.0)
+@inline function cover_T(T2, I4, I5, I2, p; Rx = 0.0, cons = false)
     kR  = 4.0 * p.epsil3 * p.sigma * (0.5 * (T2 + I4))^3
-    Rc  = (hasproperty(p, :solar_split) && p.solar_split > 0.5) ? p.cov_abs * I2 : 0.0
+    # Note 103: with solar_cons the whole cover/structure solar load arrives in Rx (cov_abs is then not added)
+    Rc  = (!cons && hasproperty(p, :solar_split) && p.solar_split > 0.5) ? p.cov_abs * I2 : 0.0
     # Note 101: Rx = screen-intercepted solar booked on the cover/structure node (screen_solar Qcov; 0 by default)
     return (kR * (T2 + I4) + p.h_cover_out * I5 + Rc + Rx) / (2.0 * kR + p.h_cover_out)
 end
@@ -71,8 +72,9 @@ Returns corrections to dT1, dT2 [K/s] and the extra net flux into the floor [W m
     (; epsil2, epsil3, epsil4, sigma, gamma1, phi1, tau1, tau3, beta1, beta3, eta1, eta2, eta3,
        rho2, alpha1, alpha5, alpha7, rho3, phi2, nu7, nu8, use_cover_node) = p
     Qf = 0.0; c1 = 0.0; c2 = 0.0
+    cons = so !== nothing && hasproperty(so, :Qcan)       # Note 103 solar column
     if hasproperty(p, :floor_full) && p.floor_full > 0.5
-        Tc  = use_cover_node > 0.5 ? cover_T(T2, I4, I5, I2, p; Rx = so === nothing ? 0.0 : so.Qcov) : I4
+        Tc  = use_cover_node > 0.5 ? cover_T(T2, I4, I5, I2, p; Rx = so === nothing ? 0.0 : so.Qcov, cons = cons) : I4
         if use_cover_node > 0.5 && cond_on(p) && isfinite(V1)      # Note 81: same cover T as climate_rhs
             Tc = cover_latent(Tc, T2, V1, U1, 4.0 * epsil3 * sigma * (0.5 * (T2 + I4))^3, p)
         end
@@ -87,7 +89,12 @@ Returns corrections to dT1, dT2 [K/s] and the extra net flux into the floor [W m
         c1 = (r14o - r14n) / (alpha1 * I1)
         Qf = h11 + r14n - r11
     end
-    if hasproperty(p, :solar_split) && p.solar_split > 0.5
+    if cons
+        # Note 103: floor-level absorption from the solar column; the mass node takes f_mass of it (solar_mass_share)
+        fm  = (hasproperty(p, :solar_mass_share) && p.solar_mass_share > 0.5 &&
+               hasproperty(p, :mass_node) && p.mass_node > 0.5) ? p.f_mass : 0.0
+        Qf += (1.0 - fm) * so.Qflr
+    elseif hasproperty(p, :solar_split) && p.solar_split > 0.5
         Sp = so === nothing ? 1.0 : so.Spar; Sn = so === nothing ? 1.0 : so.Snir     # Note 101 screen factors
         Qf += (1 - eta1) * tau1 * I2 * (eta2 * Sp * exp(-beta1 * I1) * (1 - rho2) + eta3 * Sn * exp(-beta3 * I1) * alpha7)
     end
@@ -107,8 +114,10 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
 
     # Note 101 (scr_solar, default off): band factors of the roof + screen optics (screen_optics.jl). so = nothing
     # gives 1.0 exactly, so every solar term below is bit-for-bit unchanged.
-    Sp = so === nothing ? 1.0 : so.Spar     # PAR
-    Sn = so === nothing ? 1.0 : so.Snir     # solar NIR
+    # Note 103 (solar_cons): so is the energy-conserving solar column; canopy, air and cover take its fluxes directly
+    cons = so !== nothing && hasproperty(so, :Qcan)
+    Sp = (so === nothing || cons) ? 1.0 : so.Spar     # PAR
+    Sn = (so === nothing || cons) ? 1.0 : so.Snir     # solar NIR
 
     # --- all physical constants, read once from the concrete NamedTuple ------
     (; alpha1, alpha2, alpha3, alpha4, alpha5, alpha6, alpha7, alpha8, alpha9, alpha12,
@@ -238,7 +247,7 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     # Note 46 (default-off): solar_split = 1 -> the global radiation absorbed by the cover (cov_abs * I2) heats
     # the cover node instead of the greenhouse air (see r8 below). Only active with use_cover_node = 1.
     if ((hasproperty(p, :solar_split) && p.solar_split > 0.5) || so !== nothing) && use_cover_node > 0.5
-        I4_eff = cover_T(T2, I4, I5, I2, p; Rx = so === nothing ? 0.0 : so.Qcov)   # Note 101: + screen share
+        I4_eff = cover_T(T2, I4, I5, I2, p; Rx = so === nothing ? 0.0 : so.Qcov, cons = cons)   # Notes 101, 103
     end
     # Note 81: with cover condensation on, its latent heat warms the cover (self-limiting condensation)
     if use_cover_node > 0.5 && cond_on(p)
@@ -260,6 +269,10 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     # --- dT1: canopy temperature ---------------------------------------------
     r1 = r2 + r3
     r5 = (1 - eta1) * alpha2 * (eta3 * I2 * Sn + eta14 * alpha12 * U12)   # Note 101: sun NIR x Sn; lamps below the screens
+    if cons   # Note 103: canopy sun PAR + NIR from the column (LAI-dependent, repeated reflections); lamp NIR as V2.2
+        r1 = so.Qcan
+        r5 = (1 - eta1) * alpha2 * eta14 * alpha12 * U12
+    end
     r6 = alpha3 * epsil1 * epsil2 * g1 * sigma * (I3^4 - T1^4)
     h1 = 2 * alpha4 * I1 * (T1 - T2)
     l1 = gamma2 * q1 * (q2 - V1)
@@ -293,6 +306,7 @@ NamedTuple from `load_params`. `A` is the canopy assimilation rate.
     l2 = gamma2 * U9 * phi9 / alpha6
 
     Qsa = so === nothing ? 0.0 : so.Qair  # Note 101: screen-absorbed solar, crop-air side
+    cons && (r8 = 0.0)                     # Note 103: so.Qair already holds roof structure + screen share
     dT2 = (1 / (phi2 * rho3 * alpha5)) * (h1 + h2 + h4 - h7 - h11 + h12 + r8 - r10 - l2 + Qsa)
 
     # --- dV1: vapour pressure ------------------------------------------------

@@ -44,7 +44,7 @@
     "alpha2": {
         "val": 0.35,
         "units": "1",
-        "desc": "Global NIR absorption coefficient of the canopy",
+        "desc": "Global NIR absorption coefficient of the canopy (V2.2 r5: fixed share of outside NIR, independent of LAI). Note 103: under solar_cons used only for the lamp NIR part of r5; 0.35 is Vanthoor's canopy NIR REFLECTION (see rho_can_nir)",
         "latex": "$\u0007lpha_2$",
         "comment": "ok"
     },
@@ -1262,15 +1262,15 @@
         "latex": ""
     },
     "roof_rho_par": {
-        "val": 0.13,
+        "val": -1.0,
         "units": "-",
-        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; roof (glass + structure) PAR reflection, seen from either side; roof PAR transmission is (1 - eta1) tau1",
+        "desc": "Note 103: roof (glass + structure) PAR reflection, either face; < 0 = derived so that the roof absorbs eta1 (structure) + cov_abs (glass), as V2.2 books with screens retracted: rho = 1 - (1-eta1) tau1 - eta1 - cov_abs (0.15 in n79). Was 0.13 in Note 101 (PROVISIONAL)",
         "latex": ""
     },
     "roof_rho_nir": {
-        "val": 0.13,
+        "val": -1.0,
         "units": "-",
-        "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; roof solar-NIR reflection",
+        "desc": "Note 103: roof (glass + structure) solar-NIR reflection, either face; < 0 = derived so that the roof absorbs eta1 (structure) + cov_abs (glass), as V2.2 books with screens retracted: rho = 1 - (1-eta1) tau1 - eta1 - cov_abs (0.15 in n79). Was 0.13 in Note 101 (PROVISIONAL)",
         "latex": ""
     },
     "roof_tau_nir": {
@@ -1289,6 +1289,24 @@
         "val": 0.5,
         "units": "-",
         "desc": "PROVISIONAL (Note 101): no measured optical data for the AiCU screens/roof; share of the solar absorbed by the screens released to the crop air (lower face); the rest goes to the cover/structure node",
+        "latex": ""
+    },
+    "solar_cons": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 103 flag: energy-conserving solar column per band (PAR, NIR): roof -> energy/blackout screens -> canopy (t = exp(-k LAI), r = rho_inf (1 - t)) -> opaque floor, all repeated reflections; books canopy, floor, roof (eta1 structure -> air, glass -> cover), screens, sky; replaces r2, r3, r5(sun), r8, cov_abs, floor solar and the plant PAR of phys_par. Supersedes scr_solar. 0 = V2.2",
+        "latex": ""
+    },
+    "rho_can_nir": {
+        "val": 0.35,
+        "units": "-",
+        "desc": "Note 103: canopy solar-NIR reflection approached at high LAI (rho_inf; Vanthoor 2011 reference value 0.35, eqs 8.31-8.32). NOT an absorption share: V2.2 used 0.35 as a fixed canopy NIR absorption (alpha2)",
+        "latex": ""
+    },
+    "solar_mass_share": {
+        "val": 0.0,
+        "units": "-",
+        "desc": "Note 103 flag (with solar_cons): the internal mass takes f_mass of the floor-level solar absorption (conserving) instead of f_mass * Iglob on top of everything (V2.2). f_mass then means a share 0-1 of floor-level absorption, so its prior must be re-centred",
         "latex": ""
     }
 }

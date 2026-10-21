@@ -38,8 +38,8 @@ cases = [("retracted", 0.0, 0.0), ("ES 50 %", 0.5, 0.0), ("ES 100 %", 1.0, 0.0),
 println("\n== 1. optics: bounds and conservation per band ==")
 for (nm, ue, ub) in cases, (bnm, B) in (("PAR", :P), ("NIR", :N))
     f = getfield(screen_factors(ue, ub, pON), B)
-    trb = B == :P || pON.roof_tau_nir < 0 ? (1 - pON.eta1) * pON.tau1 : pON.roof_tau_nir
-    rrb = B == :P ? pON.roof_rho_par : pON.roof_rho_nir
+    rp = roof_props(pON)                       # Note 103: roof rho derived (< 0 in the JSON)
+    trb = B == :P ? rp[1] : rp[3]; rrb = B == :P ? rp[2] : rp[4]
     T, R = f.T, f.dR + rrb; Ar = f.dAr + (1 - trb - rrb)
     s = T + R + Ar + f.Aes + f.Abl
     check(@sprintf("%-12s %s  T+R+A_roof+A_es+A_bl = %.15f, all in [0,1]", nm, bnm, s),
