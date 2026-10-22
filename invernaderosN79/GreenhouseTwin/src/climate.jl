@@ -31,6 +31,8 @@ fcov = share of crop air in contact with the cover (1 − U1·(1 − vent_scr_pe
     (; epsil2, epsil3, epsil4, epsil6, eps_screen, sigma,
        h_cover_out, gamma2, cover_area, vent_scr_perm) = p
     fcov = 1.0 - U1 * (1.0 - vent_scr_perm)
+    VPsat_scr_ct = Pws(T_scr)
+    V1_eff = (1.0 - U1) * V1 + U1 * min(V1, VPsat_scr_ct)   # Step 11a: top-compartment VP proxy
 
     # effective radiation area factors (the coefficient in front of σ·ΔT⁴ for each path)
     Ar7  = (g1 / 0.49) * epsil2 * epsil3 * g2   # canopy → cover
@@ -56,7 +58,7 @@ fcov = share of crop air in contact with the cover (1 − U1·(1 − vent_scr_pe
         Qloss_conv = h_cover_out * (Tc - Tout)
         # condensation latent heat: treated as locally constant for the Newton step
         VPc   = Pws(Tc)
-        Qcond = V1 > VPc ? gamma2 * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * (V1 - VPc) : 0.0
+        Qcond = V1_eff > VPc ? gamma2 * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * (V1_eff - VPc) : 0.0   # Step 11a
         # residual f(Tc) = 0 at balance
         r_pcc = Ar_pc * sigma * (Tp^4 - T4c)                       # pipe -> cover
         f  = r7c + r11c + r12c + r13c + r_pcc + Qcov + Qcond - Qloss_rad - Qloss_conv
@@ -208,7 +210,8 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     p8 = V1 < VPsat_scr ? 0.0 : 6.4e-9 * 1.7 * U1 * (abs(T2 - T_scr))^0.33 * (V1 - VPsat_scr)   # energy screen
     p9 = V1 < VPsat_air ? 0.0 : 6.4e-9 * 1.2 * 1000 * ((abs(T1 - T2))^0.33) * (V1 - VPsat_air) # supersaturated air
     VPc = Pws(Tc)
-    p10 = V1 > VPc ? cover_area * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * (V1 - VPc) : 0.0   # cover
+    V1_top = (1.0 - U1) * V1 + U1 * min(V1, VPsat_scr)      # Step 11a: top-compartment VP proxy
+    p10 = V1_top > VPc ? cover_area * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * (V1_top - VPc) : 0.0   # cover
     kappa3 = (psi1 * phi2) / (omega2 * T2)
     dV1 = (p1 + p2 + p3 + p4 - p5 - p6 - p7 - p8 - p9 - p10) / kappa3
 
