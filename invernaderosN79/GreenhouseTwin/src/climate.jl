@@ -91,7 +91,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     Tlog = c.Tpipe(tctrl); Rcrop = c.CropResp(tctrl); FW = c.CropFW(tctrl)
     Rm20 = c.CropRm20(tctrl); Rg_CO2 = c.CropRg(tctrl)        # Option C: split maintenance + growth
 
-    (; alpha1, alpha3, alpha4, alpha5, alpha6, beta1, beta3,
+    (; alpha1, alpha4, alpha5, alpha6, beta1, beta3,
        delta1, delta2, delta3, delta4, delta5, delta6, delta7,
        epsil1, epsil2, epsil3, epsil4, epsil6, eps_screen,
        eta5, eta6, eta10, eta11, eta12, eta13,
