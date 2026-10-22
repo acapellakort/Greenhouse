@@ -157,19 +157,21 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     g3  = g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-k_fir * L)   # LW floor→cover; k_fir replaces NIR beta3
     Tc, fcov = cover_temperature(T1, T2, T5, Tsky, Tout, so.Qcov, V1, U1, p, g1, g2, g3, T_scr)
     SkyFIR = epsil3 * sigma * (T2^4 - Tc^4)
-    r6  = alpha3 * epsil1 * epsil2 * g1 * sigma * (Tp^4 - T1^4)              # pipe -> canopy
+    r6  = (pi * phi1 * gamma1) * epsil1 * epsil2 * g1 * sigma * (Tp^4 - T1^4)              # pipe -> canopy (geo: pi*phi1*gamma1=0.160)
     r7  = (g1 / 0.49) * epsil2 * epsil3 * g2 * sigma * (T1^4 - Tc^4)         # canopy -> cover
     r11 = epsil4 * g3 * epsil3 * sigma * (T5^4 - Tc^4)                       # floor -> cover
     r12 = eps_screen * (U1 * tau2) * epsil3 * sigma * (T_scr^4 - Tc^4)       # energy screen -> cover
     r13 = cover_area * epsil6 * g2 * SkyFIR                                  # air -> cover (g2 screen factor added)
     r14 = epsil4 * epsil2 * (1 - exp(-k_fir * L)) * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T1^4 - T5^4)   # canopy -> floor
+    r_pf = (pi * phi1 * gamma1) * epsil1 * epsil4 * 0.49 * sigma * (Tp^4 - T5^4)                               # pipe -> floor (view factor 0.49 downward)
     r1  = so.Qcan                                                            # solar absorbed by the canopy
 
     # --- lamps: PAR-absorbed floor + inferred NIR/thermal share to canopy ----------------------------------------
     Ql   = lamp_Pel * U12
     fabs = (1 - exp(-beta1 * L))                                            # canopy interception fraction
     Qlc  = (lamp_par_W + lamp_fcan * (lamp_Pel - lamp_par_W)) * fabs * U12 # canopy heat: PAR floor + NIR share
-    Qla  = Ql - Qlc                                                         # remainder → air
+    Qlf  = lamp_par_W * (1 - fabs) * U12                                   # lamp PAR transmitted through canopy → floor
+    Qla  = Ql - Qlc - Qlf                                                  # remainder → air (PAR-to-floor excluded)
 
     # --- canopy energy ---------------------------------------------------------------------------------------------
     h1 = 2 * alpha4 * L * (T1 - T2)                      # canopy -> air convection
@@ -215,7 +217,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     # --- floor layer, deep soil, internal mass ---------------------------------------------------------------------
     Qfd = k_deep * (T5 - Td)
     Qfs = (1.0 - f_mass) * so.Qflr
-    dT5 = (Qaf - Qfd + h11 + r14 - r11 + Qfs) / C_soil
+    dT5 = (Qaf - Qfd + h11 + r14 - r11 + Qfs + r_pf + Qlf) / C_soil         # +pipe->floor, +lamp-PAR->floor
     dTd = (T5 - Td) / sd_tau
     Cm  = C_mass + crop_cp * FW
     Qms = f_mass * so.Qflr
@@ -223,7 +225,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
 
     return (; dT1, dT2, dC1, dV1, deint, dT5, dTd, dTm,
               Iglob, Tsky, Tout, v, VPo, CO2o, L, U1, Ubl, U8, U10, U11, U12, Tlog, Tp, Tc, PARp, A, so,
-              q1, q3, f2, f3, f4, f6, f7, r1, r6, r7, r11, r12, r13, r14, Qlc, Qla, h1, l1, h2, h4, h7, h11, l2,
+              q1, q3, f2, f3, f4, f6, f7, r1, r6, r7, r11, r12, r13, r14, r_pf, Qlc, Qlf, Qla, h1, l1, h2, h4, h7, h11, l2,
               Qaf, Qam, Qsa, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, o1, o2, o3, o5, oR, Qfd, Qfs, Qms, Cm)
 end
 
