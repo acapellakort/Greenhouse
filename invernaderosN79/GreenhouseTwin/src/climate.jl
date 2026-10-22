@@ -17,16 +17,17 @@ struct SimContext{P<:NamedTuple, W, C}
 end
 
 """
-    cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw, T_scr) -> (Tc, fcov)
+    cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw, T_scr, Tp, Ar_pc) -> (Tc, fcov)
 
 Algebraic cover node: Newton iteration (6 steps) on the full non-linear energy balance.
-Gains: r7 (canopy→cover), r11 (floor→cover), r12 (screen→cover), r13 (air→cover), solar Qcov,
-       latent heat of condensation on the cover.
+Gains: r7 (canopy→cover), r11 (floor→cover), r12 (screen→cover), r13 (air→cover), r_pc (pipe→cover),
+       solar Qcov, latent heat of condensation on the cover.
 Losses: long-wave emission to sky (epsil3·σ·(Tc⁴−Tsky⁴)), outside convection h_cover_out·(Tc−Tout).
 g3lw is the corrected floor-to-cover geometry factor (LW, no tau1).
+Ar_pc = (π·φ1·γ1)·ε1·ε3·0.49·exp(−k_fir·L)·g2  — pipe→cover radiation area factor (pre-computed).
 fcov = share of crop air in contact with the cover (1 − U1·(1 − vent_scr_perm)).
 """
-@inline function cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw, T_scr)
+@inline function cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw, T_scr, Tp, Ar_pc)
     (; epsil2, epsil3, epsil4, epsil6, eps_screen, sigma, tau2,
        h_cover_out, gamma2, cover_area, vent_scr_perm) = p
     fcov = 1.0 - U1 * (1.0 - vent_scr_perm)
@@ -57,9 +58,10 @@ fcov = share of crop air in contact with the cover (1 − U1·(1 − vent_scr_pe
         VPc   = Pws(Tc)
         Qcond = V1 > VPc ? gamma2 * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * (V1 - VPc) : 0.0
         # residual f(Tc) = 0 at balance
-        f  = r7c + r11c + r12c + r13c + Qcov + Qcond - Qloss_rad - Qloss_conv
+        r_pcc = Ar_pc * sigma * (Tp^4 - T4c)                       # pipe -> cover
+        f  = r7c + r11c + r12c + r13c + r_pcc + Qcov + Qcond - Qloss_rad - Qloss_conv
         # df/dTc: sum of all −4σTc³ radiation coefficients minus convection coefficient
-        df = -4.0 * sigma * T4c / Tc * (Ar7 + Ar11 + Ar12 + Ar13 + Asky) - h_cover_out
+        df = -4.0 * sigma * T4c / Tc * (Ar7 + Ar11 + Ar12 + Ar13 + Ar_pc + Asky) - h_cover_out
         Tc -= f / df
     end
     return Tc, fcov
@@ -155,8 +157,10 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     g1  = 0.49 * (1 - exp(-k_fir * L))                                    # LW; k_fir=0.94 replaces NIR beta3
     g2  = (1 - Ubl) * (1 - U1 * (1 - tau3))    # Ubl: OBSCURA 9950 FR W tau_LW=0 blocks all LW; tau3: LUXOUS LW transmission
     g3  = g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-k_fir * L)   # LW floor→cover; k_fir replaces NIR beta3
-    Tc, fcov = cover_temperature(T1, T2, T5, Tsky, Tout, so.Qcov, V1, U1, p, g1, g2, g3, T_scr)
+    Ar_pc = (pi * phi1 * gamma1) * epsil1 * epsil3 * 0.49 * exp(-k_fir * L) * g2  # pipe->cover LW area factor
+    Tc, fcov = cover_temperature(T1, T2, T5, Tsky, Tout, so.Qcov, V1, U1, p, g1, g2, g3, T_scr, Tp, Ar_pc)
     SkyFIR = epsil3 * sigma * (T2^4 - Tc^4)
+    r_pc = Ar_pc * sigma * (Tp^4 - Tc^4)                                                  # pipe -> cover (diagnostic)
     r6  = (pi * phi1 * gamma1) * epsil1 * epsil2 * g1 * sigma * (Tp^4 - T1^4)              # pipe -> canopy (geo: pi*phi1*gamma1=0.160)
     r7  = (g1 / 0.49) * epsil2 * epsil3 * g2 * sigma * (T1^4 - Tc^4)         # canopy -> cover
     r11 = epsil4 * g3 * epsil3 * sigma * (T5^4 - Tc^4)                       # floor -> cover
@@ -225,7 +229,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
 
     return (; dT1, dT2, dC1, dV1, deint, dT5, dTd, dTm,
               Iglob, Tsky, Tout, v, VPo, CO2o, L, U1, Ubl, U8, U10, U11, U12, Tlog, Tp, Tc, PARp, A, so,
-              q1, q3, f2, f3, f4, f6, f7, r1, r6, r7, r11, r12, r13, r14, r_pf, Qlc, Qlf, Qla, h1, l1, h2, h4, h7, h11, l2,
+              q1, q3, f2, f3, f4, f6, f7, r1, r6, r7, r11, r12, r13, r14, r_pf, r_pc, Qlc, Qlf, Qla, h1, l1, h2, h4, h7, h11, l2,
               Qaf, Qam, Qsa, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, o1, o2, o3, o5, oR, Qfd, Qfs, Qms, Cm)
 end
 
