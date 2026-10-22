@@ -17,21 +17,50 @@ struct SimContext{P<:NamedTuple, W, C}
 end
 
 """
-    cover_temperature(T2, Tsky, Tout, Qcov, V1, U1, p) -> (Tc, fcov)
+    cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw) -> (Tc, fcov)
 
-Algebraic cover node: linearised long-wave exchange kR with the crop air and the sky, convection h_cover_out to the
-outside, solar Qcov, and the latent heat of the vapour condensing on it (fixed point, 4 passes).
-fcov = share of the crop air in contact with the cover (1 - U1 (1 - vent_scr_perm)).
+Algebraic cover node: Newton iteration (6 steps) on the full non-linear energy balance.
+Gains: r7 (canopy→cover), r11 (floor→cover), r12 (screen→cover), r13 (air→cover), solar Qcov,
+       latent heat of condensation on the cover.
+Losses: long-wave emission to sky (epsil3·σ·(Tc⁴−Tsky⁴)), outside convection h_cover_out·(Tc−Tout).
+g3lw is the corrected floor-to-cover geometry factor (LW, no tau1).
+fcov = share of crop air in contact with the cover (1 − U1·(1 − vent_scr_perm)).
 """
-@inline function cover_temperature(T2, Tsky, Tout, Qcov, V1, U1, p)
-    kR  = 4.0 * p.epsil3 * p.sigma * (0.5 * (T2 + Tsky))^3
-    Tc0 = (kR * (T2 + Tsky) + p.h_cover_out * Tout + Qcov) / (2.0 * kR + p.h_cover_out)
-    D    = 2.0 * kR + p.h_cover_out
-    fcov = 1.0 - U1 * (1.0 - p.vent_scr_perm)
-    Tc   = Tc0
-    for _ in 1:4
-        dv = V1 - Pws(Tc)
-        Tc = Tc0 + (dv > 0.0 ? p.gamma2 * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * dv / D : 0.0)
+@inline function cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw)
+    (; epsil2, epsil3, epsil4, epsil6, eps_screen, sigma, tau2,
+       h_cover_out, gamma2, cover_area, vent_scr_perm) = p
+    fcov = 1.0 - U1 * (1.0 - vent_scr_perm)
+
+    # effective radiation area factors (the coefficient in front of σ·ΔT⁴ for each path)
+    Ar7  = (g1 / 0.49) * epsil2 * epsil3 * g2   # canopy → cover
+    Ar11 = epsil4 * g3lw * epsil3                # floor  → cover
+    Ar12 = eps_screen * U1 * tau2 * epsil3       # screen → cover
+    Ar13 = cover_area * epsil6 * g2 * epsil3     # air    → cover
+    Asky = epsil3                                # cover  → sky
+
+    # seed: linearised long-wave balance (T2 as inside proxy, ignoring condensation)
+    kR = 4.0 * epsil3 * sigma * (0.5 * (T2 + Tsky))^3
+    Tc = (kR * (T2 + Tsky) + h_cover_out * Tout + Qcov) / (2.0 * kR + h_cover_out)
+
+    # Newton iteration: 6 steps (3 are enough; 6 costs nothing and gives clean convergence)
+    for _ in 1:6
+        T4c = Tc^4
+        # gains from inside (all four long-wave paths)
+        r7c  = Ar7  * sigma * (T1^4 - T4c)
+        r11c = Ar11 * sigma * (T5^4 - T4c)
+        r12c = Ar12 * sigma * (T2^4 - T4c)
+        r13c = Ar13 * sigma * (T2^4 - T4c)
+        # losses to outside
+        Qloss_rad  = Asky * sigma * (T4c - Tsky^4)
+        Qloss_conv = h_cover_out * (Tc - Tout)
+        # condensation latent heat: treated as locally constant for the Newton step
+        VPc   = Pws(Tc)
+        Qcond = V1 > VPc ? gamma2 * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * (V1 - VPc) : 0.0
+        # residual f(Tc) = 0 at balance
+        f  = r7c + r11c + r12c + r13c + Qcov + Qcond - Qloss_rad - Qloss_conv
+        # df/dTc: sum of all −4σTc³ radiation coefficients minus convection coefficient
+        df = -4.0 * sigma * T4c / Tc * (Ar7 + Ar11 + Ar12 + Ar13 + Asky) - h_cover_out
+        Tc -= f / df
     end
     return Tc, fcov
 end
@@ -122,16 +151,16 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     f4 = eta6 * f7                                       # roof ventilation
 
     # --- cover node and long-wave radiation ------------------------------------------------------------------------
-    Tc, fcov = cover_temperature(T2, Tsky, Tout, so.Qcov, V1, U1, p)
-    g1 = 0.49 * (1 - exp(-beta3 * L))
-    g2 = 1 - U1 * (1 - tau3)
-    g3 = tau1 * g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-beta3 * L)
+    g1  = 0.49 * (1 - exp(-beta3 * L))
+    g2  = 1 - U1 * (1 - tau3)
+    g3  = g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-beta3 * L)   # LW floor→cover; tau1 (PAR) removed
+    Tc, fcov = cover_temperature(T1, T2, T5, Tsky, Tout, so.Qcov, V1, U1, p, g1, g2, g3)
     SkyFIR = epsil3 * sigma * (T2^4 - Tc^4)
     r6  = alpha3 * epsil1 * epsil2 * g1 * sigma * (Tp^4 - T1^4)              # pipe -> canopy
     r7  = (g1 / 0.49) * epsil2 * epsil3 * g2 * sigma * (T1^4 - Tc^4)         # canopy -> cover
     r11 = epsil4 * g3 * epsil3 * sigma * (T5^4 - Tc^4)                       # floor -> cover
-    r12 = eps_screen * (U1 * tau2) * SkyFIR                                  # energy screen (air T) -> cover
-    r13 = cover_area * (epsil6 * SkyFIR)                                     # air -> cover
+    r12 = eps_screen * (U1 * tau2) * SkyFIR                                  # energy screen -> cover
+    r13 = cover_area * epsil6 * g2 * SkyFIR                                  # air -> cover (g2 screen factor added)
     r14 = epsil4 * epsil2 * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T1^4 - T5^4)   # canopy -> floor
     r1  = so.Qcan                                                            # solar absorbed by the canopy
 
