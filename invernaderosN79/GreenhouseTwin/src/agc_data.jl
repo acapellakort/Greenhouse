@@ -17,6 +17,25 @@ const CO2_AMB_PPM    = 390.0
 const CO2_THR_PPM    = 50.0
 const CO2_INJECT_FRAC = 0.3
 const CO2_VALVE_KG_M2_H = 0.0128            # valve capacity, kg m-2 h-1 (dosage -> valve hours)
+const JAN1_2018_UNIX = 1_514_764_800.0      # 2018-01-01 00:00 UTC, seconds
+
+"""
+    co2_bleiswijk_ppm(t_unix; A_seas=9.0, A_diur=10.0) -> ppm
+
+Outdoor CO₂ model for Bleiswijk 2018 (AGC-2018 site, 52.0°N 4.5°E).
+Base 408 ppm (Mauna Loa 2018 annual mean).
+Seasonal: ±A_seas ppm, peaks at DOY 120 (≈ May 1, NH maximum).
+Diurnal:  ±A_diur ppm, peaks at 05:00 local (CET = UTC+1).
+  Amplitude set conservatively at ±10 ppm (outdoor weather station level;
+  literature range 5–18 ppm at surface near vegetation).
+"""
+function co2_bleiswijk_ppm(t_unix::Float64; A_seas::Float64 = 9.0, A_diur::Float64 = 10.0)
+    doy  = (t_unix - JAN1_2018_UNIX) / 86400.0 + 1.0   # continuous DOY (1.0 = Jan 1 00:00 UTC)
+    hr_local = mod((t_unix + 3600.0) / 3600.0, 24.0)   # UTC+1 (CET); good enough over Aug-Dec window
+    seasonal = A_seas * cos(2π * (doy  - 120.0) / 365.0)
+    diurnal  = A_diur * cos(2π * (hr_local - 5.0) / 24.0)
+    return 408.0 + seasonal + diurnal
+end
 
 _serial2unix(s) = (s - EXCEL_UNIX0) * 86400.0
 _num(x) = (x isa Number && !(x isa Missing) && !isnan(Float64(x))) ? Float64(x) : NaN
@@ -29,9 +48,10 @@ _vpout(Tc, RH) = _q2(Tc) * clamp(RH, 1.0, 100.0) / 100.0
 
 Builds the model inputs (`weather`, `controls`, `t0`) and the observations of one compartment for days
 0..ndays-1 after 14 Aug 2018. `crop_series` is the CSV written by test/crop_series.jl.
-Returned arrays (one value per logged row, 5 min): ts (Unix), Ig, Tsky, Tout, Wind, VPout, U1 (energy screen),
+Returned arrays (one value per logged row, 5 min): ts (Unix), Ig, Tsky, Tout, Wind, VPout, CO2out, U1 (energy screen),
 Black, Lee, Wind (vent openings), U10 (CO2 valve), U11 (heating setpoint, K), U12 (lamps), Tpipe (K), LAI, CropResp,
 CropFW, and the observations Tair_obs [K], RH_obs [%], CO2_obs [mg m-3]; u0 = initial state for day 0.
+CO2out uses the Bleiswijk 2018 seasonal+diurnal model (co2_bleiswijk_ppm); no measured outside CO2 in the dataset.
 """
 function load_agc_season(inv::AbstractString; team::AbstractString = "AiCU", ndays::Int = 115,
                          crop_series::AbstractString = "")
@@ -125,8 +145,11 @@ function load_agc_season(inv::AbstractString; team::AbstractString = "AiCU", nda
     CropRm20 = [cs.Rm20_gCH2O[cday((t - t0) / 86400.0)] * _conv for t in ts]  # maintenance at 20 C
     CropRg   = [cs.Rg_gCH2O[cday((t - t0) / 86400.0)]   * _conv for t in ts]  # growth respiration
 
+    # Outside CO2: Bleiswijk 2018 seasonal+diurnal model, converted to mg m-3 at measured Tout
+    CO2out = [co2_bleiswijk_ppm(ts[j]) * 536.4 / Tout[j] for j in eachindex(ts)]
+
     A(v) = StepFun(ts, v); Z(v) = StepFun(trel, v); z0 = Z(zeros(length(ts)))
-    weather  = WeatherInputs(A(Ig), A(Tsky), A(Tout), A(Wind), A(VPout), ConstFun(834.7), ConstFun(273.15), A(LAI))
+    weather  = WeatherInputs(A(Ig), A(Tsky), A(Tout), A(Wind), A(VPout), A(CO2out), ConstFun(273.15), A(LAI))
     controls = ControlInputs(Z(U1), Z(Black), z0, z0, z0, z0, z0, z0, Z(Lee), Z(Wnd), z0, Z(U10), Z(U11), Z(U12),
                              Z(Tpipe), Z(CropResp), Z(CropFW), Z(CropRm20), Z(CropRg))
 
