@@ -1,0 +1,27 @@
+These are properties of the equations above (read-only audit of 21 October 2026 and the project notes); they are the
+starting list for the physics work.
+\begin{enumerate}[nosep]
+\item \textbf{Cover node not conserving.} The node of Section~\ref{sec:cover} balances $k_R(T_2-T_c)$ only; it does not
+receive $r_7$, $r_{11}$, $r_{12}$, $r_{13}$ nor pipe radiation (40\,W\,m$^{-2}$ residual on a test night). $r_{11}$ contains the PAR
+transmission $\tau_1$. The node is not scaled by the cover area while $r_{13}$ is.
+\item \textbf{No top compartment.} The screen sits at $\tfrac12(T_o+T_2)$ for condensation and at $T_2$ in $r_{12}$; $r_{13}$ has
+no screen factor; cover condensation draws on the crop air (through $f_{\rm cov}$). Geometry: screen $\approx4.5$\,m, ridge
+$\approx5.8$\,m, $\approx0.9$\,m$^3$\,m$^{-2}$ above the screen.
+\item \textbf{Long-wave network against LAI.} $r_{14}$ has no canopy fraction; $\beta_3$ (NIR) is used for long-wave instead of
+$K_{\rm FIR}=0.94$; pipes radiate only to the canopy ($\alpha_3=0.3$ vs geometric 0.16), no pipe--floor, pipe--cover terms.
+\item \textbf{Lamps.} At $f_{\rm can}=0.3$, $L=2.3$ the canopy heat (28.1\,W\,m$^{-2}$) is below the absorbed lamp PAR (34.3); no
+lamp light reaches the floor.
+\item \textbf{Inherited V2.0 forms}: side-vent flow scaled by the energy screen ($f_2=\eta_6U_1f_5$); air--floor conduction length
+uses the air height ($\phi_2+\nu_8$); mechanical cooling removes vapour but no heat; $h_2$ fan-pad form. Zero input in AiCU
+except $h_{11}$.
+\item \textbf{Fit at the prior centre} (V2.2 smoke 4): air $\approx1.2$\,K too cold (day $-1.6$, night $-1.0$), RH $\approx-10\,\%$.
+\item \textbf{Photosynthesis}: big leaf; $J_{\max}$ of the climate model (JSON) differs from the crop posterior; $k=0.7$ (climate) vs
+0.75 (crop path); constant $R_d$ in the crop path.
+\item \textbf{Crop}: no fruit abortion (fruit number 107 vs 116 observed); SLA from tomato; bimodal fruit size/duration posterior.
+\item \textbf{Provisional optics}: screen reflectances and long-wave properties, NIR = PAR for the screens, $\rho_\infty^{\rm NIR}$,
+\code{scr\_abs\_air}.
+\item \textbf{Coupling}: crop $\to$ climate only, offline.
+\item \textbf{Numerical noise of the likelihood} (Section~\ref{sec:verify}): at reltol $10^{-4}$ the energy changes by up to $\sim$60
+units for a $10^{-14}$ relative change of one parameter. Smoothing the switches (heating, clamps, condensation onsets),
+stopping the solver at input steps, or a tighter tolerance are needed before long MCMC runs.
+\end{enumerate}

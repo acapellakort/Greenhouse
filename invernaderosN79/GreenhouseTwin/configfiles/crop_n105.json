@@ -1,0 +1,447 @@
+{
+ "W_pot": {
+  "val": 60.7,
+  "units": "g DM fruit-1",
+  "group": "M94",
+  "status": "inferred",
+  "prior": [
+   20.0,
+   60.7,
+   120.0
+  ],
+  "desc": "potential fruit dry mass",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "E_fruit": {
+  "val": 275.0,
+  "units": "C d",
+  "group": "M94",
+  "status": "inferred",
+  "prior": [
+   150.0,
+   275.0,
+   450.0
+  ],
+  "desc": "fruit duration (degree-days above 10 C)",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "app_beta1": {
+  "val": 0.0882,
+  "units": "nodes stem-1 d-1 C-1",
+  "group": "M94",
+  "status": "inferred",
+  "prior": [
+   0.05,
+   0.0882,
+   0.13
+  ],
+  "desc": "node (flower) appearance slope",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "V20": {
+  "val": 3.2,
+  "units": "g DM stem-1 d-1",
+  "group": "M94",
+  "status": "inferred",
+  "prior": [
+   1.0,
+   3.2,
+   8.0
+  ],
+  "desc": "vegetative demand at 20 C",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "k_m_leaf": {
+  "val": 0.03,
+  "units": "g g-1 d-1",
+  "group": "respiration",
+  "status": "inferred",
+  "prior": [
+   0.01,
+   0.03,
+   0.06
+  ],
+  "desc": "leaf maintenance at 25 C",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "k_m_stem": {
+  "val": 0.015,
+  "units": "g g-1 d-1",
+  "group": "respiration",
+  "status": "inferred",
+  "prior": [
+   0.005,
+   0.015,
+   0.03
+  ],
+  "desc": "stem maintenance at 25 C",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "k_m_fruit": {
+  "val": 0.01,
+  "units": "g g-1 d-1",
+  "group": "respiration",
+  "status": "inferred",
+  "prior": [
+   0.003,
+   0.01,
+   0.02
+  ],
+  "desc": "fruit maintenance at 25 C",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "gen_leaf_target": {
+  "val": 25.0,
+  "units": "leaves stem-1",
+  "group": "canopy",
+  "status": "inferred",
+  "prior": [
+   20.0,
+   25.0,
+   30.0
+  ],
+  "desc": "retained-leaf target (pruning)",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "gen_N0": {
+  "val": 4.0,
+  "units": "nodes",
+  "group": "canopy",
+  "status": "inferred",
+  "prior": [
+   2.0,
+   4.0,
+   8.0
+  ],
+  "desc": "nodes at transplant",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "set_r_low": {
+  "val": 0.3,
+  "units": "-",
+  "group": "fruit set",
+  "status": "inferred",
+  "prior": [
+   0.0,
+   0.3,
+   1.0
+  ],
+  "desc": "source/sink ratio with no fruit set",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "set_r_high": {
+  "val": 1.0,
+  "units": "-",
+  "group": "fruit set",
+  "status": "inferred",
+  "prior": [
+   0.2,
+   1.0,
+   2.5
+  ],
+  "desc": "source/sink ratio with full fruit set",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "DMC_fruit": {
+  "val": 0.035,
+  "units": "-",
+  "group": "quality",
+  "status": "inferred",
+  "prior": [
+   0.025,
+   0.035,
+   0.045
+  ],
+  "desc": "fruit dry-matter content",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "J_max": {
+  "val": 0.0002,
+  "units": "mol m-2 s-1",
+  "group": "photosynthesis",
+  "status": "inferred",
+  "prior": [
+   0.0001,
+   0.0002,
+   0.00035
+  ],
+  "desc": "maximum electron transport rate (crop path)",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "sigma_y": {
+  "val": 0.3,
+  "units": "-",
+  "group": "noise",
+  "status": "inferred",
+  "prior": [
+   0.02,
+   0.3,
+   3.0
+  ],
+  "desc": "likelihood noise",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "sigma_leaf": {
+  "val": 3.0,
+  "units": "-",
+  "group": "noise",
+  "status": "inferred",
+  "prior": [
+   0.5,
+   3.0,
+   20.0
+  ],
+  "desc": "likelihood noise",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "sigma_fd": {
+  "val": 3.0,
+  "units": "-",
+  "group": "noise",
+  "status": "inferred",
+  "prior": [
+   0.5,
+   3.0,
+   15.0
+  ],
+  "desc": "likelihood noise",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "sigma_n": {
+  "val": 3.0,
+  "units": "-",
+  "group": "noise",
+  "status": "inferred",
+  "prior": [
+   0.3,
+   3.0,
+   20.0
+  ],
+  "desc": "likelihood noise",
+  "source": "n94/n105 prior (Notes 74, 94, 98)"
+ },
+ "stem_density": {
+  "val": 3.6,
+  "units": "stems m-2",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "stem density (one stem = one modelled plant)",
+  "source": "Hemming et al. 2019 (Note 92)"
+ },
+ "gen_fL": {
+  "val": 0.59,
+  "units": "-",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "leaf share of vegetative growth",
+  "source": "Aaron (Note 94)"
+ },
+ "frac_stem": {
+  "val": 0.32,
+  "units": "-",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "stem weight in the stem:root split",
+  "source": "V2.2"
+ },
+ "frac_root": {
+  "val": 0.08,
+  "units": "-",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "root weight in the stem:root split",
+  "source": "V2.2"
+ },
+ "sla_mean": {
+  "val": 266.0,
+  "units": "cm2 g-1",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "seasonal SLA mean",
+  "source": "Heuvelink 1999 eq. 3"
+ },
+ "sla_amp": {
+  "val": 88.0,
+  "units": "cm2 g-1",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "seasonal SLA amplitude",
+  "source": "Heuvelink 1999 eq. 3"
+ },
+ "sla_phase": {
+  "val": 68.0,
+  "units": "d",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "seasonal SLA phase",
+  "source": "Heuvelink 1999 eq. 3"
+ },
+ "gen_doy0": {
+  "val": 226.0,
+  "units": "day of year",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "transplant day (14 Aug)",
+  "source": "Note 94"
+ },
+ "LAI0": {
+  "val": 0.25,
+  "units": "m2 m-2",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "LAI at transplant (assumed)",
+  "source": "Note 94"
+ },
+ "gen_flower_node": {
+  "val": 5.0,
+  "units": "node",
+  "group": "architecture",
+  "status": "fixed",
+  "desc": "first node with a flower",
+  "source": "Aaron (Note 94)"
+ },
+ "set_start_day": {
+  "val": 15.0,
+  "units": "d",
+  "group": "architecture",
+  "status": "fixed",
+  "desc": "first day with fruit set",
+  "source": "Note 66"
+ },
+ "top_day": {
+  "val": 104.0,
+  "units": "d",
+  "group": "architecture",
+  "status": "fixed",
+  "desc": "topping: no node appearance after this day",
+  "source": "V2.2"
+ },
+ "k_m_root": {
+  "val": 0.01,
+  "units": "g g-1 d-1",
+  "group": "respiration",
+  "status": "fixed",
+  "desc": "root maintenance at 25 C",
+  "source": "V2.2"
+ },
+ "Q10_resp": {
+  "val": 2.0,
+  "units": "-",
+  "group": "respiration",
+  "status": "fixed",
+  "desc": "Q10 of maintenance",
+  "source": "V2.2"
+ },
+ "asrq": {
+  "val": 1.4,
+  "units": "g CH2O g-1 DM",
+  "group": "respiration",
+  "status": "fixed",
+  "desc": "construction cost",
+  "source": "Aaron (1.4)"
+ },
+ "k_ext": {
+  "val": 0.75,
+  "units": "-",
+  "group": "photosynthesis",
+  "status": "fixed",
+  "desc": "extinction in the effective leaf area of the crop path",
+  "source": "V2.2 (climate uses 0.7)"
+ },
+ "harvest_FW": {
+  "val": 323.0,
+  "units": "g FW",
+  "group": "harvest",
+  "status": "fixed",
+  "desc": "picking size (observed mean A+B fruit)",
+  "source": "Note 92"
+ },
+ "transmission": {
+  "val": 0.65,
+  "units": "-",
+  "group": "light",
+  "status": "fixed",
+  "desc": "greenhouse PAR transmission in the measured-light formula",
+  "source": "Note 78"
+ },
+ "lamp_umol": {
+  "val": 187.0,
+  "units": "umol m-2 s-1",
+  "group": "light",
+  "status": "fixed",
+  "desc": "lamp PAR at 100 %",
+  "source": "AGC ReadMe"
+ },
+ "VT": {
+  "val": 0.25,
+  "units": "g DM stem-1 d-1 C-1",
+  "group": "M94",
+  "status": "fixed",
+  "desc": "temperature slope of vegetative demand",
+  "source": "Marcelis 1994"
+ },
+ "sink_s": {
+  "val": 4.675000000000001,
+  "units": "-",
+  "group": "M94",
+  "status": "fixed",
+  "desc": "fruit sink shape s = 0.0170 x 275",
+  "source": "Marcelis 1994 via Aaron"
+ },
+ "sink_p": {
+  "val": 91.09009009009009,
+  "units": "-",
+  "group": "M94",
+  "status": "fixed",
+  "desc": "fruit sink exponent p = 1 + 1/0.0111",
+  "source": "Marcelis 1994 via Aaron"
+ },
+ "sink_peak": {
+  "val": 0.4763636363636364,
+  "units": "-",
+  "group": "M94",
+  "status": "fixed",
+  "desc": "stage of peak sink = 131/275",
+  "source": "Marcelis 1994 via Aaron"
+ },
+ "app_base": {
+  "val": 8.333333333333334,
+  "units": "C",
+  "group": "M94",
+  "status": "fixed",
+  "desc": "base temperature of node appearance (beta0 = -beta1 x 0.75/0.09)",
+  "source": "Marcelis 1994"
+ },
+ "dev_base": {
+  "val": 10.0,
+  "units": "C",
+  "group": "M94",
+  "status": "fixed",
+  "desc": "base temperature of fruit development and of the sink amplitude",
+  "source": "Marcelis 1994"
+ },
+ "par_ref": {
+  "val": 6.8,
+  "units": "MJ m-2 d-1",
+  "group": "M94",
+  "status": "fixed",
+  "desc": "PAR at which M94 fitted the appearance rate",
+  "source": "Marcelis 1994"
+ },
+ "dmc_stem": {
+  "val": 0.06,
+  "units": "-",
+  "group": "series",
+  "status": "fixed",
+  "desc": "stem dry-matter content (standing fresh mass)",
+  "source": "Note 91 (assumed)"
+ },
+ "dmc_root": {
+  "val": 0.07,
+  "units": "-",
+  "group": "series",
+  "status": "fixed",
+  "desc": "root dry-matter content (standing fresh mass)",
+  "source": "Note 91 (assumed)"
+ }
+}

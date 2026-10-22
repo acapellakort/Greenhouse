@@ -1,0 +1,19 @@
+Both calibrations use the t-walk sampler, uniform priors (Tables~\ref{tab:pclim}, \ref{tab:pcrop}), a Gaussian likelihood
+with inferred noise per observable,
+\begin{equation}
+U(\theta,\sigma)=\sum_k\Bigl[n_k\log\sigma_k+\frac{\mathrm{SSE}_k(\theta)}{2\sigma_k^2}\Bigr],
+\end{equation}
+two or more seeds, split-$\hat R$ and an explicit burn-in.
+\begin{itemize}[nosep]
+\item \textbf{Crop} (\code{test/calibrate\_crop.jl}): 13 parameters + 4 noise terms; observations weekly yield, weekly
+harvested fruit number, leaves per stem, fruit development time; driver measured climate.
+\item \textbf{Climate} (\code{test/calibrate\_climate.jl}): 18 parameters + 3 noise terms; 7-day blocks with a spin-up day and the
+measured initial state; TRAIN days 7--13, 28--34, 63--69, 91--97, 110--114; VAL 42--48, 77--83; TEST the rest; observations
+hourly means of air T and RH and dark-hour \ce{CO2}; vents, pipe, screens, lamps and \ce{CO2} valve are logged inputs.
+\end{itemize}
+\paragraph{What to infer and what to fix.} Measurable or documented quantities are fixed (geometry, materials, actuator
+capacities, crop counts and dates); missing values of this kind are questions for the organisers or data sheets. Only
+coefficients of approximate sub-models are inferred. No bias or measurement-offset terms. As the physics becomes more
+descriptive, effective parameters should be retired: $h_{\rm out}\to2.8+1.2v$ with a conserving cover node;
+\code{air\_cap\_mult} $\to$ explicit fast masses; \code{lamp\_fcan} $\to$ lamp spectrum through the column;
+\code{vent\_scr\_perm} $\to$ screen permeability in a top compartment.

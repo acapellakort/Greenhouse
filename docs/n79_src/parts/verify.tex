@@ -1,0 +1,64 @@
+The code was obtained from GreenhouseSim V2.2 (git tag \code{v2.2-flags-final}) by resolving every flag to its n79 value
+(\code{PRIORS=n79}, \code{SOLARC=1}, \code{PIPE2=1}, \code{CO2NIGHT=1}) and the crop to the n105 set-up, and deleting the
+branches not taken. Four checks support the claim that the code is n79 and that this document is the code:
+\begin{enumerate}[nosep]
+\item \code{tools/audit.py}: no flag name or \code{hasproperty(p, ...)} switch is left in \code{src/}; every parameter the code
+reads is in the JSON files and every JSON key is read.
+\item \code{test/equivalence\_synthetic.jl} (no data): V2.2 with the n79 flags and GreenhouseTwin on the same synthetic
+inputs: \code{rhs!} at 5000 random states and times (relative difference $<10^{-10}$), 3-day trajectories, solar fluxes, and the
+crop over 116 synthetic days.
+\item \code{test/equivalence\_n79.jl} (AGC data): both codes build their inputs independently from the AGC files (compared
+array by array), parameters, \code{rhs!} at random states, TRAIN blocks, likelihood energies at the prior centre and at a
+jittered point, the full season, the solar budget, the crop at the n105 prior centre, timing and allocations.
+\item Term dump: \code{test/dump\_terms.jl} writes every term of \code{model\_terms} at test states; \code{tools/check\_tex.py}
+evaluates the equations of Section~\ref{sec:climate} written in Python from this document and compares.
+\end{enumerate}
+\paragraph{Results (21 October 2026, Julia 1.10).} Audit: pass. Synthetic: 35/35. Document against code (\code{check\_tex.py},
+400 states, 60 terms): largest relative difference $2\times10^{-14}$; this check found and corrected a sign error in the FvCB
+quadratics of an earlier draft of Section~\ref{sec:photo}. AGC data: all 20 input arrays and 112 shared parameters identical;
+\code{rhs!} derivatives within $3\times10^{-16}$ relative; solar fluxes and crop series identical (crop to $10^{-14}$);
+\code{rhs!} 1.7\,$\mu$s against 2.3\,$\mu$s for V2.2, no allocations.
+
+\paragraph{Numerical noise of the trajectories and of the likelihood.} Because the right-hand side is discontinuous in
+time (5-min step inputs) and in state (heating switch $T_{\rm log}>T_2+1$, PI clamp, $\max$/$\min$, condensation onsets),
+the adaptive solver turns rounding-level differences into finite differences of the solution. V2.2 compared with itself
+after scaling one parameter by $1+10^{-14}$:
+\begin{center}\small
+\begin{tabular}{lccc}\toprule
+reltol & TRAIN-block $T_2$ difference & energy sd (10 perturbations) & energy range\\\midrule
+$10^{-4}$ (calibration default) & 0.39\,K & 13--24 & 37--62\\
+$10^{-6}$ & -- & 0.36--0.64 & 1.0--2.1\\
+$10^{-8}$ & \multicolumn{3}{c}{a block solve fails (both codes)}\\\bottomrule
+\end{tabular}
+\end{center}
+At $10^{-6}$ the mean energies of V2.2 and this code agree to 0.11 (of 6945) at the prior centre; at a jittered point a difference of 0.55 at $10^{-6}$ shrinks to $0.035\pm0.036$ at $10^{-7}$, i.e.\ it is integration error, not a model difference. Trajectory and energy checks are therefore
+made against this noise floor, not against fixed tolerances. For calibration the noise at $10^{-4}$ is of the order of the
+energy differences the sampler uses; see Section~\ref{sec:gaps}.
+
+The few V2.2 terms that were booked and then cancelled (lamp NIR on the canopy, V2.0 lamp heat on the air, floor
+long-wave first taken from the air and then returned) are booked once here, so the results agree to rounding rather
+than bit for bit.
+
+\begin{center}\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.3\textwidth}>{\raggedright\arraybackslash}p{0.62\textwidth}}
+\caption{Where each part of this document is in the code.}\\\toprule
+document & code\\\midrule
+state equations (\ref{eq:T1})--(\ref{eq:Tm}) & \code{model\_terms}, end of each block; \code{rhs!} (\code{src/climate.jl})\\
+solar column & \code{solar\_column}, \code{column4}, \code{canopy\_layer}, \code{roof\_props} (\code{src/solar.jl})\\
+plant light, FvCB & \code{PARp}, \code{assimilation}, \code{lai\_eff} (\code{src/photosynthesis.jl})\\
+stomata & \code{q2}--\code{q10}, \code{q1}\\
+cover node & \code{cover\_temperature}\\
+long-wave & \code{r6}, \code{r7}, \code{r11}--\code{r14}\\
+air exchange & \code{U8}, \code{f2}--\code{f7}\\
+heating & \code{e}, \code{dmd}, \code{Tp}, \code{deint}, \code{h4}\\
+lamps & \code{Ql}, \code{Qlc}, \code{Qla}\\
+air heat, vapour, \ce{CO2} & \code{h1}--\code{h11}, \code{l1}, \code{l2}, \code{p1}--\code{p10}, \code{o1}--\code{oR}\\
+floor, deep soil, mass & \code{Qaf}, \code{Qfd}, \code{Qfs}, \code{Qam}, \code{Qms}, \code{Cm}\\
+inputs & \code{src/inputs.jl}, \code{src/agc\_data.jl}\\
+crop sub-models & \code{node\_appearance}, \code{development\_rate}, \code{fruit\_sink}, \code{vegetative\_demand}, \code{cucumber\_generic} (\code{src/crop.jl})\\
+LAI, daily step & \code{seasonal\_sla}, \code{crop\_step!}, \code{init\_crop\_state}\\
+crop light, series & \code{daily\_assimilation\_measured}, \code{load\_measured\_climate\_par}, \code{crop\_series} (\code{src/crop\_measured.jl})\\
+likelihoods & \code{climate\_energy} (\code{src/climate\_calibration.jl}), \code{crop\_energy}\\
+\bottomrule
+\end{longtable}
+\end{center}

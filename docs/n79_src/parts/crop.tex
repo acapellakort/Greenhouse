@@ -1,0 +1,75 @@
+The crop model is the generic dry-matter partitioning model of A.~V\'elez (\code{Generic\_Gh\_Model}: \code{models.py},
+\code{main.tex}), which casts Marcelis (1994, ``M94'') for cucumber into a generic form, plus his canopy extension
+(leaf mass, LAI, retained leaves, pruning). Code: \code{src/crop.jl} (\code{CucumberGeneric}, \code{crop\_step!}) and
+\code{src/crop\_measured.jl}. States are per m$^2$ floor; one stem is one modelled plant ($\rho=3.6$ stems\,m$^{-2}$,
+Hemming et al.\ 2019). Day $k$ (0 = transplant, 14 August), daily mean air temperature $T$ [$^\circ$C].
+
+\subsection{States}
+\begin{center}\small
+\begin{tabular}{lll}\toprule
+symbol & code & meaning\\\midrule
+$W_L$, $W_S$, $W_R$ & \code{W\_leaf, W\_stem, W\_root} & leaf, stem, root dry mass [g\,m$^{-2}$]\\
+$L$ & \code{LAI} & leaf area index\\
+$N_L$ & \code{leaves} & retained leaves per stem\\
+$C_N$ & \code{node} & node counter per stem (fractional progress kept)\\
+$(z_i,W_i,n_i)$ & \code{Fruit(dev, W, n, day\_set)} & fruit cohort: stage, dry mass [g\,m$^{-2}$], number [m$^{-2}$]\\
+$R$ & \code{reserve} & carbohydrate reserve (DM equivalent) [g\,m$^{-2}$]\\
+$Y_{DW}$, $Y_{FW}$ & \code{yield\_DW, yield\_FW} & cumulative harvest [g DM\,m$^{-2}$], [kg FW\,m$^{-2}$]\\
+\bottomrule\end{tabular}
+\end{center}
+
+\subsection{Generic sub-models (M94 in generic form)}
+\begin{align}
+a(T)&=\max(\beta_0+\beta_1T,0)\,f_{\rm PAR},\quad \beta_0=-\beta_1\tfrac{0.75}{0.09},\quad
+f_{\rm PAR}=\frac{1-e^{-0.5-0.5\,\mathrm{PAR}_k}}{1-e^{-0.5-0.5\cdot6.8}} &&\text{nodes stem}^{-1}\text{d}^{-1}\\
+\dot z&=\kappa\max(T-10,0),\qquad \kappa=1/E_{\rm fruit} &&\text{fruit development}\\
+P_i&=n_i\,\max(A_0+A_TT,0)\,\frac{u}{(1+u)^p},\quad u=\frac{e^{-s(\min(z_i,1)-z_{\rm peak})}}{p-1} &&\text{fruit sink [g d}^{-1}\text{m}^{-2}]\\
+P_V&=\rho\max\bigl(V_{20}+V_T(T-20),0\bigr) &&\text{vegetative demand}
+\end{align}
+with $s=0.0170\cdot275$, $p=1+1/0.0111$, $z_{\rm peak}=131/275$, $V_T=0.25$, $\mathrm{PAR}_k$ the day's canopy-top PAR
+[MJ\,m$^{-2}$\,d$^{-1}$]. The sink amplitude is parametrised by the potential fruit dry mass,
+\begin{equation}
+A_T=\frac{W_{\rm pot}\,s\,(p-1)}{E_{\rm fruit}},\quad A_0=-10A_T\quad\Rightarrow\quad\int_0^1P_i\frac{dz}{\dot z}\simeq n_iW_{\rm pot},
+\end{equation}
+so $W_{\rm pot}$ sets the final fruit size and $E_{\rm fruit}$ the duration. A fruit past $z=1$ keeps the sink of $z=1$.
+
+\subsection{Leaf area index}\label{sec:lai}
+LAI is a state driven by leaf mass and leaf events; there is no maximum LAI, no recomputation of the standing area and no
+senescence; all retained leaves share the canopy's mean mass and area.
+\begin{itemize}[nosep]
+\item \emph{Leaf events.} Every completed node adds a leaf: $N_L\leftarrow N_L+\lfloor C_{N,k+1}\rfloor-\lfloor C_{N,k}\rfloor$.
+\item \emph{Area growth.} $\Delta W_L=f_L\Delta W_V$, $\Delta L=S(d_k)\Delta W_L$ with $f_L=0.59$ and the seasonal SLA
+\begin{equation}
+S(d)=10^{-4}\Bigl[266+88\sin\frac{2\pi(d+68)}{365}\Bigr]\ \text{m}^2\,\text{g}^{-1},\qquad d_k=226+k,
+\end{equation}
+(Heuvelink 1999, a tomato regression used provisionally), applied only to new leaf mass.
+\item \emph{Pruning.} If $N_L>N_{\rm target}$: $r=N_{\rm target}/N_L$, $W_L\leftarrow rW_L$, $L\leftarrow rL$,
+$N_L\leftarrow N_{\rm target}$ (removed mass and area to a ledger; non-leaf mass untouched).
+\item \emph{Transplant.} $L_0=0.25$, $C_N=N_0$, $N_L=\lfloor N_0\rfloor$, $W_L=L_0/S(226)$, $W_S+W_R=W_L(1-f_L)/f_L$ split $0.32:0.08$.
+\end{itemize}
+
+\subsection{Daily step}
+\begin{enumerate}[nosep]
+\item \textbf{Supply.} $R_m=Q_{10}^{(T-25)/10}(k_{m,L}W_L+k_{m,S}W_S+k_{m,R}W_R+k_{m,F}\sum_iW_i)$, $B=\max(P_g-R_m,0)/c$, $c=1.4$.
+\item \textbf{Allocation} with reserve: $\Delta W_j=\frac{P_j}{P}\min(B+R,P)$, $P=P_V+\sum_iP_i$, $R\leftarrow B+R-\sum_j\Delta W_j$.
+\item \textbf{Vegetative growth and LAI}: as above; non-leaf mass split stem:root $=0.32:0.08$; $W_i\mathrel{+}=\Delta W_i$.
+\item \textbf{Development and appearance} (before topping, day 104): $z_i\mathrel{+}=\dot z$, $C_N\mathrel{+}=a(T)$; nodes $\ge5$ carry a
+flower; from day 15 the flowers set $n_{\rm new}=n_{\rm fl}\,\rho\,\phi_k\,\mathrm{clamp}\bigl(\frac{B/P-r_{\rm low}}{r_{\rm high}-r_{\rm low}},0,1\bigr)$
+fruits (new cohort at $z=0$, growing from the next day), $\phi_k=1-\text{Pruning}_k/100$ the grower's kept share.
+\item \textbf{Harvest} when $W_i/n_i\ge323\,\mathrm{DMC}_{\rm fruit}$ (observed mean A+B fruit, 323\,g FW) or $z_i\ge3$.
+\item \textbf{Pruning} to $N_{\rm target}$.
+\end{enumerate}
+
+\subsection{Light and photosynthesis of the crop path}
+Gross assimilation $P_g$ [g\,CH$_2$O\,m$^{-2}$\,d$^{-1}$] is the FvCB model of Section~\ref{sec:photo} summed over the 5-min
+samples of the day, at measured air T and \ce{CO2}, with the organisers' canopy-top PAR
+\begin{equation}
+\mathrm{PAR}=\bigl[\mathrm{PAR}_{\rm out}\cdot0.65\,(1-0.98U_{\rm bl})(1-0.25U_1)+187\,U_{12}\bigr]/4.6\quad[\text{W\,m}^{-2}],
+\end{equation}
+multiplied by the both-faces factor $g(L)=(D_4^P+\rho_2D_5^P)/t_r$ of the PAR column with screens retracted, effective leaf
+area $(1-e^{-0.75L})/0.75$ and constant $R_d$.
+
+\subsection{Climate inputs from the crop}
+\code{crop\_series}: $L$; $R_{\rm crop}=\bigl[2^{-0.5}(k_{m,S}W_S+k_{m,R}W_R+k_{m,F}\sum W_i)+(c-1)\Delta DM\bigr]\frac{44}{30}\frac{1000}{86400}$
+(non-leaf maintenance at 20\,$^\circ$C + growth respiration; leaf dark respiration is in the FvCB model);
+$\mathrm{FW}=(W_S/0.06+W_R/0.07+\sum W_i/\mathrm{DMC}_{\rm fruit})/1000$.

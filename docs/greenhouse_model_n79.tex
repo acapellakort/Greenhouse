@@ -1,0 +1,663 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,longtable,array}
+\usepackage[version=4]{mhchem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\pagestyle{fancy}\fancyhf{}
+\rhead{GreenhouseTwin n79}\lhead{Model description}\cfoot{\thepage}
+\newcommand{\code}[1]{\texttt{#1}}
+\sloppy
+
+\title{\textbf{GreenhouseTwin n79}\\[4pt]\large The greenhouse--cucumber model without flags:\\
+climate, photosynthesis, crop growth and LAI}
+\author{Greenhouses project --- model reference}
+\date{Branch \code{n79}, 21 October 2026}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+\noindent This document specifies the model coded in \code{invernaderosN79/GreenhouseTwin}: one equation set, no
+behaviour flags. It is the configuration chosen as the baseline for making the physics more descriptive: the V2.2
+engine with the n79 settings (fixed compartment geometry, energy-conserving solar column, cover node with
+condensation, open-loop logged vents, stack leakage, closed floor balance, internal mass, full lamp heat, crop
+respiration) and Aaron V\'elez's generic cucumber model with its canopy and LAI extension (the n105 crop set-up).
+Every equation is written with the term names of the code (\code{src/climate.jl}, \code{src/crop.jl}), so each line can
+be checked against \code{model\_terms}. Parameter tables are generated from the parameter files. Known structural
+gaps are listed at the end; they are the starting point of the physics work.
+\end{abstract}
+\tableofcontents
+
+%======================================================================
+\section{Overview}\label{sec:overview}
+%======================================================================
+\paragraph{Scope.} One compartment of the Autonomous Greenhouse Challenge 2018 (AiCU, Bleiswijk; 96\,m$^2$, Venlo, gutter
+5\,m), cucumber crop transplanted on 14 August 2018, 115 simulated days. All quantities are per m$^2$ of floor.
+
+\paragraph{Two models, offline coupling.}
+\begin{itemize}[nosep]
+\item The \textbf{climate model} is a system of 8 ODEs integrated day by day (Tsit5, 5-min output):
+\begin{equation}
+u=\bigl[\,T_1,\;T_2,\;C_1,\;V_1,\;e_{\rm int},\;T_5,\;T_d,\;T_m\,\bigr],
+\end{equation}
+canopy temperature, air temperature, \ce{CO2} concentration [mg\,m$^{-3}$], vapour pressure [Pa], integral of the heating error,
+floor layer, deep soil and internal mass temperatures [K].
+\item The \textbf{crop model} is a daily step (Section~\ref{sec:crop}) driven by measured climate. Its daily LAI, non-leaf
+respiration and standing fresh mass are inputs of the climate model (\code{test/crop\_series.jl}). The crop does not see
+the simulated climate (live coupling is a planned extension).
+\end{itemize}
+
+\paragraph{Provenance and verification.} The code is GreenhouseSim V2.2 (git tag \code{v2.2-flags-final}) with every flag
+resolved to its n79 value and dead branches removed. \code{test/equivalence\_synthetic.jl} and
+\code{test/equivalence\_n79.jl} compare it with V2.2 run with the n79 flags (Section~\ref{sec:verify}).
+
+\paragraph{Inputs.} Table~\ref{tab:inputs}. Weather and LAI are functions of absolute time; controls and crop inputs of
+time since the season start. All are 5-min step functions.
+\begin{table}[h]\centering\small
+\caption{Model inputs (\code{src/inputs.jl}; AGC-2018 construction in \code{src/agc\_data.jl}).}\label{tab:inputs}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.5\textwidth}}
+\toprule symbol & code & meaning (AiCU source)\\\midrule
+$I_{\rm glob}$ & \code{Iglob} & global radiation outside [W\,m$^{-2}$] (meteo)\\
+$T_{\rm sky}$ & \code{Tsky} & sky temperature from the pyrgeometer [K]\\
+$T_o$, $v$, $V_o$ & \code{Tout, Wind, VPout} & outside temperature, wind speed, vapour pressure\\
+$C_o$, $T_{\rm mc}$ & \code{CO2out, TmechCool} & outside \ce{CO2} 834.7\,mg\,m$^{-3}$; mechanical-cooling surface 273.15\,K\\
+$L$ & \code{LAI} & leaf area index per m$^2$ floor (crop series)\\
+$U_1$, $U_{\rm bl}$ & \code{EnScr, BlackScr} & energy and blackout screen closure\\
+$U_{\rm lee}$, $U_{\rm win}$ & \code{VentLee, VentWind} & leeward, windward roof-vent openings\\
+$U_{10}$ & \code{CO2Valve} & \ce{CO2} valve opening (setpoint rule scaled to the logged daily dosage)\\
+$U_{11}$ & \code{HeatSP} & heating setpoint [K]\\
+$U_{12}$ & \code{Lamps} & lamp fraction\\
+$T_{\rm log}$ & \code{Tpipe} & logged pipe temperature [K] (both circuits folded; no reading $\to T_o+2$)\\
+$R_{\rm crop}$, FW & \code{CropResp, CropFW} & crop respiration at 20\,$^\circ$C [mg\,\ce{CO2}\,m$^{-2}$\,s$^{-1}$]; standing fresh mass [kg\,m$^{-2}$]\\
+$U_{2\ldots7}$, $U_9$ & \code{FanPad}, \code{MechCool}, \code{Heater}, \code{Shade}, \code{SideVent}, \code{ForcedVent}, \code{Fog} & other actuators; zero in the AiCU season\\
+\bottomrule\end{tabular}
+\end{table}
+
+%======================================================================
+\section{Climate model}\label{sec:climate}
+%======================================================================
+\subsection{State equations}
+With $c_{\rm air}=\phi_2\rho_3\alpha_5$ the air heat capacity per m$^2$ floor and $m_{\rm air}$ = \code{air\_cap\_mult},
+\begin{align}
+\alpha_1 L\,\dot T_1 &= r_1 + Q_{lc} + r_6 - h_1 - l_1 - r_7 - r_{14},\label{eq:T1}\\
+m_{\rm air}\,c_{\rm air}\,\dot T_2 &= h_1 + h_2 + h_4 - h_7 - h_{11} - r_{12} - r_{13} - l_2 + Q_{sa} - Q_{af} - Q_{am} + Q_{la},\label{eq:T2}\\
+\phi_2\,\dot C_1 &= o_1 + o_2 + o_3 - A - o_5 + o_R,\label{eq:C1}\\
+\kappa_3\,\dot V_1 &= p_1 + p_2 + p_3 + p_4 - p_5 - p_6 - p_7 - p_8 - p_9 - p_{10},\qquad \kappa_3=\frac{\psi_1\phi_2}{\omega_2T_2},\label{eq:V1}\\
+\dot e_{\rm int} &= \text{(anti-windup integral of } U_{11}-T_2\text{, eq.~\ref{eq:pi})},\\
+C_{\rm soil}\,\dot T_5 &= Q_{af} - Q_{fd} + h_{11} + r_{14} - r_{11} + Q_{fs},\label{eq:T5}\\
+\dot T_d &= (T_5-T_d)/\tau_d,\\
+\bigl(C_m + c_{p,\rm crop}\,\mathrm{FW}\bigr)\,\dot T_m &= Q_{am} + Q_{ms}.\label{eq:Tm}
+\end{align}
+The cover temperature $T_c$ and the screen temperature $T_{\rm scr}=\tfrac12(T_o+T_2)$ are algebraic. Every term is defined
+below with the name it has in \code{model\_terms}.
+
+\subsection{Solar radiation: the energy-conserving column}\label{sec:solar}
+For each band $b$ (PAR $I_P=\eta_2I_{\rm glob}$, NIR $I_N=\eta_3I_{\rm glob}$, $\eta_2+\eta_3=1$) five elements are stacked
+from the sky down: roof, energy screen, blackout screen, canopy, opaque floor. Each layer is symmetric with transmission
+$t$ and reflection $r$:
+\begin{align}
+\text{roof:}\quad & t_r=(1-\eta_1)\tau_1\ (=0.65),\qquad r_r=1-t_r-\eta_1-a_c\ (=0.15),\\
+\text{screen at closure }U:\quad & t=1-U(1-\tau_s),\qquad r=U\rho_s\qquad\text{(Vanthoor 2011, 8.14--8.17)},\\
+\text{canopy:}\quad & t_c=e^{-kL},\qquad r_c=\rho_\infty(1-t_c)\qquad\text{(Vanthoor 8.31--8.32)},
+\end{align}
+with $k=\beta_1$, $\rho_\infty=\rho_1$ (PAR) and $k=\beta_3$, $\rho_\infty=$ \code{rho\_can\_nir} (NIR); floor reflectance
+$\rho_2$ (PAR), $1-\alpha_7$ (NIR); screens: energy $(\tau_s,\rho_s)=(0.75,0.15)$, blackout $(0.02,0.50)$, NIR = PAR
+(provisional). With all repeated reflections (adding method), from the bottom up,
+\begin{align}
+R_4&=r_4+\frac{t_4^2\rho_f}{1-r_4\rho_f},\quad R_j=r_j+\frac{t_j^2R_{j+1}}{1-r_jR_{j+1}}\ (j=3,2,1),\\
+D_2&=\frac{t_1}{1-r_1R_2},\quad D_{j+1}=\frac{t_jD_j}{1-r_jR_{j+1}}\ (j=2,3),\quad D_5=\frac{t_4D_4}{1-r_4\rho_f},\\
+A_1&=(1-t_1-r_1)(1+R_2D_2),\quad A_j=(1-t_j-r_j)(D_j+R_{j+1}D_{j+1}),\quad A_4=(1-t_4-r_4)(D_4+\rho_fD_5),\\
+A_f&=(1-\rho_f)D_5,\qquad R_1+A_1+A_2+A_3+A_4+A_f=1 .
+\end{align}
+Booking [W\,m$^{-2}$]: canopy $r_1=Q_{\rm can}=I_PA_4^P+I_NA_4^N$; floor level $Q_{\rm flr}=I_PA_f^P+I_NA_f^N$, of which the
+floor gets $Q_{fs}=(1-f_m)Q_{\rm flr}$ and the internal mass $Q_{ms}=f_mQ_{\rm flr}$; roof absorption
+$Q_{\rm roof}=\sum_bI_bA_1^b$ splits into structure $Q_{st}=\sum_bI_bA_1^b\min(\eta_1/(1-t_r-r_r),1)$ (to the air) and glass (to the
+cover); screen absorption $Q_{\rm scr}=\sum_bI_b(A_2^b+A_3^b)$ goes \code{scr\_abs\_air} to the air and the rest to the cover:
+\begin{equation}
+Q_{sa}=Q_{st}+s_aQ_{\rm scr},\qquad Q_{\rm cov}=(Q_{\rm roof}-Q_{st})+(1-s_a)Q_{\rm scr},\qquad
+Q_{\rm can}+Q_{\rm flr}+Q_{sa}+Q_{\rm cov}+Q_{\rm out}=I_{\rm glob}.
+\end{equation}
+
+\subsection{Plant light and photosynthesis}\label{sec:photo}
+Stomata and photosynthesis see the PAR on both canopy faces plus lamp PAR:
+\begin{equation}
+\mathrm{PAR}_p = I_PD_4^P + I_P\rho_2D_5^P + P_{\rm lamp}\,\mathrm{clamp}(U_{12},0,1)\qquad[\text{W\,m}^{-2}],
+\end{equation}
+($P_{\rm lamp}$ = \code{lamp\_par\_W}). Canopy assimilation (FvCB, constant effective conductance $g=g_sg_m/(g_s+g_m)$) is
+\begin{equation}
+A = 44010\;\frac{1-e^{-k_pL}}{k_p}\;\min(A_j,A_c,A_p)\quad[\text{mg\,\ce{CO2}\,m}^{-2}\text{s}^{-1}],\qquad k_p=0.7,
+\end{equation}
+evaluated at $T_2$, $C_1$, $\mathrm{PAR}_p$ with:
+\begin{align}
+I&=4.6\times10^{-6}\,\mathrm{PAR}_p,\quad C_i=0.509\times10^{-6}C_1,\quad
+\Gamma^*=\frac{0.5\,O_a}{S_{c/o,25}\exp\bigl(\frac{T-298.15}{T}\frac{E_{Soc}}{298.15R}\bigr)},\\
+J&=\frac{(\alpha I+J_{\max})-\sqrt{(\alpha I+J_{\max})^2-4\theta\alpha IJ_{\max}}}{2\theta},\quad
+V_{c\max}=\frac{V_{c\max,25}\,Q_{10,V}^{0.1(T-298.15)}}{1+e^{0.128(T-315.15)}},\\
+K_C&=K_{C25}Q_{10,KC}^{0.1(T-298.15)},\quad K_O=K_{O25}Q_{10,KO}^{0.1(T-298.15)},\quad R_d=R_{d,25}\,2^{(T_1-298.15)/10},
+\end{align}
+and $A_c$, $A_j$ the smaller roots of
+\begin{align}
+A_c^2-\bigl(V_{c\max}+g(C_i+K_C(1+O_a/K_O))-R_d\bigr)A_c+g\bigl(V_{c\max}(C_i-\Gamma^*)^+-(C_i+K_C(1+O_a/K_O))R_d\bigr)&=0,\\
+A_j^2-\bigl(\tfrac14J-R_d+g(C_i+2\Gamma^*)\bigr)A_j+\tfrac14gJ(C_i-\Gamma^*)^+-g(C_i+2\Gamma^*)R_d&=0,
+\end{align}
+($-R_d$ if the discriminant is negative) and $A_p=1.5V_{c\max}-R_d$.
+
+\subsection{Stomata and transpiration}
+With $q_2=P_s(T_1)$ the saturated vapour pressure at the canopy and the day/night switch
+$q_7=\bigl(1+e^{(\mathrm{PAR}_p-\delta_1)/\gamma_5}\bigr)^{-1}$ ($\approx1$ by day),
+\begin{align}
+q_8&=\delta_5+(\delta_4-\delta_5)q_7,\quad q_9=\delta_7+(\delta_6-\delta_7)q_7,\quad
+q_{10}=\frac{\mathrm{PAR}_p+\delta_2}{\mathrm{PAR}_p+\delta_3},\\
+q_3&=\gamma_4\,q_{10}\,\bigl[1+q_8(C_1T_2/536.4-200)^2\bigr]\bigl[1+q_9(q_2-V_1)^2\bigr]\quad\text{(stomatal resistance, CO}_2\text{ in ppm)},\\
+q_1&=\frac{2\rho_3\alpha_5L}{\gamma\gamma_2(\gamma_3+q_3)}\quad(q_2\ge V_1),\qquad
+q_1=\frac{2\rho_3\alpha_5L}{\gamma\gamma_2\gamma_3}\quad(q_2<V_1,\ \text{dew}),
+\end{align}
+transpiration $p_1=q_1(q_2-V_1)$ [kg\,m$^{-2}$\,s$^{-1}$] and its latent heat $l_1=\gamma_2p_1$.
+
+\subsection{Cover node}\label{sec:cover}
+The cover has no heat capacity. Linearising its long-wave exchange with the crop air and the sky,
+$k_R=4\varepsilon_3\sigma\bigl(\tfrac12(T_2+T_{\rm sky})\bigr)^3$,
+\begin{equation}
+T_c^{(0)}=\frac{k_R(T_2+T_{\rm sky})+h_{\rm out}T_o+Q_{\rm cov}}{2k_R+h_{\rm out}},\qquad
+T_c=T_c^{(0)}+\frac{\gamma_2\,f_{\rm cov}\,6.4\!\times\!10^{-9}\cdot1.7\,|T_2-T_c|^{0.33}\,(V_1-P_s(T_c))^+}{2k_R+h_{\rm out}},
+\end{equation}
+the second equation solved by four fixed-point passes (latent heat of the vapour condensing on the cover warms it), with
+$f_{\rm cov}=1-U_1(1-p_{\rm scr})$ the share of crop air in contact with the cover ($p_{\rm scr}$ = \code{vent\_scr\_perm}).
+
+\subsection{Long-wave radiation}\label{sec:lw}
+With $g_1=0.49(1-e^{-\beta_3L})$, $g_2=1-U_1(1-\tau_3)$, $g_3=\tau_1g_2(1-0.49\pi\gamma_1\phi_1)e^{-\beta_3L}$,
+$F=\varepsilon_3\sigma(T_2^4-T_c^4)$:
+\begin{align}
+r_6&=\alpha_3\varepsilon_1\varepsilon_2\,g_1\,\sigma(T_p^4-T_1^4) &&\text{pipe}\to\text{canopy}\\
+r_7&=\frac{g_1}{0.49}\varepsilon_2\varepsilon_3\,g_2\,\sigma(T_1^4-T_c^4) &&\text{canopy}\to\text{cover}\\
+r_{11}&=\varepsilon_4\,g_3\,\varepsilon_3\sigma(T_5^4-T_c^4) &&\text{floor}\to\text{cover}\\
+r_{12}&=\varepsilon_{\rm scr}\,U_1\tau_2\,F &&\text{energy screen (at air }T)\to\text{cover}\\
+r_{13}&=A_{\rm cov}\,\varepsilon_6\,F &&\text{air}\to\text{cover}\\
+r_{14}&=\varepsilon_4\varepsilon_2(1-0.49\pi\gamma_1\phi_1)\,\sigma(T_1^4-T_5^4) &&\text{canopy}\to\text{floor}
+\end{align}
+
+\subsection{Air exchange}\label{sec:vent}
+Roof vents: the leeward and windward sides are combined into one equivalent opening,
+\begin{align}
+B&=\omega_1\nu_6\frac{T_2-T_o}{T_2+T_o},\quad w=n_3v^2,\quad n_3=\nu_2(1-\eta_{11}U_5),\quad
+\Phi=\tfrac12\Bigl[U_{\rm lee}^{\,e}\sqrt{(B+c_lw)^+}+g_wU_{\rm win}^{\,e}\sqrt{(B+c_ww)^+}\Bigr],\\
+U_8&=\Phi/\sqrt{(B+w)^+}\quad\bigl(\text{if }(B+w)^+>10^{-12};\ \text{else }\tfrac12(U_{\rm lee}^e+g_wU_{\rm win}^e)\bigr),
+\end{align}
+($e,g_w,c_l,c_w$ = \code{vs\_exp, vs\_gwind, vs\_clee, vs\_cwind}). Air exchange rates [m$^3$\,m$^{-2}$\,s$^{-1}$]:
+\begin{align}
+f_7&=\frac{U_8\,f_{\rm scr}\,\nu_5n_1}{2\alpha_6}\sqrt{(B+w)^+},\quad f_{\rm scr}=1-U_1(1-p_{\rm scr}),\quad n_1=\nu_1(1-\eta_{10}U_5) &&\text{roof vents}\\
+f_4&=\eta_6f_7,\qquad f_2=\eta_6U_1f_5,\quad f_5=\frac{n_1\nu_3U_6\,v\sqrt{n_3}}{2\alpha_6} &&\text{roof, side vents}\\
+f_3&=U_7\phi_8/\alpha_6 &&\text{forced ventilation}\\
+f_6&=\nu_4\sqrt{\max(v,0.25)^2+c_s|T_2-T_o|} &&\text{leakage (wind + stack)}
+\end{align}
+The same total $f_2+f_3+f_4+f_6$ carries heat, vapour and \ce{CO2}.
+
+\subsection{Heating}\label{sec:heat}
+Where the logged pipe is warm ($T_{\rm log}>T_2+1$) it is used as is; elsewhere a PI controller requests
+\begin{equation}\label{eq:pi}
+e=U_{11}-T_2,\quad \Delta=K_pe+K_i\max(e_{\rm int},0),\quad T_p=\max\bigl(T_{\rm log},\,T_2+\mathrm{clamp}(\Delta,0,T_{\max}-T_2)\bigr),
+\end{equation}
+and $\dot e_{\rm int}=e$ except when the logged pipe is warm, the request saturates with $e>0$, or $e_{\rm int}\le0$ with $e<0$ (then 0).
+Pipe-to-air convection: $h_4=n_p\,1.99\pi\phi_1\gamma_1|T_p-T_2|^{0.32}(T_p-T_2)$.
+
+\subsection{Lamps}
+The full electrical power $Q_l=P_{\rm el}U_{12}$ is released inside: $Q_{lc}=f_{\rm can}(1-e^{-\beta_1L})Q_l$ to the canopy,
+$Q_{la}=Q_l-Q_{lc}$ to the air ($P_{\rm el}=117$\,W\,m$^{-2}$, $f_{\rm can}$ = \code{lamp\_fcan}).
+
+\subsection{Sensible and latent heat of the air}
+\begin{align}
+h_1&=2\alpha_4L(T_1-T_2) &&\text{canopy}\to\text{air}\\
+h_2&=\frac{U_2\phi_7}{\alpha_6}\bigl(\rho_3\alpha_5T_o-\gamma_2\rho_3\eta_5(\phi_5-\phi_6)\bigr) &&\text{fan-pad}\\
+h_7&=\rho_3\alpha_5(f_2+f_4+f_3+f_6)(T_2-T_o) &&\text{ventilation and leakage}\\
+h_{11}&=2\nu_7(T_2-T_5)/(\phi_2+\nu_8) &&\text{air}\to\text{floor conduction}\\
+Q_{af}&=k_{\rm ground}(T_2-T_5),\quad Q_{am}=h_m(T_2-T_m) &&\text{air}\to\text{floor, mass convection}\\
+l_2&=\gamma_2U_9\phi_9/\alpha_6 &&\text{fog evaporation}
+\end{align}
+
+\subsection{Vapour}
+\begin{align}
+p_2&=\rho_3\frac{U_2\phi_7}{\alpha_6}\bigl(\eta_5(\phi_5-\phi_6)+\phi_6\bigr),\quad p_3=\frac{U_9\phi_9}{\alpha_6},\quad
+p_4=\frac{\eta_{12}U_4\lambda_4}{\alpha_6},\quad p_6=\frac{U_2\phi_7}{\alpha_6}\frac{\psi_1}{\omega_2}\frac{V_1}{T_2},\\
+p_5&=\frac{\psi_1}{\omega_2}\Bigl(\frac{V_1}{T_2}-\frac{V_o}{T_o}\Bigr)(f_2+f_3+f_4+f_6),\qquad
+p_7=U_3\,6.4\!\times\!10^{-9}(V_1-P_s(T_{\rm mc}))^+,\\
+p_8&=6.4\!\times\!10^{-9}\cdot1.7\,U_1|T_2-T_{\rm scr}|^{0.33}(V_1-P_s(T_{\rm scr}))^+ &&\text{screen condensation}\\
+p_9&=6.4\!\times\!10^{-9}\cdot1200\,|T_1-T_2|^{0.33}(V_1-P_s(T_2))^+ &&\text{supersaturated air}\\
+p_{10}&=A_{\rm cov}f_{\rm cov}\,6.4\!\times\!10^{-9}\cdot1.7\,|T_2-T_c|^{0.33}(V_1-P_s(T_c))^+ &&\text{cover condensation}
+\end{align}
+
+\subsection{\ce{CO2}}
+\begin{equation}
+o_1=\frac{\eta_{13}U_4\lambda_4}{\alpha_6},\ o_2=\frac{U_{10}\psi_2}{\alpha_6},\ o_3=\frac{U_2\phi_7}{\alpha_6}(C_1-C_o),\
+o_5=(C_1-C_o)(f_2+f_3+f_4+f_6),\ o_R=R_{\rm crop}\,2^{(T_1-293.15)/10}.
+\end{equation}
+
+\subsection{Floor, deep soil and internal mass}
+$Q_{fd}=k_{\rm deep}(T_5-T_d)$; the floor balance (\ref{eq:T5}) collects air convection and conduction, canopy long-wave,
+its own long-wave loss to the cover and its share of the solar column. The internal mass (structure, slabs, water, standing
+crop) exchanges $Q_{am}$ with the air and absorbs $Q_{ms}$.
+
+\subsection{Psychrometrics}
+$P_s(T)=611.21\exp\bigl[(18.678-\frac{T_c}{234.5})\frac{T_c}{257.14+T_c}\bigr]$ above 0\,$^\circ$C (ice form below),
+$T_c=T-273.15$; $\mathrm{RH}=100V_1/P_s(T_2)$.
+
+%======================================================================
+\section{Crop model: Aaron V\'elez's generic cucumber model with canopy and LAI}\label{sec:crop}
+%======================================================================
+The crop model is the generic dry-matter partitioning model of A.~V\'elez (\code{Generic\_Gh\_Model}: \code{models.py},
+\code{main.tex}), which casts Marcelis (1994, ``M94'') for cucumber into a generic form, plus his canopy extension
+(leaf mass, LAI, retained leaves, pruning). Code: \code{src/crop.jl} (\code{CucumberGeneric}, \code{crop\_step!}) and
+\code{src/crop\_measured.jl}. States are per m$^2$ floor; one stem is one modelled plant ($\rho=3.6$ stems\,m$^{-2}$,
+Hemming et al.\ 2019). Day $k$ (0 = transplant, 14 August), daily mean air temperature $T$ [$^\circ$C].
+
+\subsection{States}
+\begin{center}\small
+\begin{tabular}{lll}\toprule
+symbol & code & meaning\\\midrule
+$W_L$, $W_S$, $W_R$ & \code{W\_leaf, W\_stem, W\_root} & leaf, stem, root dry mass [g\,m$^{-2}$]\\
+$L$ & \code{LAI} & leaf area index\\
+$N_L$ & \code{leaves} & retained leaves per stem\\
+$C_N$ & \code{node} & node counter per stem (fractional progress kept)\\
+$(z_i,W_i,n_i)$ & \code{Fruit(dev, W, n, day\_set)} & fruit cohort: stage, dry mass [g\,m$^{-2}$], number [m$^{-2}$]\\
+$R$ & \code{reserve} & carbohydrate reserve (DM equivalent) [g\,m$^{-2}$]\\
+$Y_{DW}$, $Y_{FW}$ & \code{yield\_DW, yield\_FW} & cumulative harvest [g DM\,m$^{-2}$], [kg FW\,m$^{-2}$]\\
+\bottomrule\end{tabular}
+\end{center}
+
+\subsection{Generic sub-models (M94 in generic form)}
+\begin{align}
+a(T)&=\max(\beta_0+\beta_1T,0)\,f_{\rm PAR},\quad \beta_0=-\beta_1\tfrac{0.75}{0.09},\quad
+f_{\rm PAR}=\frac{1-e^{-0.5-0.5\,\mathrm{PAR}_k}}{1-e^{-0.5-0.5\cdot6.8}} &&\text{nodes stem}^{-1}\text{d}^{-1}\\
+\dot z&=\kappa\max(T-10,0),\qquad \kappa=1/E_{\rm fruit} &&\text{fruit development}\\
+P_i&=n_i\,\max(A_0+A_TT,0)\,\frac{u}{(1+u)^p},\quad u=\frac{e^{-s(\min(z_i,1)-z_{\rm peak})}}{p-1} &&\text{fruit sink [g d}^{-1}\text{m}^{-2}]\\
+P_V&=\rho\max\bigl(V_{20}+V_T(T-20),0\bigr) &&\text{vegetative demand}
+\end{align}
+with $s=0.0170\cdot275$, $p=1+1/0.0111$, $z_{\rm peak}=131/275$, $V_T=0.25$, $\mathrm{PAR}_k$ the day's canopy-top PAR
+[MJ\,m$^{-2}$\,d$^{-1}$]. The sink amplitude is parametrised by the potential fruit dry mass,
+\begin{equation}
+A_T=\frac{W_{\rm pot}\,s\,(p-1)}{E_{\rm fruit}},\quad A_0=-10A_T\quad\Rightarrow\quad\int_0^1P_i\frac{dz}{\dot z}\simeq n_iW_{\rm pot},
+\end{equation}
+so $W_{\rm pot}$ sets the final fruit size and $E_{\rm fruit}$ the duration. A fruit past $z=1$ keeps the sink of $z=1$.
+
+\subsection{Leaf area index}\label{sec:lai}
+LAI is a state driven by leaf mass and leaf events; there is no maximum LAI, no recomputation of the standing area and no
+senescence; all retained leaves share the canopy's mean mass and area.
+\begin{itemize}[nosep]
+\item \emph{Leaf events.} Every completed node adds a leaf: $N_L\leftarrow N_L+\lfloor C_{N,k+1}\rfloor-\lfloor C_{N,k}\rfloor$.
+\item \emph{Area growth.} $\Delta W_L=f_L\Delta W_V$, $\Delta L=S(d_k)\Delta W_L$ with $f_L=0.59$ and the seasonal SLA
+\begin{equation}
+S(d)=10^{-4}\Bigl[266+88\sin\frac{2\pi(d+68)}{365}\Bigr]\ \text{m}^2\,\text{g}^{-1},\qquad d_k=226+k,
+\end{equation}
+(Heuvelink 1999, a tomato regression used provisionally), applied only to new leaf mass.
+\item \emph{Pruning.} If $N_L>N_{\rm target}$: $r=N_{\rm target}/N_L$, $W_L\leftarrow rW_L$, $L\leftarrow rL$,
+$N_L\leftarrow N_{\rm target}$ (removed mass and area to a ledger; non-leaf mass untouched).
+\item \emph{Transplant.} $L_0=0.25$, $C_N=N_0$, $N_L=\lfloor N_0\rfloor$, $W_L=L_0/S(226)$, $W_S+W_R=W_L(1-f_L)/f_L$ split $0.32:0.08$.
+\end{itemize}
+
+\subsection{Daily step}
+\begin{enumerate}[nosep]
+\item \textbf{Supply.} $R_m=Q_{10}^{(T-25)/10}(k_{m,L}W_L+k_{m,S}W_S+k_{m,R}W_R+k_{m,F}\sum_iW_i)$, $B=\max(P_g-R_m,0)/c$, $c=1.4$.
+\item \textbf{Allocation} with reserve: $\Delta W_j=\frac{P_j}{P}\min(B+R,P)$, $P=P_V+\sum_iP_i$, $R\leftarrow B+R-\sum_j\Delta W_j$.
+\item \textbf{Vegetative growth and LAI}: as above; non-leaf mass split stem:root $=0.32:0.08$; $W_i\mathrel{+}=\Delta W_i$.
+\item \textbf{Development and appearance} (before topping, day 104): $z_i\mathrel{+}=\dot z$, $C_N\mathrel{+}=a(T)$; nodes $\ge5$ carry a
+flower; from day 15 the flowers set $n_{\rm new}=n_{\rm fl}\,\rho\,\phi_k\,\mathrm{clamp}\bigl(\frac{B/P-r_{\rm low}}{r_{\rm high}-r_{\rm low}},0,1\bigr)$
+fruits (new cohort at $z=0$, growing from the next day), $\phi_k=1-\text{Pruning}_k/100$ the grower's kept share.
+\item \textbf{Harvest} when $W_i/n_i\ge323\,\mathrm{DMC}_{\rm fruit}$ (observed mean A+B fruit, 323\,g FW) or $z_i\ge3$.
+\item \textbf{Pruning} to $N_{\rm target}$.
+\end{enumerate}
+
+\subsection{Light and photosynthesis of the crop path}
+Gross assimilation $P_g$ [g\,CH$_2$O\,m$^{-2}$\,d$^{-1}$] is the FvCB model of Section~\ref{sec:photo} summed over the 5-min
+samples of the day, at measured air T and \ce{CO2}, with the organisers' canopy-top PAR
+\begin{equation}
+\mathrm{PAR}=\bigl[\mathrm{PAR}_{\rm out}\cdot0.65\,(1-0.98U_{\rm bl})(1-0.25U_1)+187\,U_{12}\bigr]/4.6\quad[\text{W\,m}^{-2}],
+\end{equation}
+multiplied by the both-faces factor $g(L)=(D_4^P+\rho_2D_5^P)/t_r$ of the PAR column with screens retracted, effective leaf
+area $(1-e^{-0.75L})/0.75$ and constant $R_d$.
+
+\subsection{Climate inputs from the crop}
+\code{crop\_series}: $L$; $R_{\rm crop}=\bigl[2^{-0.5}(k_{m,S}W_S+k_{m,R}W_R+k_{m,F}\sum W_i)+(c-1)\Delta DM\bigr]\frac{44}{30}\frac{1000}{86400}$
+(non-leaf maintenance at 20\,$^\circ$C + growth respiration; leaf dark respiration is in the FvCB model);
+$\mathrm{FW}=(W_S/0.06+W_R/0.07+\sum W_i/\mathrm{DMC}_{\rm fruit})/1000$.
+
+
+%======================================================================
+\section{Parameters}\label{sec:params}
+%======================================================================
+{\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}>{\raggedright\arraybackslash}p{0.43\textwidth}}
+\caption{Climate and photosynthesis parameters (\texttt{configfiles/climate\_n79.json}). Inferred parameters: [min, centre, max] of the uniform prior; the centre is the default value.}\label{tab:pclim}\\
+\toprule
+name & value (prior) & units & meaning; source\\
+\midrule\endfirsthead
+\toprule name & value (prior) & units & meaning; source\\ \midrule\endhead
+\multicolumn{4}{l}{\textit{geometry}}\\
+\texttt{alpha3} & 0.3 & m$^{2}$ m$^{-2}$ & pipe surface seen by the canopy (long-wave); V2.0 (audit: geometric 0.16)\\
+\texttt{alpha6} & 10000 & m$^{2}$ & floor area used to express absolute capacities per m$^{2}$ floor; V2.0\\
+\texttt{cover\_area} & 1.6 & m$^{2}$ m$^{-2}$ & exterior cover area per floor area (roof + one side wall); Note 67\\
+\texttt{gamma1} & 1 & m m$^{-2}$ & heating-pipe length per floor area (rail pipe, one circuit); Note 78\\
+\texttt{n\_pipes} & 1 & - & number of heating circuits (crop pipe folded into the rail pipe by the inputs); Note 54/79\\
+\texttt{nu3} & 2352.9 & m$^{2}$ & side-wall vent surface (side vents, input U6); V2.0\\
+\texttt{nu5} & 3000 & m$^{2}$ & roof-vent area (0.30 of the floor, insect nets); Notes 78, 92\\
+\texttt{nu6} & 1 & m & vertical dimension of a roof-vent opening; V2.0\\
+\texttt{nu8} & 0.64 & m & floor-to-ground distance in the air-floor conduction length; V2.0\\
+\texttt{phi1} & 0.051 & m & outer diameter of the heating pipe; V2.0 / Note 78\\
+\texttt{phi2} & 5.4 & m & mean air height (volume per floor area); Note 67 (compartment drawing)\\
+\multicolumn{4}{l}{\textit{constants}}\\
+\texttt{alpha5} & 1005 & J kg$^{-1}$ K$^{-1}$ & specific heat of air; Note 78\\
+\texttt{gamma} & 65.8 & Pa K$^{-1}$ & psychrometric constant; V2.0\\
+\texttt{gamma2} & $2.45\times10^{6}$ & J kg$^{-1}$ & latent heat of evaporation; V2.0\\
+\texttt{omega1} & 9.81 & m s$^{-2}$ & gravity; V2.0\\
+\texttt{omega2} & 8314 & J kmol$^{-1}$ K$^{-1}$ & molar gas constant; V2.0\\
+\texttt{psi1} & 18 & kg kmol$^{-1}$ & molar mass of water; V2.0\\
+\texttt{rho3} & 1.2 & kg m$^{-3}$ & air density; V2.0\\
+\texttt{sigma} & $5.67\times10^{-8}$ & W m$^{-2}$ K$^{-4}$ & Stefan-Boltzmann constant; V2.0\\
+\multicolumn{4}{l}{\textit{air}}\\
+\texttt{air\_cap\_mult} & \textbf{inferred} [1, 3, 12] & - & effective air heat-capacity multiplier (fast masses lumped with the air); n79 prior (Note 78; f\_mass Note 104)\\
+\multicolumn{4}{l}{\textit{canopy}}\\
+\texttt{alpha1} & 1500 & J K$^{-1}$ m$^{-2}$ leaf & canopy heat capacity per leaf area; V2.0\\
+\texttt{alpha4} & 5 & W m$^{-2}$ K$^{-1}$ & leaf-air convective coefficient (per leaf side); Vanthoor 2011\\
+\texttt{beta1} & 0.7 & - & canopy PAR extinction coefficient; V2.0\\
+\texttt{beta3} & 0.27 & - & canopy NIR extinction coefficient (also used for the long-wave terms); V2.0 (audit: K\_FIR 0.94)\\
+\texttt{delta1} & 5 & W m$^{-2}$ & PAR defining day/night for the stomatal resistance; V2.0\\
+\texttt{delta2} & 4.3 & W m$^{-2}$ & stomatal light response parameter; V2.0\\
+\texttt{delta3} & 0.54 & W m$^{-2}$ & stomatal light response parameter; V2.0\\
+\texttt{delta4} & $6.1\times10^{-7}$ & ppm$^{-2}$ & stomatal CO2 response, day; V2.0\\
+\texttt{delta5} & $1.1\times10^{-11}$ & ppm$^{-2}$ & stomatal CO2 response, night; V2.0\\
+\texttt{delta6} & $4.3\times10^{-6}$ & Pa$^{-2}$ & stomatal vapour-pressure response, day; V2.0\\
+\texttt{delta7} & $5.2\times10^{-6}$ & Pa$^{-2}$ & stomatal vapour-pressure response, night; V2.0\\
+\texttt{epsil2} & 1 & - & canopy long-wave emissivity; V2.0\\
+\texttt{gamma3} & 275 & s m$^{-1}$ & canopy boundary-layer resistance to vapour; V2.0\\
+\texttt{gamma4} & \textbf{inferred} [40, 82, 200] & s m$^{-1}$ & minimum stomatal resistance; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{gamma5} & -1 & W m$^{-2}$ & inverse slope of the day/night switch of the stomatal resistance; V2.0\\
+\texttt{k\_lai\_photo} & 0.7 & - & extinction in the effective leaf area (1-exp(-kL))/k of the climate photosynthesis; V2.2 K\_EXT\\
+\texttt{rho1} & 0.07 & - & canopy PAR reflection at high LAI; V2.0\\
+\texttt{rho\_can\_nir} & 0.35 & - & canopy NIR reflection at high LAI; Vanthoor 2011 / Note 103\\
+\multicolumn{4}{l}{\textit{photosynthesis}}\\
+\texttt{E\_Soc} & -24460 & J mol$^{-1}$ & activation energy of Sco; V2.0\\
+\texttt{J\_max} & $2\times10^{-4}$ & mol m$^{-2}$ s$^{-1}$ & maximum electron transport rate (climate model; the crop calibration infers its own); V2.0\\
+\texttt{K\_C25} & $3\times10^{-4}$ & mol m$^{-3}$ & Michaelis constant for CO2 at 25 C; V2.0\\
+\texttt{K\_O25} & 0.3 & mol m$^{-3}$ & Michaelis constant for O2 at 25 C; V2.0\\
+\texttt{O\_a} & 0.21 & mol m$^{-3}$ & O2 concentration; V2.0\\
+\texttt{Q10\_KC} & 2.1 & - & Q10 of K\_C; V2.0\\
+\texttt{Q10\_KO} & 1.2 & - & Q10 of K\_O; V2.0\\
+\texttt{Q10\_Vcmax} & 2.4 & - & Q10 of Vcmax; V2.0\\
+\texttt{Rd\_day} & $1\times10^{-6}$ & mol m$^{-2}$ s$^{-1}$ & leaf dark respiration at 25 C (x Q10 2 on canopy T); V2.0 / Note 86\\
+\texttt{Rgas} & 8.31447 & J mol$^{-1}$ K$^{-1}$ & gas constant; V2.0\\
+\texttt{Sco25} & 2800 & - & Rubisco CO2/O2 specificity at 25 C; V2.0\\
+\texttt{V\_cmax25} & $1.5\times10^{-4}$ & mol m$^{-2}$ s$^{-1}$ & maximum carboxylation rate at 25 C; V2.0\\
+\texttt{alpha} & 0.35 & - & quantum efficiency of electron transport; V2.0\\
+\texttt{g\_m} & 0.25 & mol m$^{-2}$ s$^{-1}$ & mesophyll conductance in the constant effective conductance; Bush 2023 (V2.0)\\
+\texttt{g\_s} & 0.3 & mol m$^{-2}$ s$^{-1}$ & stomatal conductance in the constant effective conductance; Bush 2023 (V2.0)\\
+\texttt{theta} & 0.7 & - & curvature of the light response; V2.0\\
+\multicolumn{4}{l}{\textit{floor}}\\
+\texttt{C\_soil} & \textbf{inferred} [$1.5\times10^{5}$, $6\times10^{5}$, $2\times10^{6}$] & J m$^{-2}$ K$^{-1}$ & heat capacity of the active floor layer; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{alpha7} & 0.5 & - & floor NIR absorption (reflection 1 - alpha7); V2.0\\
+\texttt{epsil4} & 1 & - & floor long-wave emissivity; V2.0\\
+\texttt{k\_deep} & \textbf{inferred} [0.5, 1.5, 3] & W m$^{-2}$ K$^{-1}$ & floor to deep-soil conductance; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{k\_ground} & \textbf{inferred} [1, 8, 40] & W m$^{-2}$ K$^{-1}$ & air-floor convective conductance; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{nu7} & 0.85 & W m$^{-1}$ K$^{-1}$ & soil conductivity in the air-floor conduction h11; V2.0\\
+\texttt{rho2} & 0.65 & - & floor PAR reflection; V2.0\\
+\texttt{sd\_tau} & $1.2096\times10^{6}$ & s & time constant of the deep-soil temperature; Note 47\\
+\multicolumn{4}{l}{\textit{mass}}\\
+\texttt{C\_mass} & \textbf{inferred} [20000, 50000, $1.2\times10^{5}$] & J m$^{-2}$ K$^{-1}$ & heat capacity of the internal mass (structure, slabs, water); n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{crop\_cp} & 3800 & J kg$^{-1}$ K$^{-1}$ & specific heat of fresh plant tissue; Note 91\\
+\texttt{f\_mass} & \textbf{inferred} [0, 0.3, 1] & - & share of the floor-level solar absorbed by the internal mass; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{h\_mass} & \textbf{inferred} [1, 5, 40] & W m$^{-2}$ K$^{-1}$ & air-internal mass heat-transfer coefficient; n79 prior (Note 78; f\_mass Note 104)\\
+\multicolumn{4}{l}{\textit{cover}}\\
+\texttt{cov\_abs} & 0.1 & - & share of the global radiation absorbed by the glass (booked to the cover); Note 46\\
+\texttt{epsil3} & 1 & - & sky/cover long-wave emissivity; V2.0\\
+\texttt{epsil6} & 0.44 & - & cover long-wave emissivity (air-cover term r13); V2.0\\
+\texttt{eta1} & 0.1 & - & share of the global radiation absorbed by the structure (booked to the air); V2.0\\
+\texttt{eta2} & 0.5 & - & PAR share of the global radiation; V2.0\\
+\texttt{eta3} & 0.5 & - & NIR share of the global radiation; V2.0\\
+\texttt{h\_cover\_out} & \textbf{inferred} [10, 25, 50] & W m$^{-2}$ K$^{-1}$ & cover-outside convective coefficient; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{tau1} & 0.722222 & - & cover PAR transmission; (1-eta1) tau1 = 0.65 roof transmission; Note 78 (organisers 0.60-0.70)\\
+\texttt{tau2} & 1 & - & cover long-wave transmission in the screen term r12; V2.0\\
+\multicolumn{4}{l}{\textit{screens}}\\
+\texttt{eps\_screen} & 0.4 & - & energy-screen long-wave emissivity (upper face, r12); V2.2\\
+\texttt{scr\_abs\_air} & 0.5 & - & share of screen-absorbed solar released to the crop air (rest to the cover); Note 101 (PROVISIONAL)\\
+\texttt{scr\_bl\_rho\_nir} & 0.5 & - & blackout screen NIR reflection (PROVISIONAL, = PAR); Note 101\\
+\texttt{scr\_bl\_rho\_par} & 0.5 & - & blackout screen PAR reflection (PROVISIONAL, assumed); Note 101\\
+\texttt{scr\_bl\_tau\_nir} & 0.02 & - & blackout screen NIR transmission (PROVISIONAL, = PAR); Note 101\\
+\texttt{scr\_bl\_tau\_par} & 0.02 & - & blackout screen PAR transmission at full closure (PROVISIONAL); organisers 98 \% interception\\
+\texttt{scr\_es\_rho\_nir} & 0.15 & - & energy screen NIR reflection (PROVISIONAL, = PAR); Note 101\\
+\texttt{scr\_es\_rho\_par} & 0.15 & - & energy screen PAR reflection (PROVISIONAL, assumed); Note 101\\
+\texttt{scr\_es\_tau\_nir} & 0.75 & - & energy screen NIR transmission (PROVISIONAL, = PAR); Note 101\\
+\texttt{scr\_es\_tau\_par} & 0.75 & - & energy screen PAR transmission at full closure (PROVISIONAL); organisers 25 \% interception\\
+\texttt{tau3} & 0.11 & - & energy-screen long-wave transmission; V2.0\\
+\multicolumn{4}{l}{\textit{heating}}\\
+\texttt{epsil1} & 0.88 & - & pipe long-wave emissivity; V2.0\\
+\texttt{hc\_Ki} & 0.00555556 & s$^{-1}$ & PI heating controller integral gain (tau\_i 30 min); Note 34\\
+\texttt{hc\_Kp} & 10 & K K$^{-1}$ & PI heating controller proportional gain; Note 34\\
+\texttt{hc\_Tmax} & 338.15 & K & maximum pipe temperature (65 C); Note 33\\
+\multicolumn{4}{l}{\textit{ventilation}}\\
+\texttt{eta10} & 0 & - & shading effect on the discharge coefficient; V2.0\\
+\texttt{eta11} & 0 & - & shading effect on the wind-pressure coefficient; V2.0\\
+\texttt{eta6} & 0.551 & - & ventilation reduction factor (Vanthoor 8.70, zeta 0.33); V2.0\\
+\texttt{leak\_cs} & \textbf{inferred} [0, 0.3, 1] & m$^{2}$ s$^{-2}$ K$^{-1}$ & stack (temperature-difference) term of the leakage; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{nu1} & \textbf{inferred} [0.3, 0.65, 1] & - & roof-vent discharge coefficient; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{nu2} & \textbf{inferred} [0.005, 0.05, 0.3] & - & roof-vent wind-pressure coefficient; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{nu4} & \textbf{inferred} [$1\times10^{-5}$, $4.5\times10^{-5}$, $1\times10^{-4}$] & m s$^{-1}$ per m s$^{-1}$ & leakage coefficient; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{vent\_scr\_perm} & \textbf{inferred} [0, 0.4, 1] & - & share of roof ventilation and cover contact reaching the crop air through a closed energy screen; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{vs\_clee} & 1 & - & leeward wind-pressure multiplier; Note 58\\
+\texttt{vs\_cwind} & \textbf{inferred} [0.5, 1, 10] & - & windward wind-pressure multiplier; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{vs\_exp} & \textbf{inferred} [0.5, 0.9, 1.2] & - & curvature of opening -> flow; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{vs\_gwind} & \textbf{inferred} [0.5, 1.5, 4] & - & windward discharge multiplier relative to leeward; n79 prior (Note 78; f\_mass Note 104)\\
+\multicolumn{4}{l}{\textit{lamps}}\\
+\texttt{lamp\_Pel} & 117 & W m$^{-2}$ & lamp electrical power at 100 \% (187 umol / 1.6 umol J$^{-1}$); Note 90\\
+\texttt{lamp\_fcan} & \textbf{inferred} [0.05, 0.3, 0.9] & - & share of lamp power absorbed by a closed canopy; n79 prior (Note 78; f\_mass Note 104)\\
+\texttt{lamp\_par\_W} & 40.65 & W m$^{-2}$ & lamp PAR at the canopy at 100 \% (187 umol / 4.6); Note 71\\
+\multicolumn{4}{l}{\textit{actuators}}\\
+\texttt{eta12} & $4.43\times10^{-8}$ & kg J$^{-1}$ & vapour released per J of direct-heater heat (U4); V2.0\\
+\texttt{eta13} & 0.057 & mg J$^{-1}$ & CO2 released per J of direct-heater heat (U4); V2.0\\
+\texttt{eta5} & 0.5 & - & fan-pad efficiency (U2); V2.0\\
+\texttt{lamb4} & $5\times10^{5}$ & W & direct air heater capacity (U4); V2.0\\
+\texttt{phi5} & 0.014 & kg kg$^{-1}$ & vapour content of fan-pad air (U2); V2.0\\
+\texttt{phi6} & 0.0079 & kg kg$^{-1}$ & vapour content of outside air for the fan-pad (U2); V2.0\\
+\texttt{phi7} & 16.7 & m$^{3}$ s$^{-1}$ & fan-pad air flow capacity (U2); V2.0\\
+\texttt{phi8} & 666.6 & m$^{3}$ s$^{-1}$ & forced-ventilation capacity (U7); V2.0\\
+\texttt{phi9} & 0.916 & kg s$^{-1}$ & fog capacity (U9); V2.0\\
+\texttt{psi2} & 35556 & mg s$^{-1}$ & CO2 valve capacity (12.8 g m$^{-2}$ h$^{-1}$ x alpha6); Note 78\\
+\multicolumn{4}{l}{\textit{noise}}\\
+\texttt{sigma\_C} & \textbf{inferred} [10, 60, 400] & mg m$^{-3}$ & likelihood noise; n79 prior\\
+\texttt{sigma\_RH} & \textbf{inferred} [0.5, 6, 25] & \% & likelihood noise; n79 prior\\
+\texttt{sigma\_T} & \textbf{inferred} [0.2, 1.5, 6] & K & likelihood noise; n79 prior\\
+\bottomrule
+\end{longtable}}
+
+{\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}>{\raggedright\arraybackslash}p{0.43\textwidth}}
+\caption{Crop parameters (\texttt{configfiles/crop\_n105.json}).}\label{tab:pcrop}\\
+\toprule
+name & value (prior) & units & meaning; source\\
+\midrule\endfirsthead
+\toprule name & value (prior) & units & meaning; source\\ \midrule\endhead
+\multicolumn{4}{l}{\textit{M94}}\\
+\texttt{E\_fruit} & \textbf{inferred} [150, 275, 450] & C d & fruit duration (degree-days above 10 C); n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{V20} & \textbf{inferred} [1, 3.2, 8] & g DM stem$^{-1}$ d$^{-1}$ & vegetative demand at 20 C; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{VT} & 0.25 & g DM stem$^{-1}$ d$^{-1}$ C$^{-1}$ & temperature slope of vegetative demand; Marcelis 1994\\
+\texttt{W\_pot} & \textbf{inferred} [20, 60.7, 120] & g DM fruit$^{-1}$ & potential fruit dry mass; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{app\_base} & 8.33333 & C & base temperature of node appearance (beta0 = -beta1 x 0.75/0.09); Marcelis 1994\\
+\texttt{app\_beta1} & \textbf{inferred} [0.05, 0.0882, 0.13] & nodes stem$^{-1}$ d$^{-1}$ C$^{-1}$ & node (flower) appearance slope; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{dev\_base} & 10 & C & base temperature of fruit development and of the sink amplitude; Marcelis 1994\\
+\texttt{par\_ref} & 6.8 & MJ m$^{-2}$ d$^{-1}$ & PAR at which M94 fitted the appearance rate; Marcelis 1994\\
+\texttt{sink\_p} & 91.0901 & - & fruit sink exponent p = 1 + 1/0.0111; Marcelis 1994 via Aaron\\
+\texttt{sink\_peak} & 0.476364 & - & stage of peak sink = 131/275; Marcelis 1994 via Aaron\\
+\texttt{sink\_s} & 4.675 & - & fruit sink shape s = 0.0170 x 275; Marcelis 1994 via Aaron\\
+\multicolumn{4}{l}{\textit{canopy}}\\
+\texttt{LAI0} & 0.25 & m$^{2}$ m$^{-2}$ & LAI at transplant (assumed); Note 94\\
+\texttt{frac\_root} & 0.08 & - & root weight in the stem:root split; V2.2\\
+\texttt{frac\_stem} & 0.32 & - & stem weight in the stem:root split; V2.2\\
+\texttt{gen\_N0} & \textbf{inferred} [2, 4, 8] & nodes & nodes at transplant; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{gen\_doy0} & 226 & day of year & transplant day (14 Aug); Note 94\\
+\texttt{gen\_fL} & 0.59 & - & leaf share of vegetative growth; Aaron (Note 94)\\
+\texttt{gen\_leaf\_target} & \textbf{inferred} [20, 25, 30] & leaves stem$^{-1}$ & retained-leaf target (pruning); n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{sla\_amp} & 88 & cm2 g$^{-1}$ & seasonal SLA amplitude; Heuvelink 1999 eq. 3\\
+\texttt{sla\_mean} & 266 & cm2 g$^{-1}$ & seasonal SLA mean; Heuvelink 1999 eq. 3\\
+\texttt{sla\_phase} & 68 & d & seasonal SLA phase; Heuvelink 1999 eq. 3\\
+\texttt{stem\_density} & 3.6 & stems m$^{-2}$ & stem density (one stem = one modelled plant); Hemming et al. 2019 (Note 92)\\
+\multicolumn{4}{l}{\textit{architecture}}\\
+\texttt{gen\_flower\_node} & 5 & node & first node with a flower; Aaron (Note 94)\\
+\texttt{set\_start\_day} & 15 & d & first day with fruit set; Note 66\\
+\texttt{top\_day} & 104 & d & topping: no node appearance after this day; V2.2\\
+\multicolumn{4}{l}{\textit{respiration}}\\
+\texttt{Q10\_resp} & 2 & - & Q10 of maintenance; V2.2\\
+\texttt{asrq} & 1.4 & g CH2O g$^{-1}$ DM & construction cost; Aaron (1.4)\\
+\texttt{k\_m\_fruit} & \textbf{inferred} [0.003, 0.01, 0.02] & g g$^{-1}$ d$^{-1}$ & fruit maintenance at 25 C; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{k\_m\_leaf} & \textbf{inferred} [0.01, 0.03, 0.06] & g g$^{-1}$ d$^{-1}$ & leaf maintenance at 25 C; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{k\_m\_root} & 0.01 & g g$^{-1}$ d$^{-1}$ & root maintenance at 25 C; V2.2\\
+\texttt{k\_m\_stem} & \textbf{inferred} [0.005, 0.015, 0.03] & g g$^{-1}$ d$^{-1}$ & stem maintenance at 25 C; n94/n105 prior (Notes 74, 94, 98)\\
+\multicolumn{4}{l}{\textit{fruit set}}\\
+\texttt{set\_r\_high} & \textbf{inferred} [0.2, 1, 2.5] & - & source/sink ratio with full fruit set; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{set\_r\_low} & \textbf{inferred} [0, 0.3, 1] & - & source/sink ratio with no fruit set; n94/n105 prior (Notes 74, 94, 98)\\
+\multicolumn{4}{l}{\textit{quality}}\\
+\texttt{DMC\_fruit} & \textbf{inferred} [0.025, 0.035, 0.045] & - & fruit dry-matter content; n94/n105 prior (Notes 74, 94, 98)\\
+\multicolumn{4}{l}{\textit{harvest}}\\
+\texttt{harvest\_FW} & 323 & g FW & picking size (observed mean A+B fruit); Note 92\\
+\multicolumn{4}{l}{\textit{photosynthesis}}\\
+\texttt{J\_max} & \textbf{inferred} [$1\times10^{-4}$, $2\times10^{-4}$, $3.5\times10^{-4}$] & mol m$^{-2}$ s$^{-1}$ & maximum electron transport rate (crop path); n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{k\_ext} & 0.75 & - & extinction in the effective leaf area of the crop path; V2.2 (climate uses 0.7)\\
+\multicolumn{4}{l}{\textit{light}}\\
+\texttt{lamp\_umol} & 187 & umol m$^{-2}$ s$^{-1}$ & lamp PAR at 100 \%; AGC ReadMe\\
+\texttt{transmission} & 0.65 & - & greenhouse PAR transmission in the measured-light formula; Note 78\\
+\multicolumn{4}{l}{\textit{series}}\\
+\texttt{dmc\_root} & 0.07 & - & root dry-matter content (standing fresh mass); Note 91 (assumed)\\
+\texttt{dmc\_stem} & 0.06 & - & stem dry-matter content (standing fresh mass); Note 91 (assumed)\\
+\multicolumn{4}{l}{\textit{noise}}\\
+\texttt{sigma\_fd} & \textbf{inferred} [0.5, 3, 15] & - & likelihood noise; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{sigma\_leaf} & \textbf{inferred} [0.5, 3, 20] & - & likelihood noise; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{sigma\_n} & \textbf{inferred} [0.3, 3, 20] & - & likelihood noise; n94/n105 prior (Notes 74, 94, 98)\\
+\texttt{sigma\_y} & \textbf{inferred} [0.02, 0.3, 3] & - & likelihood noise; n94/n105 prior (Notes 74, 94, 98)\\
+\bottomrule
+\end{longtable}}
+
+
+%======================================================================
+\section{Parameter inference}\label{sec:inference}
+%======================================================================
+Both calibrations use the t-walk sampler, uniform priors (Tables~\ref{tab:pclim}, \ref{tab:pcrop}), a Gaussian likelihood
+with inferred noise per observable,
+\begin{equation}
+U(\theta,\sigma)=\sum_k\Bigl[n_k\log\sigma_k+\frac{\mathrm{SSE}_k(\theta)}{2\sigma_k^2}\Bigr],
+\end{equation}
+two or more seeds, split-$\hat R$ and an explicit burn-in.
+\begin{itemize}[nosep]
+\item \textbf{Crop} (\code{test/calibrate\_crop.jl}): 13 parameters + 4 noise terms; observations weekly yield, weekly
+harvested fruit number, leaves per stem, fruit development time; driver measured climate.
+\item \textbf{Climate} (\code{test/calibrate\_climate.jl}): 18 parameters + 3 noise terms; 7-day blocks with a spin-up day and the
+measured initial state; TRAIN days 7--13, 28--34, 63--69, 91--97, 110--114; VAL 42--48, 77--83; TEST the rest; observations
+hourly means of air T and RH and dark-hour \ce{CO2}; vents, pipe, screens, lamps and \ce{CO2} valve are logged inputs.
+\end{itemize}
+\paragraph{What to infer and what to fix.} Measurable or documented quantities are fixed (geometry, materials, actuator
+capacities, crop counts and dates); missing values of this kind are questions for the organisers or data sheets. Only
+coefficients of approximate sub-models are inferred. No bias or measurement-offset terms. As the physics becomes more
+descriptive, effective parameters should be retired: $h_{\rm out}\to2.8+1.2v$ with a conserving cover node;
+\code{air\_cap\_mult} $\to$ explicit fast masses; \code{lamp\_fcan} $\to$ lamp spectrum through the column;
+\code{vent\_scr\_perm} $\to$ screen permeability in a top compartment.
+
+
+%======================================================================
+\section{Known structural gaps}\label{sec:gaps}
+%======================================================================
+These are properties of the equations above (read-only audit of 21 October 2026 and the project notes); they are the
+starting list for the physics work.
+\begin{enumerate}[nosep]
+\item \textbf{Cover node not conserving.} The node of Section~\ref{sec:cover} balances $k_R(T_2-T_c)$ only; it does not
+receive $r_7$, $r_{11}$, $r_{12}$, $r_{13}$ nor pipe radiation (40\,W\,m$^{-2}$ residual on a test night). $r_{11}$ contains the PAR
+transmission $\tau_1$. The node is not scaled by the cover area while $r_{13}$ is.
+\item \textbf{No top compartment.} The screen sits at $\tfrac12(T_o+T_2)$ for condensation and at $T_2$ in $r_{12}$; $r_{13}$ has
+no screen factor; cover condensation draws on the crop air (through $f_{\rm cov}$). Geometry: screen $\approx4.5$\,m, ridge
+$\approx5.8$\,m, $\approx0.9$\,m$^3$\,m$^{-2}$ above the screen.
+\item \textbf{Long-wave network against LAI.} $r_{14}$ has no canopy fraction; $\beta_3$ (NIR) is used for long-wave instead of
+$K_{\rm FIR}=0.94$; pipes radiate only to the canopy ($\alpha_3=0.3$ vs geometric 0.16), no pipe--floor, pipe--cover terms.
+\item \textbf{Lamps.} At $f_{\rm can}=0.3$, $L=2.3$ the canopy heat (28.1\,W\,m$^{-2}$) is below the absorbed lamp PAR (34.3); no
+lamp light reaches the floor.
+\item \textbf{Inherited V2.0 forms}: side-vent flow scaled by the energy screen ($f_2=\eta_6U_1f_5$); air--floor conduction length
+uses the air height ($\phi_2+\nu_8$); mechanical cooling removes vapour but no heat; $h_2$ fan-pad form. Zero input in AiCU
+except $h_{11}$.
+\item \textbf{Fit at the prior centre} (V2.2 smoke 4): air $\approx1.2$\,K too cold (day $-1.6$, night $-1.0$), RH $\approx-10\,\%$.
+\item \textbf{Photosynthesis}: big leaf; $J_{\max}$ of the climate model (JSON) differs from the crop posterior; $k=0.7$ (climate) vs
+0.75 (crop path); constant $R_d$ in the crop path.
+\item \textbf{Crop}: no fruit abortion (fruit number 107 vs 116 observed); SLA from tomato; bimodal fruit size/duration posterior.
+\item \textbf{Provisional optics}: screen reflectances and long-wave properties, NIR = PAR for the screens, $\rho_\infty^{\rm NIR}$,
+\code{scr\_abs\_air}.
+\item \textbf{Coupling}: crop $\to$ climate only, offline.
+\item \textbf{Numerical noise of the likelihood} (Section~\ref{sec:verify}): at reltol $10^{-4}$ the energy changes by up to $\sim$60
+units for a $10^{-14}$ relative change of one parameter. Smoothing the switches (heating, clamps, condensation onsets),
+stopping the solver at input steps, or a tighter tolerance are needed before long MCMC runs.
+\end{enumerate}
+
+
+%======================================================================
+\section{Verification}\label{sec:verify}
+%======================================================================
+The code was obtained from GreenhouseSim V2.2 (git tag \code{v2.2-flags-final}) by resolving every flag to its n79 value
+(\code{PRIORS=n79}, \code{SOLARC=1}, \code{PIPE2=1}, \code{CO2NIGHT=1}) and the crop to the n105 set-up, and deleting the
+branches not taken. Four checks support the claim that the code is n79 and that this document is the code:
+\begin{enumerate}[nosep]
+\item \code{tools/audit.py}: no flag name or \code{hasproperty(p, ...)} switch is left in \code{src/}; every parameter the code
+reads is in the JSON files and every JSON key is read.
+\item \code{test/equivalence\_synthetic.jl} (no data): V2.2 with the n79 flags and GreenhouseTwin on the same synthetic
+inputs: \code{rhs!} at 5000 random states and times (relative difference $<10^{-10}$), 3-day trajectories, solar fluxes, and the
+crop over 116 synthetic days.
+\item \code{test/equivalence\_n79.jl} (AGC data): both codes build their inputs independently from the AGC files (compared
+array by array), parameters, \code{rhs!} at random states, TRAIN blocks, likelihood energies at the prior centre and at a
+jittered point, the full season, the solar budget, the crop at the n105 prior centre, timing and allocations.
+\item Term dump: \code{test/dump\_terms.jl} writes every term of \code{model\_terms} at test states; \code{tools/check\_tex.py}
+evaluates the equations of Section~\ref{sec:climate} written in Python from this document and compares.
+\end{enumerate}
+\paragraph{Results (21 October 2026, Julia 1.10).} Audit: pass. Synthetic: 35/35. Document against code (\code{check\_tex.py},
+400 states, 60 terms): largest relative difference $2\times10^{-14}$; this check found and corrected a sign error in the FvCB
+quadratics of an earlier draft of Section~\ref{sec:photo}. AGC data: all 20 input arrays and 112 shared parameters identical;
+\code{rhs!} derivatives within $3\times10^{-16}$ relative; solar fluxes and crop series identical (crop to $10^{-14}$);
+\code{rhs!} 1.7\,$\mu$s against 2.3\,$\mu$s for V2.2, no allocations.
+
+\paragraph{Numerical noise of the trajectories and of the likelihood.} Because the right-hand side is discontinuous in
+time (5-min step inputs) and in state (heating switch $T_{\rm log}>T_2+1$, PI clamp, $\max$/$\min$, condensation onsets),
+the adaptive solver turns rounding-level differences into finite differences of the solution. V2.2 compared with itself
+after scaling one parameter by $1+10^{-14}$:
+\begin{center}\small
+\begin{tabular}{lccc}\toprule
+reltol & TRAIN-block $T_2$ difference & energy sd (10 perturbations) & energy range\\\midrule
+$10^{-4}$ (calibration default) & 0.39\,K & 13--24 & 37--62\\
+$10^{-6}$ & -- & 0.36--0.64 & 1.0--2.1\\
+$10^{-8}$ & \multicolumn{3}{c}{a block solve fails (both codes)}\\\bottomrule
+\end{tabular}
+\end{center}
+At $10^{-6}$ the mean energies of V2.2 and this code agree to 0.11 (of 6945) at the prior centre; at a jittered point a difference of 0.55 at $10^{-6}$ shrinks to $0.035\pm0.036$ at $10^{-7}$, i.e.\ it is integration error, not a model difference. Trajectory and energy checks are therefore
+made against this noise floor, not against fixed tolerances. For calibration the noise at $10^{-4}$ is of the order of the
+energy differences the sampler uses; see Section~\ref{sec:gaps}.
+
+The few V2.2 terms that were booked and then cancelled (lamp NIR on the canopy, V2.0 lamp heat on the air, floor
+long-wave first taken from the air and then returned) are booked once here, so the results agree to rounding rather
+than bit for bit.
+
+\begin{center}\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.3\textwidth}>{\raggedright\arraybackslash}p{0.62\textwidth}}
+\caption{Where each part of this document is in the code.}\\\toprule
+document & code\\\midrule
+state equations (\ref{eq:T1})--(\ref{eq:Tm}) & \code{model\_terms}, end of each block; \code{rhs!} (\code{src/climate.jl})\\
+solar column & \code{solar\_column}, \code{column4}, \code{canopy\_layer}, \code{roof\_props} (\code{src/solar.jl})\\
+plant light, FvCB & \code{PARp}, \code{assimilation}, \code{lai\_eff} (\code{src/photosynthesis.jl})\\
+stomata & \code{q2}--\code{q10}, \code{q1}\\
+cover node & \code{cover\_temperature}\\
+long-wave & \code{r6}, \code{r7}, \code{r11}--\code{r14}\\
+air exchange & \code{U8}, \code{f2}--\code{f7}\\
+heating & \code{e}, \code{dmd}, \code{Tp}, \code{deint}, \code{h4}\\
+lamps & \code{Ql}, \code{Qlc}, \code{Qla}\\
+air heat, vapour, \ce{CO2} & \code{h1}--\code{h11}, \code{l1}, \code{l2}, \code{p1}--\code{p10}, \code{o1}--\code{oR}\\
+floor, deep soil, mass & \code{Qaf}, \code{Qfd}, \code{Qfs}, \code{Qam}, \code{Qms}, \code{Cm}\\
+inputs & \code{src/inputs.jl}, \code{src/agc\_data.jl}\\
+crop sub-models & \code{node\_appearance}, \code{development\_rate}, \code{fruit\_sink}, \code{vegetative\_demand}, \code{cucumber\_generic} (\code{src/crop.jl})\\
+LAI, daily step & \code{seasonal\_sla}, \code{crop\_step!}, \code{init\_crop\_state}\\
+crop light, series & \code{daily\_assimilation\_measured}, \code{load\_measured\_climate\_par}, \code{crop\_series} (\code{src/crop\_measured.jl})\\
+likelihoods & \code{climate\_energy} (\code{src/climate\_calibration.jl}), \code{crop\_energy}\\
+\bottomrule
+\end{longtable}
+\end{center}
+
+
+\end{document}
