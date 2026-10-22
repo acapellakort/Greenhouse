@@ -153,7 +153,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     # --- cover node and long-wave radiation ------------------------------------------------------------------------
     T_scr = 0.5 * (Tout + T2)                                                # screen temperature (algebraic)
     g1  = 0.49 * (1 - exp(-k_fir * L))                                    # LW; k_fir=0.94 replaces NIR beta3
-    g2  = 1 - U1 * (1 - tau3)
+    g2  = (1 - Ubl) * (1 - U1 * (1 - tau3))    # Ubl: OBSCURA 9950 FR W tau_LW=0 blocks all LW; tau3: LUXOUS LW transmission
     g3  = g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-k_fir * L)   # LW floor→cover; k_fir replaces NIR beta3
     Tc, fcov = cover_temperature(T1, T2, T5, Tsky, Tout, so.Qcov, V1, U1, p, g1, g2, g3, T_scr)
     SkyFIR = epsil3 * sigma * (T2^4 - Tc^4)
