@@ -16,8 +16,10 @@ function simdays(p::NamedTuple, season, days, u0, reltol;
     u = copy(u0); col = 2
     for d in days
         ctx = SimContext(p, season.weather, season.controls, season.t0 + 86400.0 * d, 86400.0 * d)
+        ts  = collect(0.0:300.0:86400.0)   # stop at every 5-min input-step boundary
         sol = try
-            solve(ODEProblem(rhs!, u, tspan, ctx), Tsit5(); saveat = teval, reltol = reltol)
+            solve(ODEProblem(rhs!, u, tspan, ctx), Tsit5(); saveat = collect(teval),
+                  tstops = ts, reltol = reltol)
         catch
             return nothing
         end

@@ -75,7 +75,7 @@ end
 z = values of CLIMATE_QOI followed by sigma_T, sigma_RH, sigma_C; p0 = base parameters (load_params of
 climate_n79.json); S = load_agc_season(...); blocks = climate_blocks(S).
 """
-function climate_energy(z, p0, S, blocks; rtol = 1e-4)
+function climate_energy(z, p0, S, blocks; rtol = 1e-6)
     nm = length(CLIMATE_QOI)
     p = update_params(p0, CLIMATE_QOI, z[1:nm])
     sT = 0.0; sR = 0.0; sC = 0.0
@@ -103,7 +103,7 @@ end
 Simulate the whole season from S.u0 and compare with the observations on the 5-min grid: air T (RMSE, bias, night,
 day), vapour pressure bias (day, night, hPa), RH bias and CO2 RMSE / bias, per day set. Day: Iglob > 50 W m-2; night: < 1.
 """
-function season_eval(p, S; rtol = 1e-4)
+function season_eval(p, S; rtol = 1e-6)
     days = collect(0.0:(S.ndays - 1))
     us = simdays(p, S, days, S.u0, rtol); us === nothing && error("full-season solve failed")
     A(v) = StepFun(S.ts, v)
