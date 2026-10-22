@@ -1,1059 +1,1059 @@
 {
- "alpha6": {
-  "val": 10000.0,
-  "units": "m2",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "floor area used to express absolute capacities per m2 floor",
-  "source": "V2.0"
- },
- "phi2": {
-  "val": 5.4,
-  "units": "m",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "mean air height (volume per floor area)",
-  "source": "Note 67 (compartment drawing)"
- },
- "cover_area": {
-  "val": 1.6,
-  "units": "m2 m-2",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "exterior cover area per floor area (roof + one side wall)",
-  "source": "Note 67"
- },
- "nu5": {
-  "val": 3000.0,
-  "units": "m2",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "roof-vent area (0.30 of the floor, insect nets)",
-  "source": "Notes 78, 92"
- },
- "nu6": {
-  "val": 1.0,
-  "units": "m",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "vertical dimension of a roof-vent opening",
-  "source": "V2.0"
- },
- "nu3": {
-  "val": 2352.9,
-  "units": "m2",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "side-wall vent surface (side vents, input U6)",
-  "source": "V2.0"
- },
- "gamma1": {
-  "val": 1.0,
-  "units": "m m-2",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "heating-pipe length per floor area (rail pipe, one circuit)",
-  "source": "Note 78"
- },
- "phi1": {
-  "val": 0.051,
-  "units": "m",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "outer diameter of the heating pipe",
-  "source": "V2.0 / Note 78"
- },
- "n_pipes": {
-  "val": 1.0,
-  "units": "-",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "number of heating circuits (crop pipe folded into the rail pipe by the inputs)",
-  "source": "Note 54/79"
- },
- "alpha3": {
-  "val": 0.3,
-  "units": "m2 m-2",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "pipe surface seen by the canopy (long-wave)",
-  "source": "V2.0 (audit: geometric 0.16)"
- },
- "nu8": {
-  "val": 0.64,
-  "units": "m",
-  "group": "geometry",
-  "status": "fixed",
-  "desc": "floor-to-ground distance in the air-floor conduction length",
-  "source": "V2.0"
- },
- "alpha5": {
-  "val": 1005.0,
-  "units": "J kg-1 K-1",
-  "group": "constants",
-  "status": "fixed",
-  "desc": "specific heat of air",
-  "source": "Note 78"
- },
- "rho3": {
-  "val": 1.2,
-  "units": "kg m-3",
-  "group": "constants",
-  "status": "fixed",
-  "desc": "air density",
-  "source": "V2.0"
- },
- "gamma": {
-  "val": 65.8,
-  "units": "Pa K-1",
-  "group": "constants",
-  "status": "fixed",
-  "desc": "psychrometric constant",
-  "source": "V2.0"
- },
- "gamma2": {
-  "val": 2450000.0,
-  "units": "J kg-1",
-  "group": "constants",
-  "status": "fixed",
-  "desc": "latent heat of evaporation",
-  "source": "V2.0"
- },
- "sigma": {
-  "val": 5.67e-08,
-  "units": "W m-2 K-4",
-  "group": "constants",
-  "status": "fixed",
-  "desc": "Stefan-Boltzmann constant",
-  "source": "V2.0"
- },
- "omega1": {
-  "val": 9.81,
-  "units": "m s-2",
-  "group": "constants",
-  "status": "fixed",
-  "desc": "gravity",
-  "source": "V2.0"
- },
- "omega2": {
-  "val": 8314.0,
-  "units": "J kmol-1 K-1",
-  "group": "constants",
-  "status": "fixed",
-  "desc": "molar gas constant",
-  "source": "V2.0"
- },
- "psi1": {
-  "val": 18.0,
-  "units": "kg kmol-1",
-  "group": "constants",
-  "status": "fixed",
-  "desc": "molar mass of water",
-  "source": "V2.0"
- },
- "alpha1": {
-  "val": 1500.0,
-  "units": "J K-1 m-2 leaf",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "canopy heat capacity per leaf area",
-  "source": "V2.0"
- },
- "alpha4": {
-  "val": 5.0,
-  "units": "W m-2 K-1",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "leaf-air convective coefficient (per leaf side)",
-  "source": "Vanthoor 2011"
- },
- "gamma3": {
-  "val": 275.0,
-  "units": "s m-1",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "canopy boundary-layer resistance to vapour",
-  "source": "V2.0"
- },
- "gamma5": {
-  "val": -1.0,
-  "units": "W m-2",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "inverse slope of the day/night switch of the stomatal resistance",
-  "source": "V2.0"
- },
- "delta1": {
-  "val": 5.0,
-  "units": "W m-2",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "PAR defining day/night for the stomatal resistance",
-  "source": "V2.0"
- },
- "delta2": {
-  "val": 4.3,
-  "units": "W m-2",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "stomatal light response parameter",
-  "source": "V2.0"
- },
- "delta3": {
-  "val": 0.54,
-  "units": "W m-2",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "stomatal light response parameter",
-  "source": "V2.0"
- },
- "delta4": {
-  "val": 6.1e-07,
-  "units": "ppm-2",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "stomatal CO2 response, day",
-  "source": "V2.0"
- },
- "delta5": {
-  "val": 1.1e-11,
-  "units": "ppm-2",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "stomatal CO2 response, night",
-  "source": "V2.0"
- },
- "delta6": {
-  "val": 4.3e-06,
-  "units": "Pa-2",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "stomatal vapour-pressure response, day",
-  "source": "V2.0"
- },
- "delta7": {
-  "val": 5.2e-06,
-  "units": "Pa-2",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "stomatal vapour-pressure response, night",
-  "source": "V2.0"
- },
- "beta1": {
-  "val": 0.7,
-  "units": "-",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "canopy PAR extinction coefficient",
-  "source": "V2.0"
- },
- "beta3": {
-  "val": 0.27,
-  "units": "-",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "canopy NIR extinction coefficient (also used for the long-wave terms)",
-  "source": "V2.0 (audit: K_FIR 0.94)"
- },
- "k_fir": {
-  "val": 0.94,
-  "units": "-",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "canopy long-wave (FIR/thermal) extinction coefficient; replaces NIR beta3 in all long-wave paths",
-  "source": "Vanthoor 2011 (Table 1)"
- },
- "rho1": {
-  "val": 0.07,
-  "units": "-",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "canopy PAR reflection at high LAI",
-  "source": "V2.0"
- },
- "rho_can_nir": {
-  "val": 0.35,
-  "units": "-",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "canopy NIR reflection at high LAI",
-  "source": "Vanthoor 2011 / Note 103"
- },
- "epsil2": {
-  "val": 1.0,
-  "units": "-",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "canopy long-wave emissivity",
-  "source": "V2.0"
- },
- "k_lai_photo": {
-  "val": 0.7,
-  "units": "-",
-  "group": "canopy",
-  "status": "fixed",
-  "desc": "extinction in the effective leaf area (1-exp(-kL))/k of the climate photosynthesis",
-  "source": "V2.2 K_EXT"
- },
- "rho2": {
-  "val": 0.65,
-  "units": "-",
-  "group": "floor",
-  "status": "fixed",
-  "desc": "floor PAR reflection",
-  "source": "V2.0"
- },
- "alpha7": {
-  "val": 0.5,
-  "units": "-",
-  "group": "floor",
-  "status": "fixed",
-  "desc": "floor NIR absorption (reflection 1 - alpha7)",
-  "source": "V2.0"
- },
- "epsil4": {
-  "val": 1.0,
-  "units": "-",
-  "group": "floor",
-  "status": "fixed",
-  "desc": "floor long-wave emissivity",
-  "source": "V2.0"
- },
- "nu7": {
-  "val": 0.85,
-  "units": "W m-1 K-1",
-  "group": "floor",
-  "status": "fixed",
-  "desc": "soil conductivity in the air-floor conduction h11",
-  "source": "V2.0"
- },
- "sd_tau": {
-  "val": 1209600.0,
-  "units": "s",
-  "group": "floor",
-  "status": "fixed",
-  "desc": "time constant of the deep-soil temperature",
-  "source": "Note 47"
- },
- "tau1": {
-  "val": 0.7222222222222222,
-  "units": "-",
-  "group": "cover",
-  "status": "fixed",
-  "desc": "cover PAR transmission; (1-eta1) tau1 = 0.65 roof transmission",
-  "source": "Note 78 (organisers 0.60-0.70)"
- },
- "eta1": {
-  "val": 0.1,
-  "units": "-",
-  "group": "cover",
-  "status": "fixed",
-  "desc": "share of the global radiation absorbed by the structure (booked to the air)",
-  "source": "V2.0"
- },
- "eta2": {
-  "val": 0.5,
-  "units": "-",
-  "group": "cover",
-  "status": "fixed",
-  "desc": "PAR share of the global radiation",
-  "source": "V2.0"
- },
- "eta3": {
-  "val": 0.5,
-  "units": "-",
-  "group": "cover",
-  "status": "fixed",
-  "desc": "NIR share of the global radiation",
-  "source": "V2.0"
- },
- "cov_abs": {
-  "val": 0.1,
-  "units": "-",
-  "group": "cover",
-  "status": "fixed",
-  "desc": "share of the global radiation absorbed by the glass (booked to the cover)",
-  "source": "Note 46"
- },
- "epsil3": {
-  "val": 1.0,
-  "units": "-",
-  "group": "cover",
-  "status": "fixed",
-  "desc": "sky/cover long-wave emissivity",
-  "source": "V2.0"
- },
- "epsil6": {
-  "val": 0.44,
-  "units": "-",
-  "group": "cover",
-  "status": "fixed",
-  "desc": "cover long-wave emissivity (air-cover term r13)",
-  "source": "V2.0"
- },
- "tau2": {
-  "val": 1.0,
-  "units": "-",
-  "group": "cover",
-  "status": "fixed",
-  "desc": "cover long-wave transmission in the screen term r12",
-  "source": "V2.0"
- },
- "tau3": {
-  "val": 0.11,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "energy-screen long-wave transmission",
-  "source": "V2.0"
- },
- "eps_screen": {
-  "val": 0.4,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "energy-screen long-wave emissivity (upper face, r12)",
-  "source": "V2.2"
- },
- "scr_es_tau_par": {
-  "val": 0.75,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "energy screen PAR transmission at full closure (PROVISIONAL)",
-  "source": "organisers 25 % interception"
- },
- "scr_es_rho_par": {
-  "val": 0.15,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "energy screen PAR reflection (PROVISIONAL, assumed)",
-  "source": "Note 101"
- },
- "scr_es_tau_nir": {
-  "val": 0.75,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "energy screen NIR transmission (PROVISIONAL, = PAR)",
-  "source": "Note 101"
- },
- "scr_es_rho_nir": {
-  "val": 0.15,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "energy screen NIR reflection (PROVISIONAL, = PAR)",
-  "source": "Note 101"
- },
- "scr_bl_tau_par": {
-  "val": 0.02,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "blackout screen PAR transmission at full closure (PROVISIONAL)",
-  "source": "organisers 98 % interception"
- },
- "scr_bl_rho_par": {
-  "val": 0.5,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "blackout screen PAR reflection (PROVISIONAL, assumed)",
-  "source": "Note 101"
- },
- "scr_bl_tau_nir": {
-  "val": 0.02,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "blackout screen NIR transmission (PROVISIONAL, = PAR)",
-  "source": "Note 101"
- },
- "scr_bl_rho_nir": {
-  "val": 0.5,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "blackout screen NIR reflection (PROVISIONAL, = PAR)",
-  "source": "Note 101"
- },
- "scr_abs_air": {
-  "val": 0.5,
-  "units": "-",
-  "group": "screens",
-  "status": "fixed",
-  "desc": "share of screen-absorbed solar released to the crop air (rest to the cover)",
-  "source": "Note 101 (PROVISIONAL)"
- },
- "epsil1": {
-  "val": 0.88,
-  "units": "-",
-  "group": "heating",
-  "status": "fixed",
-  "desc": "pipe long-wave emissivity",
-  "source": "V2.0"
- },
- "hc_Kp": {
-  "val": 10.0,
-  "units": "K K-1",
-  "group": "heating",
-  "status": "fixed",
-  "desc": "PI heating controller proportional gain",
-  "source": "Note 34"
- },
- "hc_Ki": {
-  "val": 0.005555555555555556,
-  "units": "s-1",
-  "group": "heating",
-  "status": "fixed",
-  "desc": "PI heating controller integral gain (tau_i 30 min)",
-  "source": "Note 34"
- },
- "hc_Tmax": {
-  "val": 338.15,
-  "units": "K",
-  "group": "heating",
-  "status": "fixed",
-  "desc": "maximum pipe temperature (65 C)",
-  "source": "Note 33"
- },
- "eta6": {
-  "val": 0.551,
-  "units": "-",
-  "group": "ventilation",
-  "status": "fixed",
-  "desc": "ventilation reduction factor (Vanthoor 8.70, zeta 0.33)",
-  "source": "V2.0"
- },
- "eta10": {
-  "val": 0.0,
-  "units": "-",
-  "group": "ventilation",
-  "status": "fixed",
-  "desc": "shading effect on the discharge coefficient",
-  "source": "V2.0"
- },
- "eta11": {
-  "val": 0.0,
-  "units": "-",
-  "group": "ventilation",
-  "status": "fixed",
-  "desc": "shading effect on the wind-pressure coefficient",
-  "source": "V2.0"
- },
- "vs_clee": {
-  "val": 1.0,
-  "units": "-",
-  "group": "ventilation",
-  "status": "fixed",
-  "desc": "leeward wind-pressure multiplier",
-  "source": "Note 58"
- },
- "eta5": {
-  "val": 0.5,
-  "units": "-",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "fan-pad efficiency (U2)",
-  "source": "V2.0"
- },
- "phi5": {
-  "val": 0.014,
-  "units": "kg kg-1",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "vapour content of fan-pad air (U2)",
-  "source": "V2.0"
- },
- "phi6": {
-  "val": 0.0079,
-  "units": "kg kg-1",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "vapour content of outside air for the fan-pad (U2)",
-  "source": "V2.0"
- },
- "phi7": {
-  "val": 16.7,
-  "units": "m3 s-1",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "fan-pad air flow capacity (U2)",
-  "source": "V2.0"
- },
- "phi8": {
-  "val": 666.6,
-  "units": "m3 s-1",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "forced-ventilation capacity (U7)",
-  "source": "V2.0"
- },
- "phi9": {
-  "val": 0.916,
-  "units": "kg s-1",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "fog capacity (U9)",
-  "source": "V2.0"
- },
- "lamb4": {
-  "val": 500000.0,
-  "units": "W",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "direct air heater capacity (U4)",
-  "source": "V2.0"
- },
- "eta12": {
-  "val": 4.43e-08,
-  "units": "kg J-1",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "vapour released per J of direct-heater heat (U4)",
-  "source": "V2.0"
- },
- "eta13": {
-  "val": 0.057,
-  "units": "mg J-1",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "CO2 released per J of direct-heater heat (U4)",
-  "source": "V2.0"
- },
- "psi2": {
-  "val": 35556.0,
-  "units": "mg s-1",
-  "group": "actuators",
-  "status": "fixed",
-  "desc": "CO2 valve capacity (12.8 g m-2 h-1 x alpha6)",
-  "source": "Note 78"
- },
- "crop_cp": {
-  "val": 3800.0,
-  "units": "J kg-1 K-1",
-  "group": "mass",
-  "status": "fixed",
-  "desc": "specific heat of fresh plant tissue",
-  "source": "Note 91"
- },
- "lamp_Pel": {
-  "val": 117.0,
-  "units": "W m-2",
-  "group": "lamps",
-  "status": "fixed",
-  "desc": "lamp electrical power at 100 % (187 umol / 1.6 umol J-1)",
-  "source": "Note 90"
- },
- "lamp_par_W": {
-  "val": 40.65,
-  "units": "W m-2",
-  "group": "lamps",
-  "status": "fixed",
-  "desc": "lamp PAR at the canopy at 100 % (187 umol / 4.6)",
-  "source": "Note 71"
- },
- "O_a": {
-  "val": 0.21,
-  "units": "mol m-3",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "O2 concentration",
-  "source": "V2.0"
- },
- "Sco25": {
-  "val": 2800.0,
-  "units": "-",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "Rubisco CO2/O2 specificity at 25 C",
-  "source": "V2.0"
- },
- "E_Soc": {
-  "val": -24460.0,
-  "units": "J mol-1",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "activation energy of Sco",
-  "source": "V2.0"
- },
- "Rgas": {
-  "val": 8.314472,
-  "units": "J mol-1 K-1",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "gas constant",
-  "source": "V2.0"
- },
- "alpha": {
-  "val": 0.35,
-  "units": "-",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "quantum efficiency of electron transport",
-  "source": "V2.0"
- },
- "J_max": {
-  "val": 0.0002,
-  "units": "mol m-2 s-1",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "maximum electron transport rate (climate model; the crop calibration infers its own)",
-  "source": "V2.0"
- },
- "theta": {
-  "val": 0.7,
-  "units": "-",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "curvature of the light response",
-  "source": "V2.0"
- },
- "V_cmax25": {
-  "val": 0.00015,
-  "units": "mol m-2 s-1",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "maximum carboxylation rate at 25 C",
-  "source": "V2.0"
- },
- "Q10_Vcmax": {
-  "val": 2.4,
-  "units": "-",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "Q10 of Vcmax",
-  "source": "V2.0"
- },
- "K_C25": {
-  "val": 0.0003,
-  "units": "mol m-3",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "Michaelis constant for CO2 at 25 C",
-  "source": "V2.0"
- },
- "Q10_KC": {
-  "val": 2.1,
-  "units": "-",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "Q10 of K_C",
-  "source": "V2.0"
- },
- "K_O25": {
-  "val": 0.3,
-  "units": "mol m-3",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "Michaelis constant for O2 at 25 C",
-  "source": "V2.0"
- },
- "Q10_KO": {
-  "val": 1.2,
-  "units": "-",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "Q10 of K_O",
-  "source": "V2.0"
- },
- "Rd_day": {
-  "val": 1e-06,
-  "units": "mol m-2 s-1",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "leaf dark respiration at 25 C (x Q10 2 on canopy T)",
-  "source": "V2.0 / Note 86"
- },
- "g_s": {
-  "val": 0.3,
-  "units": "mol m-2 s-1",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "stomatal conductance in the constant effective conductance",
-  "source": "Bush 2023 (V2.0)"
- },
- "g_m": {
-  "val": 0.25,
-  "units": "mol m-2 s-1",
-  "group": "photosynthesis",
-  "status": "fixed",
-  "desc": "mesophyll conductance in the constant effective conductance",
-  "source": "Bush 2023 (V2.0)"
- },
- "gamma4": {
-  "val": 82.0,
-  "units": "s m-1",
-  "group": "canopy",
-  "status": "inferred",
-  "prior": [
-   40.0,
-   82.0,
-   200.0
-  ],
-  "desc": "minimum stomatal resistance",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "vent_scr_perm": {
-  "val": 0.4,
-  "units": "-",
-  "group": "ventilation",
-  "status": "inferred",
-  "prior": [
-   0.0,
-   0.4,
-   1.0
-  ],
-  "desc": "share of roof ventilation and cover contact reaching the crop air through a closed energy screen",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "k_ground": {
-  "val": 8.0,
-  "units": "W m-2 K-1",
-  "group": "floor",
-  "status": "inferred",
-  "prior": [
-   1.0,
-   8.0,
-   40.0
-  ],
-  "desc": "air-floor convective conductance",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "nu1": {
-  "val": 0.65,
-  "units": "-",
-  "group": "ventilation",
-  "status": "inferred",
-  "prior": [
-   0.3,
-   0.65,
-   1.0
-  ],
-  "desc": "roof-vent discharge coefficient",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "nu2": {
-  "val": 0.05,
-  "units": "-",
-  "group": "ventilation",
-  "status": "inferred",
-  "prior": [
-   0.005,
-   0.05,
-   0.3
-  ],
-  "desc": "roof-vent wind-pressure coefficient",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "C_soil": {
-  "val": 600000.0,
-  "units": "J m-2 K-1",
-  "group": "floor",
-  "status": "inferred",
-  "prior": [
-   150000.0,
-   600000.0,
-   2000000.0
-  ],
-  "desc": "heat capacity of the active floor layer",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "k_deep": {
-  "val": 1.5,
-  "units": "W m-2 K-1",
-  "group": "floor",
-  "status": "inferred",
-  "prior": [
-   0.5,
-   1.5,
-   3.0
-  ],
-  "desc": "floor to deep-soil conductance",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "C_mass": {
-  "val": 50000.0,
-  "units": "J m-2 K-1",
-  "group": "mass",
-  "status": "inferred",
-  "prior": [
-   20000.0,
-   50000.0,
-   120000.0
-  ],
-  "desc": "heat capacity of the internal mass (structure, slabs, water)",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "h_mass": {
-  "val": 5.0,
-  "units": "W m-2 K-1",
-  "group": "mass",
-  "status": "inferred",
-  "prior": [
-   1.0,
-   5.0,
-   40.0
-  ],
-  "desc": "air-internal mass heat-transfer coefficient",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "f_mass": {
-  "val": 0.3,
-  "units": "-",
-  "group": "mass",
-  "status": "inferred",
-  "prior": [
-   0.0,
-   0.3,
-   1.0
-  ],
-  "desc": "share of the floor-level solar absorbed by the internal mass",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "lamp_fcan": {
-  "val": 0.3,
-  "units": "-",
-  "group": "lamps",
-  "status": "inferred",
-  "prior": [
-   0.05,
-   0.3,
-   0.9
-  ],
-  "desc": "fraction of non-PAR lamp power (NIR + thermal) absorbed by a closed canopy; canopy heat = (lamp_par_W + lamp_fcan*(lamp_Pel - lamp_par_W))*(1-exp(-beta1*L))*U12",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "vs_gwind": {
-  "val": 1.5,
-  "units": "-",
-  "group": "ventilation",
-  "status": "inferred",
-  "prior": [
-   0.5,
-   1.5,
-   4.0
-  ],
-  "desc": "windward discharge multiplier relative to leeward",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "vs_cwind": {
-  "val": 1.0,
-  "units": "-",
-  "group": "ventilation",
-  "status": "inferred",
-  "prior": [
-   0.5,
-   1.0,
-   10.0
-  ],
-  "desc": "windward wind-pressure multiplier",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "vs_exp": {
-  "val": 0.9,
-  "units": "-",
-  "group": "ventilation",
-  "status": "inferred",
-  "prior": [
-   0.5,
-   0.9,
-   1.2
-  ],
-  "desc": "curvature of opening -> flow",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "nu4": {
-  "val": 4.5e-05,
-  "units": "m s-1 per m s-1",
-  "group": "ventilation",
-  "status": "inferred",
-  "prior": [
-   1e-05,
-   4.5e-05,
-   0.0001
-  ],
-  "desc": "leakage coefficient",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "h_cover_out": {
-  "val": 25.0,
-  "units": "W m-2 K-1",
-  "group": "cover",
-  "status": "inferred",
-  "prior": [
-   10.0,
-   25.0,
-   50.0
-  ],
-  "desc": "cover-outside convective coefficient",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "air_cap_mult": {
-  "val": 3.0,
-  "units": "-",
-  "group": "air",
-  "status": "inferred",
-  "prior": [
-   1.0,
-   3.0,
-   12.0
-  ],
-  "desc": "effective air heat-capacity multiplier (fast masses lumped with the air)",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "leak_cs": {
-  "val": 0.3,
-  "units": "m2 s-2 K-1",
-  "group": "ventilation",
-  "status": "inferred",
-  "prior": [
-   0.0,
-   0.3,
-   1.0
-  ],
-  "desc": "stack (temperature-difference) term of the leakage",
-  "source": "n79 prior (Note 78; f_mass Note 104)"
- },
- "sigma_T": {
-  "val": 1.5,
-  "units": "K",
-  "group": "noise",
-  "status": "inferred",
-  "prior": [
-   0.2,
-   1.5,
-   6.0
-  ],
-  "desc": "likelihood noise",
-  "source": "n79 prior"
- },
- "sigma_RH": {
-  "val": 6.0,
-  "units": "%",
-  "group": "noise",
-  "status": "inferred",
-  "prior": [
-   0.5,
-   6.0,
-   25.0
-  ],
-  "desc": "likelihood noise",
-  "source": "n79 prior"
- },
- "sigma_C": {
-  "val": 60.0,
-  "units": "mg m-3",
-  "group": "noise",
-  "status": "inferred",
-  "prior": [
-   10.0,
-   60.0,
-   400.0
-  ],
-  "desc": "likelihood noise",
-  "source": "n79 prior"
- }
+  "alpha6": {
+    "val": 10000.0,
+    "units": "m2",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "floor area used to express absolute capacities per m2 floor",
+    "source": "V2.0"
+  },
+  "phi2": {
+    "val": 5.4,
+    "units": "m",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "mean air height (volume per floor area)",
+    "source": "Note 67 (compartment drawing)"
+  },
+  "cover_area": {
+    "val": 1.6,
+    "units": "m2 m-2",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "exterior cover area per floor area (roof + one side wall)",
+    "source": "Note 67"
+  },
+  "nu5": {
+    "val": 3000.0,
+    "units": "m2",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "roof-vent area (0.30 of the floor, insect nets)",
+    "source": "Notes 78, 92"
+  },
+  "nu6": {
+    "val": 1.0,
+    "units": "m",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "vertical dimension of a roof-vent opening",
+    "source": "V2.0"
+  },
+  "nu3": {
+    "val": 2352.9,
+    "units": "m2",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "side-wall vent surface (side vents, input U6)",
+    "source": "V2.0"
+  },
+  "gamma1": {
+    "val": 1.0,
+    "units": "m m-2",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "heating-pipe length per floor area (rail pipe, one circuit)",
+    "source": "Note 78"
+  },
+  "phi1": {
+    "val": 0.051,
+    "units": "m",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "outer diameter of the heating pipe",
+    "source": "V2.0 / Note 78"
+  },
+  "n_pipes": {
+    "val": 1.0,
+    "units": "-",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "number of heating circuits (crop pipe folded into the rail pipe by the inputs)",
+    "source": "Note 54/79"
+  },
+  "alpha3": {
+    "val": 0.3,
+    "units": "m2 m-2",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "pipe surface seen by the canopy (long-wave)",
+    "source": "V2.0 (audit: geometric 0.16)"
+  },
+  "nu8": {
+    "val": 0.64,
+    "units": "m",
+    "group": "geometry",
+    "status": "fixed",
+    "desc": "floor-to-ground distance in the air-floor conduction length",
+    "source": "V2.0"
+  },
+  "alpha5": {
+    "val": 1005.0,
+    "units": "J kg-1 K-1",
+    "group": "constants",
+    "status": "fixed",
+    "desc": "specific heat of air",
+    "source": "Note 78"
+  },
+  "rho3": {
+    "val": 1.2,
+    "units": "kg m-3",
+    "group": "constants",
+    "status": "fixed",
+    "desc": "air density",
+    "source": "V2.0"
+  },
+  "gamma": {
+    "val": 65.8,
+    "units": "Pa K-1",
+    "group": "constants",
+    "status": "fixed",
+    "desc": "psychrometric constant",
+    "source": "V2.0"
+  },
+  "gamma2": {
+    "val": 2450000.0,
+    "units": "J kg-1",
+    "group": "constants",
+    "status": "fixed",
+    "desc": "latent heat of evaporation",
+    "source": "V2.0"
+  },
+  "sigma": {
+    "val": 5.67e-08,
+    "units": "W m-2 K-4",
+    "group": "constants",
+    "status": "fixed",
+    "desc": "Stefan-Boltzmann constant",
+    "source": "V2.0"
+  },
+  "omega1": {
+    "val": 9.81,
+    "units": "m s-2",
+    "group": "constants",
+    "status": "fixed",
+    "desc": "gravity",
+    "source": "V2.0"
+  },
+  "omega2": {
+    "val": 8314.0,
+    "units": "J kmol-1 K-1",
+    "group": "constants",
+    "status": "fixed",
+    "desc": "molar gas constant",
+    "source": "V2.0"
+  },
+  "psi1": {
+    "val": 18.0,
+    "units": "kg kmol-1",
+    "group": "constants",
+    "status": "fixed",
+    "desc": "molar mass of water",
+    "source": "V2.0"
+  },
+  "alpha1": {
+    "val": 1500.0,
+    "units": "J K-1 m-2 leaf",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "canopy heat capacity per leaf area",
+    "source": "V2.0"
+  },
+  "alpha4": {
+    "val": 5.0,
+    "units": "W m-2 K-1",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "leaf-air convective coefficient (per leaf side)",
+    "source": "Vanthoor 2011"
+  },
+  "gamma3": {
+    "val": 275.0,
+    "units": "s m-1",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "canopy boundary-layer resistance to vapour",
+    "source": "V2.0"
+  },
+  "gamma5": {
+    "val": -1.0,
+    "units": "W m-2",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "inverse slope of the day/night switch of the stomatal resistance",
+    "source": "V2.0"
+  },
+  "delta1": {
+    "val": 5.0,
+    "units": "W m-2",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "PAR defining day/night for the stomatal resistance",
+    "source": "V2.0"
+  },
+  "delta2": {
+    "val": 4.3,
+    "units": "W m-2",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "stomatal light response parameter",
+    "source": "V2.0"
+  },
+  "delta3": {
+    "val": 0.54,
+    "units": "W m-2",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "stomatal light response parameter",
+    "source": "V2.0"
+  },
+  "delta4": {
+    "val": 6.1e-07,
+    "units": "ppm-2",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "stomatal CO2 response, day",
+    "source": "V2.0"
+  },
+  "delta5": {
+    "val": 1.1e-11,
+    "units": "ppm-2",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "stomatal CO2 response, night",
+    "source": "V2.0"
+  },
+  "delta6": {
+    "val": 4.3e-06,
+    "units": "Pa-2",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "stomatal vapour-pressure response, day",
+    "source": "V2.0"
+  },
+  "delta7": {
+    "val": 5.2e-06,
+    "units": "Pa-2",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "stomatal vapour-pressure response, night",
+    "source": "V2.0"
+  },
+  "beta1": {
+    "val": 0.7,
+    "units": "-",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "canopy PAR extinction coefficient",
+    "source": "V2.0"
+  },
+  "beta3": {
+    "val": 0.27,
+    "units": "-",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "canopy NIR extinction coefficient (also used for the long-wave terms)",
+    "source": "V2.0 (audit: K_FIR 0.94)"
+  },
+  "k_fir": {
+    "val": 0.94,
+    "units": "-",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "canopy long-wave (FIR/thermal) extinction coefficient; replaces NIR beta3 in all long-wave paths",
+    "source": "Vanthoor 2011 (Table 1)"
+  },
+  "rho1": {
+    "val": 0.07,
+    "units": "-",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "canopy PAR reflection at high LAI",
+    "source": "V2.0"
+  },
+  "rho_can_nir": {
+    "val": 0.35,
+    "units": "-",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "canopy NIR reflection at high LAI",
+    "source": "Vanthoor 2011 / Note 103"
+  },
+  "epsil2": {
+    "val": 1.0,
+    "units": "-",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "canopy long-wave emissivity",
+    "source": "V2.0"
+  },
+  "k_lai_photo": {
+    "val": 0.7,
+    "units": "-",
+    "group": "canopy",
+    "status": "fixed",
+    "desc": "extinction in the effective leaf area (1-exp(-kL))/k of the climate photosynthesis",
+    "source": "V2.2 K_EXT"
+  },
+  "rho2": {
+    "val": 0.65,
+    "units": "-",
+    "group": "floor",
+    "status": "fixed",
+    "desc": "floor PAR reflection",
+    "source": "V2.0"
+  },
+  "alpha7": {
+    "val": 0.5,
+    "units": "-",
+    "group": "floor",
+    "status": "fixed",
+    "desc": "floor NIR absorption (reflection 1 - alpha7)",
+    "source": "V2.0"
+  },
+  "epsil4": {
+    "val": 1.0,
+    "units": "-",
+    "group": "floor",
+    "status": "fixed",
+    "desc": "floor long-wave emissivity",
+    "source": "V2.0"
+  },
+  "nu7": {
+    "val": 0.85,
+    "units": "W m-1 K-1",
+    "group": "floor",
+    "status": "fixed",
+    "desc": "soil conductivity in the air-floor conduction h11",
+    "source": "V2.0"
+  },
+  "sd_tau": {
+    "val": 1209600.0,
+    "units": "s",
+    "group": "floor",
+    "status": "fixed",
+    "desc": "time constant of the deep-soil temperature",
+    "source": "Note 47"
+  },
+  "tau1": {
+    "val": 0.7222222222222222,
+    "units": "-",
+    "group": "cover",
+    "status": "fixed",
+    "desc": "cover PAR transmission; (1-eta1) tau1 = 0.65 roof transmission",
+    "source": "Note 78 (organisers 0.60-0.70)"
+  },
+  "eta1": {
+    "val": 0.1,
+    "units": "-",
+    "group": "cover",
+    "status": "fixed",
+    "desc": "share of the global radiation absorbed by the structure (booked to the air)",
+    "source": "V2.0"
+  },
+  "eta2": {
+    "val": 0.5,
+    "units": "-",
+    "group": "cover",
+    "status": "fixed",
+    "desc": "PAR share of the global radiation",
+    "source": "V2.0"
+  },
+  "eta3": {
+    "val": 0.5,
+    "units": "-",
+    "group": "cover",
+    "status": "fixed",
+    "desc": "NIR share of the global radiation",
+    "source": "V2.0"
+  },
+  "cov_abs": {
+    "val": 0.1,
+    "units": "-",
+    "group": "cover",
+    "status": "fixed",
+    "desc": "share of the global radiation absorbed by the glass (booked to the cover)",
+    "source": "Note 46"
+  },
+  "epsil3": {
+    "val": 1.0,
+    "units": "-",
+    "group": "cover",
+    "status": "fixed",
+    "desc": "sky/cover long-wave emissivity",
+    "source": "V2.0"
+  },
+  "epsil6": {
+    "val": 0.44,
+    "units": "-",
+    "group": "cover",
+    "status": "fixed",
+    "desc": "cover long-wave emissivity (air-cover term r13)",
+    "source": "V2.0"
+  },
+  "tau2": {
+    "val": 1.0,
+    "units": "-",
+    "group": "cover",
+    "status": "fixed",
+    "desc": "cover long-wave transmission in the screen term r12",
+    "source": "V2.0"
+  },
+  "tau3": {
+    "val": 0.3,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "energy-screen long-wave transmission (LUXOUS 1547 D FR)",
+    "source": "LUXOUS 1547 D FR datasheet (baseline 0.25-0.35); replaces V2.2 0.11"
+  },
+  "eps_screen": {
+    "val": 0.595,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "energy-screen long-wave emissivity (effective: fiber fraction \u00d7 eps_fiber)",
+    "source": "LUXOUS 1547 D FR datasheet: eps_fiber=0.85, open_area=tau3=0.30; eff=(1-0.30)*0.85=0.595"
+  },
+  "scr_es_tau_par": {
+    "val": 0.75,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "energy screen PAR transmission at full closure (PROVISIONAL)",
+    "source": "organisers 25 % interception"
+  },
+  "scr_es_rho_par": {
+    "val": 0.15,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "energy screen PAR reflection (PROVISIONAL, assumed)",
+    "source": "Note 101"
+  },
+  "scr_es_tau_nir": {
+    "val": 0.75,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "energy screen NIR transmission (PROVISIONAL, = PAR)",
+    "source": "Note 101"
+  },
+  "scr_es_rho_nir": {
+    "val": 0.15,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "energy screen NIR reflection (PROVISIONAL, = PAR)",
+    "source": "Note 101"
+  },
+  "scr_bl_tau_par": {
+    "val": 0.02,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "blackout screen PAR transmission at full closure (PROVISIONAL)",
+    "source": "organisers 98 % interception"
+  },
+  "scr_bl_rho_par": {
+    "val": 0.5,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "blackout screen PAR reflection (PROVISIONAL, assumed)",
+    "source": "Note 101"
+  },
+  "scr_bl_tau_nir": {
+    "val": 0.02,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "blackout screen NIR transmission (PROVISIONAL, = PAR)",
+    "source": "Note 101"
+  },
+  "scr_bl_rho_nir": {
+    "val": 0.5,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "blackout screen NIR reflection (PROVISIONAL, = PAR)",
+    "source": "Note 101"
+  },
+  "scr_abs_air": {
+    "val": 0.5,
+    "units": "-",
+    "group": "screens",
+    "status": "fixed",
+    "desc": "share of screen-absorbed solar released to the crop air (rest to the cover)",
+    "source": "Note 101 (PROVISIONAL)"
+  },
+  "epsil1": {
+    "val": 0.88,
+    "units": "-",
+    "group": "heating",
+    "status": "fixed",
+    "desc": "pipe long-wave emissivity",
+    "source": "V2.0"
+  },
+  "hc_Kp": {
+    "val": 10.0,
+    "units": "K K-1",
+    "group": "heating",
+    "status": "fixed",
+    "desc": "PI heating controller proportional gain",
+    "source": "Note 34"
+  },
+  "hc_Ki": {
+    "val": 0.005555555555555556,
+    "units": "s-1",
+    "group": "heating",
+    "status": "fixed",
+    "desc": "PI heating controller integral gain (tau_i 30 min)",
+    "source": "Note 34"
+  },
+  "hc_Tmax": {
+    "val": 338.15,
+    "units": "K",
+    "group": "heating",
+    "status": "fixed",
+    "desc": "maximum pipe temperature (65 C)",
+    "source": "Note 33"
+  },
+  "eta6": {
+    "val": 0.551,
+    "units": "-",
+    "group": "ventilation",
+    "status": "fixed",
+    "desc": "ventilation reduction factor (Vanthoor 8.70, zeta 0.33)",
+    "source": "V2.0"
+  },
+  "eta10": {
+    "val": 0.0,
+    "units": "-",
+    "group": "ventilation",
+    "status": "fixed",
+    "desc": "shading effect on the discharge coefficient",
+    "source": "V2.0"
+  },
+  "eta11": {
+    "val": 0.0,
+    "units": "-",
+    "group": "ventilation",
+    "status": "fixed",
+    "desc": "shading effect on the wind-pressure coefficient",
+    "source": "V2.0"
+  },
+  "vs_clee": {
+    "val": 1.0,
+    "units": "-",
+    "group": "ventilation",
+    "status": "fixed",
+    "desc": "leeward wind-pressure multiplier",
+    "source": "Note 58"
+  },
+  "eta5": {
+    "val": 0.5,
+    "units": "-",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "fan-pad efficiency (U2)",
+    "source": "V2.0"
+  },
+  "phi5": {
+    "val": 0.014,
+    "units": "kg kg-1",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "vapour content of fan-pad air (U2)",
+    "source": "V2.0"
+  },
+  "phi6": {
+    "val": 0.0079,
+    "units": "kg kg-1",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "vapour content of outside air for the fan-pad (U2)",
+    "source": "V2.0"
+  },
+  "phi7": {
+    "val": 16.7,
+    "units": "m3 s-1",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "fan-pad air flow capacity (U2)",
+    "source": "V2.0"
+  },
+  "phi8": {
+    "val": 666.6,
+    "units": "m3 s-1",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "forced-ventilation capacity (U7)",
+    "source": "V2.0"
+  },
+  "phi9": {
+    "val": 0.916,
+    "units": "kg s-1",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "fog capacity (U9)",
+    "source": "V2.0"
+  },
+  "lamb4": {
+    "val": 500000.0,
+    "units": "W",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "direct air heater capacity (U4)",
+    "source": "V2.0"
+  },
+  "eta12": {
+    "val": 4.43e-08,
+    "units": "kg J-1",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "vapour released per J of direct-heater heat (U4)",
+    "source": "V2.0"
+  },
+  "eta13": {
+    "val": 0.057,
+    "units": "mg J-1",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "CO2 released per J of direct-heater heat (U4)",
+    "source": "V2.0"
+  },
+  "psi2": {
+    "val": 35556.0,
+    "units": "mg s-1",
+    "group": "actuators",
+    "status": "fixed",
+    "desc": "CO2 valve capacity (12.8 g m-2 h-1 x alpha6)",
+    "source": "Note 78"
+  },
+  "crop_cp": {
+    "val": 3800.0,
+    "units": "J kg-1 K-1",
+    "group": "mass",
+    "status": "fixed",
+    "desc": "specific heat of fresh plant tissue",
+    "source": "Note 91"
+  },
+  "lamp_Pel": {
+    "val": 117.0,
+    "units": "W m-2",
+    "group": "lamps",
+    "status": "fixed",
+    "desc": "lamp electrical power at 100 % (187 umol / 1.6 umol J-1)",
+    "source": "Note 90"
+  },
+  "lamp_par_W": {
+    "val": 40.65,
+    "units": "W m-2",
+    "group": "lamps",
+    "status": "fixed",
+    "desc": "lamp PAR at the canopy at 100 % (187 umol / 4.6)",
+    "source": "Note 71"
+  },
+  "O_a": {
+    "val": 0.21,
+    "units": "mol m-3",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "O2 concentration",
+    "source": "V2.0"
+  },
+  "Sco25": {
+    "val": 2800.0,
+    "units": "-",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "Rubisco CO2/O2 specificity at 25 C",
+    "source": "V2.0"
+  },
+  "E_Soc": {
+    "val": -24460.0,
+    "units": "J mol-1",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "activation energy of Sco",
+    "source": "V2.0"
+  },
+  "Rgas": {
+    "val": 8.314472,
+    "units": "J mol-1 K-1",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "gas constant",
+    "source": "V2.0"
+  },
+  "alpha": {
+    "val": 0.35,
+    "units": "-",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "quantum efficiency of electron transport",
+    "source": "V2.0"
+  },
+  "J_max": {
+    "val": 0.0002,
+    "units": "mol m-2 s-1",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "maximum electron transport rate (climate model; the crop calibration infers its own)",
+    "source": "V2.0"
+  },
+  "theta": {
+    "val": 0.7,
+    "units": "-",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "curvature of the light response",
+    "source": "V2.0"
+  },
+  "V_cmax25": {
+    "val": 0.00015,
+    "units": "mol m-2 s-1",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "maximum carboxylation rate at 25 C",
+    "source": "V2.0"
+  },
+  "Q10_Vcmax": {
+    "val": 2.4,
+    "units": "-",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "Q10 of Vcmax",
+    "source": "V2.0"
+  },
+  "K_C25": {
+    "val": 0.0003,
+    "units": "mol m-3",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "Michaelis constant for CO2 at 25 C",
+    "source": "V2.0"
+  },
+  "Q10_KC": {
+    "val": 2.1,
+    "units": "-",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "Q10 of K_C",
+    "source": "V2.0"
+  },
+  "K_O25": {
+    "val": 0.3,
+    "units": "mol m-3",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "Michaelis constant for O2 at 25 C",
+    "source": "V2.0"
+  },
+  "Q10_KO": {
+    "val": 1.2,
+    "units": "-",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "Q10 of K_O",
+    "source": "V2.0"
+  },
+  "Rd_day": {
+    "val": 1e-06,
+    "units": "mol m-2 s-1",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "leaf dark respiration at 25 C (x Q10 2 on canopy T)",
+    "source": "V2.0 / Note 86"
+  },
+  "g_s": {
+    "val": 0.3,
+    "units": "mol m-2 s-1",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "stomatal conductance in the constant effective conductance",
+    "source": "Bush 2023 (V2.0)"
+  },
+  "g_m": {
+    "val": 0.25,
+    "units": "mol m-2 s-1",
+    "group": "photosynthesis",
+    "status": "fixed",
+    "desc": "mesophyll conductance in the constant effective conductance",
+    "source": "Bush 2023 (V2.0)"
+  },
+  "gamma4": {
+    "val": 82.0,
+    "units": "s m-1",
+    "group": "canopy",
+    "status": "inferred",
+    "prior": [
+      40.0,
+      82.0,
+      200.0
+    ],
+    "desc": "minimum stomatal resistance",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "vent_scr_perm": {
+    "val": 0.4,
+    "units": "-",
+    "group": "ventilation",
+    "status": "inferred",
+    "prior": [
+      0.0,
+      0.4,
+      1.0
+    ],
+    "desc": "share of roof ventilation and cover contact reaching the crop air through a closed energy screen",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "k_ground": {
+    "val": 8.0,
+    "units": "W m-2 K-1",
+    "group": "floor",
+    "status": "inferred",
+    "prior": [
+      1.0,
+      8.0,
+      40.0
+    ],
+    "desc": "air-floor convective conductance",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "nu1": {
+    "val": 0.65,
+    "units": "-",
+    "group": "ventilation",
+    "status": "inferred",
+    "prior": [
+      0.3,
+      0.65,
+      1.0
+    ],
+    "desc": "roof-vent discharge coefficient",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "nu2": {
+    "val": 0.05,
+    "units": "-",
+    "group": "ventilation",
+    "status": "inferred",
+    "prior": [
+      0.005,
+      0.05,
+      0.3
+    ],
+    "desc": "roof-vent wind-pressure coefficient",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "C_soil": {
+    "val": 600000.0,
+    "units": "J m-2 K-1",
+    "group": "floor",
+    "status": "inferred",
+    "prior": [
+      150000.0,
+      600000.0,
+      2000000.0
+    ],
+    "desc": "heat capacity of the active floor layer",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "k_deep": {
+    "val": 1.5,
+    "units": "W m-2 K-1",
+    "group": "floor",
+    "status": "inferred",
+    "prior": [
+      0.5,
+      1.5,
+      3.0
+    ],
+    "desc": "floor to deep-soil conductance",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "C_mass": {
+    "val": 50000.0,
+    "units": "J m-2 K-1",
+    "group": "mass",
+    "status": "inferred",
+    "prior": [
+      20000.0,
+      50000.0,
+      120000.0
+    ],
+    "desc": "heat capacity of the internal mass (structure, slabs, water)",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "h_mass": {
+    "val": 5.0,
+    "units": "W m-2 K-1",
+    "group": "mass",
+    "status": "inferred",
+    "prior": [
+      1.0,
+      5.0,
+      40.0
+    ],
+    "desc": "air-internal mass heat-transfer coefficient",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "f_mass": {
+    "val": 0.3,
+    "units": "-",
+    "group": "mass",
+    "status": "inferred",
+    "prior": [
+      0.0,
+      0.3,
+      1.0
+    ],
+    "desc": "share of the floor-level solar absorbed by the internal mass",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "lamp_fcan": {
+    "val": 0.3,
+    "units": "-",
+    "group": "lamps",
+    "status": "inferred",
+    "prior": [
+      0.05,
+      0.3,
+      0.9
+    ],
+    "desc": "fraction of non-PAR lamp power (NIR + thermal) absorbed by a closed canopy; canopy heat = (lamp_par_W + lamp_fcan*(lamp_Pel - lamp_par_W))*(1-exp(-beta1*L))*U12",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "vs_gwind": {
+    "val": 1.5,
+    "units": "-",
+    "group": "ventilation",
+    "status": "inferred",
+    "prior": [
+      0.5,
+      1.5,
+      4.0
+    ],
+    "desc": "windward discharge multiplier relative to leeward",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "vs_cwind": {
+    "val": 1.0,
+    "units": "-",
+    "group": "ventilation",
+    "status": "inferred",
+    "prior": [
+      0.5,
+      1.0,
+      10.0
+    ],
+    "desc": "windward wind-pressure multiplier",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "vs_exp": {
+    "val": 0.9,
+    "units": "-",
+    "group": "ventilation",
+    "status": "inferred",
+    "prior": [
+      0.5,
+      0.9,
+      1.2
+    ],
+    "desc": "curvature of opening -> flow",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "nu4": {
+    "val": 4.5e-05,
+    "units": "m s-1 per m s-1",
+    "group": "ventilation",
+    "status": "inferred",
+    "prior": [
+      1e-05,
+      4.5e-05,
+      0.0001
+    ],
+    "desc": "leakage coefficient",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "h_cover_out": {
+    "val": 25.0,
+    "units": "W m-2 K-1",
+    "group": "cover",
+    "status": "inferred",
+    "prior": [
+      10.0,
+      25.0,
+      50.0
+    ],
+    "desc": "cover-outside convective coefficient",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "air_cap_mult": {
+    "val": 3.0,
+    "units": "-",
+    "group": "air",
+    "status": "inferred",
+    "prior": [
+      1.0,
+      3.0,
+      12.0
+    ],
+    "desc": "effective air heat-capacity multiplier (fast masses lumped with the air)",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "leak_cs": {
+    "val": 0.3,
+    "units": "m2 s-2 K-1",
+    "group": "ventilation",
+    "status": "inferred",
+    "prior": [
+      0.0,
+      0.3,
+      1.0
+    ],
+    "desc": "stack (temperature-difference) term of the leakage",
+    "source": "n79 prior (Note 78; f_mass Note 104)"
+  },
+  "sigma_T": {
+    "val": 1.5,
+    "units": "K",
+    "group": "noise",
+    "status": "inferred",
+    "prior": [
+      0.2,
+      1.5,
+      6.0
+    ],
+    "desc": "likelihood noise",
+    "source": "n79 prior"
+  },
+  "sigma_RH": {
+    "val": 6.0,
+    "units": "%",
+    "group": "noise",
+    "status": "inferred",
+    "prior": [
+      0.5,
+      6.0,
+      25.0
+    ],
+    "desc": "likelihood noise",
+    "source": "n79 prior"
+  },
+  "sigma_C": {
+    "val": 60.0,
+    "units": "mg m-3",
+    "group": "noise",
+    "status": "inferred",
+    "prior": [
+      10.0,
+      60.0,
+      400.0
+    ],
+    "desc": "likelihood noise",
+    "source": "n79 prior"
+  }
 }
