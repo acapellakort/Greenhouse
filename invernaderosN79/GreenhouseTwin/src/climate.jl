@@ -93,7 +93,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
        gamma, gamma1, gamma2, gamma3, gamma4, gamma5, lamb4, n_pipes,
        nu1, nu2, nu3, nu4, nu5, nu6, nu7, nu8, omega1, omega2,
        phi1, phi2, phi5, phi6, phi7, phi8, phi9, psi1, psi2, rho3, sigma, tau1, tau2, tau3,
-       cover_area, vent_scr_perm, leak_cs, k_ground, k_deep, C_soil, sd_tau, C_mass, h_mass, f_mass, crop_cp,
+       cover_area, vent_scr_perm, leak_cs, k_ground, k_deep, C_soil, sd_tau, C_mass, h_mass, f_mass, crop_cp, k_fir,
        lamp_Pel, lamp_fcan, lamp_par_W, air_cap_mult) = p
 
     # --- solar column and plant light ------------------------------------------------------------------------
@@ -152,9 +152,9 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
 
     # --- cover node and long-wave radiation ------------------------------------------------------------------------
     T_scr = 0.5 * (Tout + T2)                                                # screen temperature (algebraic)
-    g1  = 0.49 * (1 - exp(-beta3 * L))
+    g1  = 0.49 * (1 - exp(-k_fir * L))                                    # LW; k_fir=0.94 replaces NIR beta3
     g2  = 1 - U1 * (1 - tau3)
-    g3  = g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-beta3 * L)   # LW floor→cover; tau1 (PAR) removed
+    g3  = g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-k_fir * L)   # LW floor→cover; k_fir replaces NIR beta3
     Tc, fcov = cover_temperature(T1, T2, T5, Tsky, Tout, so.Qcov, V1, U1, p, g1, g2, g3, T_scr)
     SkyFIR = epsil3 * sigma * (T2^4 - Tc^4)
     r6  = alpha3 * epsil1 * epsil2 * g1 * sigma * (Tp^4 - T1^4)              # pipe -> canopy
@@ -162,7 +162,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     r11 = epsil4 * g3 * epsil3 * sigma * (T5^4 - Tc^4)                       # floor -> cover
     r12 = eps_screen * (U1 * tau2) * epsil3 * sigma * (T_scr^4 - Tc^4)       # energy screen -> cover
     r13 = cover_area * epsil6 * g2 * SkyFIR                                  # air -> cover (g2 screen factor added)
-    r14 = epsil4 * epsil2 * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T1^4 - T5^4)   # canopy -> floor
+    r14 = epsil4 * epsil2 * (1 - exp(-k_fir * L)) * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T1^4 - T5^4)   # canopy -> floor
     r1  = so.Qcan                                                            # solar absorbed by the canopy
 
     # --- lamps: full electrical power, canopy share by absorbed light --------------------------------------------

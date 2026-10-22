@@ -255,6 +255,14 @@
   "desc": "canopy NIR extinction coefficient (also used for the long-wave terms)",
   "source": "V2.0 (audit: K_FIR 0.94)"
  },
+ "k_fir": {
+  "val": 0.94,
+  "units": "-",
+  "group": "canopy",
+  "status": "fixed",
+  "desc": "canopy long-wave (FIR/thermal) extinction coefficient; replaces NIR beta3 in all long-wave paths",
+  "source": "Vanthoor 2011 (Table 1)"
+ },
  "rho1": {
   "val": 0.07,
   "units": "-",
