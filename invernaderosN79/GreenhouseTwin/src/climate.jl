@@ -89,6 +89,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     U5 = c.Shade(tctrl); U6 = c.SideVent(tctrl); U7 = c.ForcedVent(tctrl); Ulee = c.VentLee(tctrl)
     Uwin = c.VentWind(tctrl); U9 = c.Fog(tctrl); U10 = c.CO2Valve(tctrl); U11 = c.HeatSP(tctrl); U12 = c.Lamps(tctrl)
     Tlog = c.Tpipe(tctrl); Rcrop = c.CropResp(tctrl); FW = c.CropFW(tctrl)
+    Rm20 = c.CropRm20(tctrl); Rg_CO2 = c.CropRg(tctrl)        # Option C: split maintenance + growth
 
     (; alpha1, alpha3, alpha4, alpha5, alpha6, beta1, beta3,
        delta1, delta2, delta3, delta4, delta5, delta6, delta7,
@@ -221,7 +222,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     o2 = U10 * psi2 / alpha6                             # CO2 valve
     o3 = (U2 * phi7 / alpha6) * (C1 - CO2o)              # fan-pad
     o5 = (C1 - CO2o) * (f2 + f3 + f4 + f6)               # ventilation + leakage
-    oR = Rcrop * 2.0^((T1 - 293.15) / 10.0)              # crop respiration (non-leaf), Q10 = 2
+    oR = Rm20 * 2.0^((T1 - 293.15) / 10.0) + Rg_CO2      # maintenance Q10(T1, ref=20 C) + growth (no extra Q10)
     dC1 = (o1 + o2 + o3 - A - o5 + oR) / phi2
 
     # --- floor layer, deep soil, internal mass ---------------------------------------------------------------------

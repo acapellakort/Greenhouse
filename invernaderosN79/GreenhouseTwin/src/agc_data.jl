@@ -121,11 +121,14 @@ function load_agc_season(inv::AbstractString; team::AbstractString = "AiCU", nda
     LAI      = [cs.LAI_floor[cday((t - t0) / 86400.0)] for t in ts]
     CropResp = [cs.CropResp20[cday((t - t0) / 86400.0)] for t in ts]
     CropFW   = [cs.FW_mass_kg[cday((t - t0) / 86400.0)] for t in ts]
+    _conv    = 44.0/30.0 * 1000.0/86400.0                              # g CH2O m-2 d-1 → mg CO2 m-2 s-1
+    CropRm20 = [cs.Rm20_gCH2O[cday((t - t0) / 86400.0)] * _conv for t in ts]  # maintenance at 20 C
+    CropRg   = [cs.Rg_gCH2O[cday((t - t0) / 86400.0)]   * _conv for t in ts]  # growth respiration
 
     A(v) = StepFun(ts, v); Z(v) = StepFun(trel, v); z0 = Z(zeros(length(ts)))
     weather  = WeatherInputs(A(Ig), A(Tsky), A(Tout), A(Wind), A(VPout), ConstFun(834.7), ConstFun(273.15), A(LAI))
     controls = ControlInputs(Z(U1), Z(Black), z0, z0, z0, z0, z0, z0, Z(Lee), Z(Wnd), z0, Z(U10), Z(U11), Z(U12),
-                             Z(Tpipe), Z(CropResp), Z(CropFW))
+                             Z(Tpipe), Z(CropResp), Z(CropFW), Z(CropRm20), Z(CropRg))
 
     # initial state for day 0: measured air T, CO2, RH; floor 18 C; deep soil and mass at the day-0 mean air T
     i0  = findfirst(!isnan, Tair_obs)
