@@ -168,6 +168,8 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     r13 = cover_area * epsil6 * g2 * SkyFIR                                  # air -> cover (g2 screen factor added)
     r14 = epsil4 * epsil2 * (1 - exp(-k_fir * L)) * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T1^4 - T5^4)   # canopy -> floor
     r_pf = (pi * phi1 * gamma1) * epsil1 * epsil4 * 0.49 * sigma * (Tp^4 - T5^4)                               # pipe -> floor (view factor 0.49 downward)
+    r_scr_can = U1 * eps_screen * epsil2 * (1 - exp(-k_fir * L)) * sigma * (T_scr^4 - T1^4)   # Step 9: screen lower face → canopy
+    r_scr_flr = U1 * eps_screen * epsil4 * exp(-k_fir * L) * sigma * (T_scr^4 - T5^4)              # Step 9: screen lower face → floor (through canopy gap)
     r1  = so.Qcan                                                            # solar absorbed by the canopy
 
     # --- lamps: PAR-absorbed floor + inferred NIR/thermal share to canopy ----------------------------------------
@@ -180,7 +182,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     # --- canopy energy ---------------------------------------------------------------------------------------------
     h1 = 2 * alpha4 * L * (T1 - T2)                      # canopy -> air convection
     l1 = gamma2 * q1 * (q2 - V1)                         # transpiration latent heat
-    dT1 = (r1 + Qlc + r6 - h1 - l1 - r7 - r14) / (alpha1 * L)
+    dT1 = (r1 + Qlc + r6 - h1 - l1 - r7 - r14 + r_scr_can) / (alpha1 * L)
 
     # --- air energy ------------------------------------------------------------------------------------------------
     h2  = (U2 * phi7 / alpha6) * (rho3 * alpha5 * Tout - gamma2 * rho3 * (eta5 * (phi5 - phi6)))   # fan-pad
@@ -191,7 +193,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     Qaf = k_ground * (T2 - T5)                                                               # air -> floor convection
     Qam = h_mass * (T2 - Tm)                                                                 # air -> internal mass
     Qsa = so.Qair                                                                            # solar to the air
-    Hair = h1 + h2 + h4 - h7 - h11 - r12 - r13 - l2 + Qsa - Qaf - Qam + Qla
+    Hair = h1 + h2 + h4 - h7 - h11 - r12 - r13 - l2 + Qsa - Qaf - Qam + Qla - r_scr_can - r_scr_flr
     dT2 = Hair / (phi2 * rho3 * alpha5) / air_cap_mult
 
     # --- vapour ----------------------------------------------------------------------------------------------------
@@ -221,7 +223,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     # --- floor layer, deep soil, internal mass ---------------------------------------------------------------------
     Qfd = k_deep * (T5 - Td)
     Qfs = (1.0 - f_mass) * so.Qflr
-    dT5 = (Qaf - Qfd + h11 + r14 - r11 + Qfs + r_pf + Qlf) / C_soil         # +pipe->floor, +lamp-PAR->floor
+    dT5 = (Qaf - Qfd + h11 + r14 - r11 + Qfs + r_pf + Qlf + r_scr_flr) / C_soil  # +pipe->floor, +lamp-PAR->floor, +screen->floor
     dTd = (T5 - Td) / sd_tau
     Cm  = C_mass + crop_cp * FW
     Qms = f_mass * so.Qflr
@@ -229,7 +231,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
 
     return (; dT1, dT2, dC1, dV1, deint, dT5, dTd, dTm,
               Iglob, Tsky, Tout, v, VPo, CO2o, L, U1, Ubl, U8, U10, U11, U12, Tlog, Tp, Tc, PARp, A, so,
-              q1, q3, f2, f3, f4, f6, f7, r1, r6, r7, r11, r12, r13, r14, r_pf, r_pc, Qlc, Qlf, Qla, h1, l1, h2, h4, h7, h11, l2,
+              q1, q3, f2, f3, f4, f6, f7, r1, r6, r7, r11, r12, r13, r14, r_pf, r_pc, r_scr_can, r_scr_flr, Qlc, Qlf, Qla, h1, l1, h2, h4, h7, h11, l2,
               Qaf, Qam, Qsa, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, o1, o2, o3, o5, oR, Qfd, Qfs, Qms, Cm)
 end
 
