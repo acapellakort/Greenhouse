@@ -169,7 +169,8 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     r12 = eps_screen * U1 * epsil3 * sigma * (T_scr^4 - Tc^4)                # energy screen -> cover (tau2=1.0 retired)
     r13 = cover_area * epsil6 * g2 * SkyFIR                                  # air -> cover (g2 screen factor added)
     r14 = epsil4 * epsil2 * (1 - exp(-k_fir * L)) * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T1^4 - T5^4)   # canopy -> floor
-    r_pf = (pi * phi1 * gamma1) * epsil1 * epsil4 * 0.49 * sigma * (Tp^4 - T5^4)                               # pipe -> floor (view factor 0.49 downward)
+    r_pf = (pi * phi1 * gamma1) * epsil1 * epsil4 * 0.49 * sigma * (Tp^4 - T5^4)  
+    # alpha3 (JSON, 0.30 m² m⁻²) retired Step 6; replaced by π×φ1×γ1 = 0.160 hard-coded below                             # pipe -> floor (view factor 0.49 downward)
     r_scr_can = U1 * eps_screen * epsil2 * (1 - exp(-k_fir * L)) * sigma * (T_scr^4 - T1^4)   # Step 9: screen lower face → canopy
     r_scr_flr = U1 * eps_screen * epsil4 * exp(-k_fir * L) * sigma * (T_scr^4 - T5^4)              # Step 9: screen lower face → floor (through canopy gap)
     r1  = so.Qcan                                                            # solar absorbed by the canopy

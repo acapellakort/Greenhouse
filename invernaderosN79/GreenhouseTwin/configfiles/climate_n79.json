@@ -71,7 +71,7 @@
     "desc": "number of heating circuits (crop pipe folded into the rail pipe by the inputs)",
     "source": "Note 54/79"
   },
-  "alpha3": {
+  "_alpha3_RETIRED_step6": {
     "val": 0.3,
     "units": "m2 m-2",
     "group": "geometry",
