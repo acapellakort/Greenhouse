@@ -28,14 +28,14 @@ Ar_pc = (π·φ1·γ1)·ε1·ε3·0.49·exp(−k_fir·L)·g2  — pipe→cover r
 fcov = share of crop air in contact with the cover (1 − U1·(1 − vent_scr_perm)).
 """
 @inline function cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw, T_scr, Tp, Ar_pc)
-    (; epsil2, epsil3, epsil4, epsil6, eps_screen, sigma, tau2,
+    (; epsil2, epsil3, epsil4, epsil6, eps_screen, sigma,
        h_cover_out, gamma2, cover_area, vent_scr_perm) = p
     fcov = 1.0 - U1 * (1.0 - vent_scr_perm)
 
     # effective radiation area factors (the coefficient in front of σ·ΔT⁴ for each path)
     Ar7  = (g1 / 0.49) * epsil2 * epsil3 * g2   # canopy → cover
     Ar11 = epsil4 * g3lw * epsil3                # floor  → cover
-    Ar12 = eps_screen * U1 * tau2 * epsil3       # screen → cover
+    Ar12 = eps_screen * U1 * epsil3              # screen → cover (tau2=1.0 retired Step 10)
     Ar13 = cover_area * epsil6 * g2 * epsil3     # air    → cover
     Asky = epsil3                                # cover  → sky
 
@@ -94,7 +94,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
        eta5, eta6, eta10, eta11, eta12, eta13,
        gamma, gamma1, gamma2, gamma3, gamma4, gamma5, lamb4, n_pipes,
        nu1, nu2, nu3, nu4, nu5, nu6, nu7, nu8, omega1, omega2,
-       phi1, phi2, phi5, phi6, phi7, phi8, phi9, psi1, psi2, rho3, sigma, tau1, tau2, tau3,
+       phi1, phi2, phi5, phi6, phi7, phi8, phi9, psi1, psi2, rho3, sigma, tau1, tau3,
        cover_area, vent_scr_perm, leak_cs, k_ground, k_deep, C_soil, sd_tau, C_mass, h_mass, f_mass, crop_cp, k_fir,
        lamp_Pel, lamp_fcan, lamp_par_W, air_cap_mult) = p
 
@@ -164,7 +164,7 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     r6  = (pi * phi1 * gamma1) * epsil1 * epsil2 * g1 * sigma * (Tp^4 - T1^4)              # pipe -> canopy (geo: pi*phi1*gamma1=0.160)
     r7  = (g1 / 0.49) * epsil2 * epsil3 * g2 * sigma * (T1^4 - Tc^4)         # canopy -> cover
     r11 = epsil4 * g3 * epsil3 * sigma * (T5^4 - Tc^4)                       # floor -> cover
-    r12 = eps_screen * (U1 * tau2) * epsil3 * sigma * (T_scr^4 - Tc^4)       # energy screen -> cover
+    r12 = eps_screen * U1 * epsil3 * sigma * (T_scr^4 - Tc^4)                # energy screen -> cover (tau2=1.0 retired)
     r13 = cover_area * epsil6 * g2 * SkyFIR                                  # air -> cover (g2 screen factor added)
     r14 = epsil4 * epsil2 * (1 - exp(-k_fir * L)) * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T1^4 - T5^4)   # canopy -> floor
     r_pf = (pi * phi1 * gamma1) * epsil1 * epsil4 * 0.49 * sigma * (Tp^4 - T5^4)                               # pipe -> floor (view factor 0.49 downward)
