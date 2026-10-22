@@ -17,7 +17,7 @@ struct SimContext{P<:NamedTuple, W, C}
 end
 
 """
-    cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw) -> (Tc, fcov)
+    cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw, T_scr) -> (Tc, fcov)
 
 Algebraic cover node: Newton iteration (6 steps) on the full non-linear energy balance.
 Gains: r7 (canopy→cover), r11 (floor→cover), r12 (screen→cover), r13 (air→cover), solar Qcov,
@@ -26,7 +26,7 @@ Losses: long-wave emission to sky (epsil3·σ·(Tc⁴−Tsky⁴)), outside conve
 g3lw is the corrected floor-to-cover geometry factor (LW, no tau1).
 fcov = share of crop air in contact with the cover (1 − U1·(1 − vent_scr_perm)).
 """
-@inline function cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw)
+@inline function cover_temperature(T1, T2, T5, Tsky, Tout, Qcov, V1, U1, p, g1, g2, g3lw, T_scr)
     (; epsil2, epsil3, epsil4, epsil6, eps_screen, sigma, tau2,
        h_cover_out, gamma2, cover_area, vent_scr_perm) = p
     fcov = 1.0 - U1 * (1.0 - vent_scr_perm)
@@ -48,7 +48,7 @@ fcov = share of crop air in contact with the cover (1 − U1·(1 − vent_scr_pe
         # gains from inside (all four long-wave paths)
         r7c  = Ar7  * sigma * (T1^4 - T4c)
         r11c = Ar11 * sigma * (T5^4 - T4c)
-        r12c = Ar12 * sigma * (T2^4 - T4c)
+        r12c = Ar12 * sigma * (T_scr^4 - T4c)
         r13c = Ar13 * sigma * (T2^4 - T4c)
         # losses to outside
         Qloss_rad  = Asky * sigma * (T4c - Tsky^4)
@@ -151,15 +151,16 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     f4 = eta6 * f7                                       # roof ventilation
 
     # --- cover node and long-wave radiation ------------------------------------------------------------------------
+    T_scr = 0.5 * (Tout + T2)                                                # screen temperature (algebraic)
     g1  = 0.49 * (1 - exp(-beta3 * L))
     g2  = 1 - U1 * (1 - tau3)
     g3  = g2 * (1 - 0.49 * pi * gamma1 * phi1) * exp(-beta3 * L)   # LW floor→cover; tau1 (PAR) removed
-    Tc, fcov = cover_temperature(T1, T2, T5, Tsky, Tout, so.Qcov, V1, U1, p, g1, g2, g3)
+    Tc, fcov = cover_temperature(T1, T2, T5, Tsky, Tout, so.Qcov, V1, U1, p, g1, g2, g3, T_scr)
     SkyFIR = epsil3 * sigma * (T2^4 - Tc^4)
     r6  = alpha3 * epsil1 * epsil2 * g1 * sigma * (Tp^4 - T1^4)              # pipe -> canopy
     r7  = (g1 / 0.49) * epsil2 * epsil3 * g2 * sigma * (T1^4 - Tc^4)         # canopy -> cover
     r11 = epsil4 * g3 * epsil3 * sigma * (T5^4 - Tc^4)                       # floor -> cover
-    r12 = eps_screen * (U1 * tau2) * SkyFIR                                  # energy screen -> cover
+    r12 = eps_screen * (U1 * tau2) * epsil3 * sigma * (T_scr^4 - Tc^4)       # energy screen -> cover
     r13 = cover_area * epsil6 * g2 * SkyFIR                                  # air -> cover (g2 screen factor added)
     r14 = epsil4 * epsil2 * (1 - 0.49 * pi * gamma1 * phi1) * sigma * (T1^4 - T5^4)   # canopy -> floor
     r1  = so.Qcan                                                            # solar absorbed by the canopy
@@ -188,7 +189,6 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
     dT2 = Hair / (phi2 * rho3 * alpha5) / air_cap_mult
 
     # --- vapour ----------------------------------------------------------------------------------------------------
-    T_scr = 0.5 * (Tout + T2)                            # screen temperature (algebraic)
     VPsat_scr = Pws(T_scr); VPsat_air = Pws(T2); q6 = Pws(Tmc)
     p1 = q1 * (q2 - V1)                                                                       # transpiration
     p2 = rho3 * (U2 * phi7 / alpha6) * (eta5 * (phi5 - phi6) + phi6)                          # fan-pad
