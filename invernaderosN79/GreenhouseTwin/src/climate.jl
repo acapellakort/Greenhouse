@@ -202,17 +202,17 @@ All inputs, fluxes and the derivatives at state u and day-time t [s].
 
     # --- vapour ----------------------------------------------------------------------------------------------------
     VPsat_scr = Pws(T_scr); VPsat_air = Pws(T2); q6 = Pws(Tmc)
+    V1_top = (1.0 - U1) * V1 + U1 * min(V1, VPsat_scr)   # Step 11b: top-compartment VP proxy (for vent + cover)
     p1 = q1 * (q2 - V1)                                                                       # transpiration
     p2 = rho3 * (U2 * phi7 / alpha6) * (eta5 * (phi5 - phi6) + phi6)                          # fan-pad
     p3 = U9 * phi9 / alpha6                                                                   # fog
     p4 = eta12 * U4 * lamb4 / alpha6                                                          # direct heater
-    p5 = (psi1 / omega2) * (V1 / T2 - VPo / Tout) * (f2 + f3 + f4 + f6)                       # ventilation + leakage
+    p5 = (psi1 / omega2) * ((V1*(f2+f3+f6) + V1_top*f4) / T2 - VPo*(f2+f3+f4+f6) / Tout)  # Step 11b: roof-vent uses top-compartment VP
     p6 = (U2 * phi7 / alpha6) * (psi1 / omega2) * (V1 / T2)                                   # fan-pad outflow
     p7 = U3 * (V1 < q6 ? 0.0 : 6.4e-9 * (V1 - q6))                                            # mechanical cooling
     p8 = V1 < VPsat_scr ? 0.0 : 6.4e-9 * 1.7 * U1 * (abs(T2 - T_scr))^0.33 * (V1 - VPsat_scr)   # energy screen
     p9 = V1 < VPsat_air ? 0.0 : 6.4e-9 * 1.2 * 1000 * ((abs(T1 - T2))^0.33) * (V1 - VPsat_air) # supersaturated air
     VPc = Pws(Tc)
-    V1_top = (1.0 - U1) * V1 + U1 * min(V1, VPsat_scr)      # Step 11a: top-compartment VP proxy
     p10 = V1_top > VPc ? cover_area * fcov * 6.4e-9 * 1.7 * abs(T2 - Tc)^0.33 * (V1_top - VPc) : 0.0   # cover
     kappa3 = (psi1 * phi2) / (omega2 * T2)
     dV1 = (p1 + p2 + p3 + p4 - p5 - p6 - p7 - p8 - p9 - p10) / kappa3
