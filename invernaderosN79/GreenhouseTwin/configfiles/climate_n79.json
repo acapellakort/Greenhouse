@@ -627,9 +627,14 @@
     "val": 35556.0,
     "units": "mg s-1",
     "group": "actuators",
-    "status": "fixed",
+    "status": "inferred",
     "desc": "CO2 valve capacity (12.8 g m-2 h-1 x alpha6)",
-    "source": "Note 78"
+    "source": "n106 prior",
+    "prior": [
+      11111.111111111111,
+      35555.555555555555,
+      69444.44444444444
+    ]
   },
   "crop_cp": {
     "val": 3800.0,
@@ -1055,5 +1060,31 @@
     ],
     "desc": "likelihood noise",
     "source": "n79 prior"
+  },
+  "sigma_VP": {
+    "val": 150.0,
+    "units": "Pa",
+    "group": "noise",
+    "status": "inferred",
+    "prior": [
+      30.0,
+      150.0,
+      400.0
+    ],
+    "desc": "likelihood noise for daytime VP (Pa)",
+    "source": "n106 prior"
+  },
+  "sigma_CO2_day": {
+    "val": 200.0,
+    "units": "mg m-3",
+    "group": "noise",
+    "status": "inferred",
+    "prior": [
+      50.0,
+      200.0,
+      1000.0
+    ],
+    "desc": "likelihood noise for daytime CO2 (mg m-3)",
+    "source": "n106 prior"
   }
 }

@@ -8,8 +8,8 @@
 
 "Free climate parameters of n79 (order of the V2.2 calibration), followed by the noise terms."
 const CLIMATE_QOI = ["gamma4", "vent_scr_perm", "k_ground", "nu1", "nu2", "C_soil", "k_deep", "C_mass", "h_mass", "f_mass",
-                     "lamp_fcan", "vs_gwind", "vs_cwind", "vs_exp", "nu4", "h_cover_out", "air_cap_mult", "leak_cs"]
-const CLIMATE_NOISE = ["sigma_T", "sigma_RH", "sigma_C"]
+                     "lamp_fcan", "vs_gwind", "vs_cwind", "vs_exp", "nu4", "h_cover_out", "air_cap_mult", "leak_cs", "psi2"]
+const CLIMATE_NOISE = ["sigma_T", "sigma_RH", "sigma_C", "sigma_VP", "sigma_CO2_day"]
 const TRAIN_BLOCKS = [(7, 13), (28, 34), (63, 69), (91, 97), (110, 114)]
 const VAL_BLOCKS   = [(42, 48), (77, 83)]
 const NPD = 289                                         # 5-min points per day incl. both ends
@@ -20,6 +20,8 @@ struct Block
     binsT::Vector{Vector{Int}}; obsT::Vector{Float64}
     binsR::Vector{Vector{Int}}; obsR::Vector{Float64}
     binsC::Vector{Vector{Int}}; obsC::Vector{Float64}
+    binsVP::Vector{Vector{Int}}; obsVP::Vector{Float64}   # daytime VP bins (Pa)
+    binsCd::Vector{Vector{Int}}; obsCd::Vector{Float64}   # daytime CO2 bins (mg m-3)
 end
 
 _binmean(v, ix) = (s = 0.0; @inbounds for i in ix; s += v[i]; end; s / length(ix))
@@ -38,8 +40,11 @@ function make_block(S, a, b)
     u0b = [Ta, Ta, Co, Rh / 100 * Pws(Ta), 0.0, Ta, Td0, Td0]
     times = vcat(tstart, [t0 + d * 86400.0 + tj for d in ds for tj in TEVAL])
     To = AT.(times); Ro = AR.(times); Co_ = AC.(times)
-    darkC = (A(S.Ig).(times) .< 1.0) .& (A(S.U12).(times) .< 0.01) .& (A(S.U10).(times) .<= 0.0)
+    Ig_times = A(S.Ig).(times)
+    darkC = (Ig_times .< 1.0) .& (A(S.U12).(times) .< 0.01) .& (A(S.U10).(times) .<= 0.0)
+    daylight = Ig_times .> 50.0
     bT = Vector{Int}[]; oT = Float64[]; bR = Vector{Int}[]; oR = Float64[]; bC = Vector{Int}[]; oC = Float64[]
+    bVP = Vector{Int}[]; oVP = Float64[]; bCd = Vector{Int}[]; oCd = Float64[]
     for (k, d) in enumerate(ds)
         Int(d) < a && continue                                   # spin-up day not scored
         for hb in 0:23
@@ -49,43 +54,56 @@ function make_block(S, a, b)
             length(okR) >= length(cols) / 2 && (push!(bR, okR); push!(oR, mean(Ro[okR])))
             okC = [c for c in cols if !isnan(Co_[c]) && darkC[c]]
             length(okC) == length(cols) && (push!(bC, okC); push!(oC, mean(Co_[okC])))
+            okVP = [c for c in cols if !isnan(To[c]) && !isnan(Ro[c]) && daylight[c]]
+            length(okVP) >= length(cols) / 2 && (push!(bVP, okVP); push!(oVP, mean(Ro[okVP] ./ 100 .* Pws.(To[okVP]))))
+            okCd = [c for c in cols if !isnan(Co_[c]) && daylight[c]]
+            length(okCd) >= length(cols) / 2 && (push!(bCd, okCd); push!(oCd, mean(Co_[okCd])))
         end
     end
-    return Block(ds, u0b, bT, oT, bR, oR, bC, oC)
+    return Block(ds, u0b, bT, oT, bR, oR, bC, oC, bVP, oVP, bCd, oCd)
 end
 
 "TRAIN blocks of the n79 design."
 climate_blocks(S; blocks = TRAIN_BLOCKS) = [make_block(S, a, b) for (a, b) in blocks]
 
-"(SSE_T, SSE_RH, SSE_CO2) of one block, Inf if the solve fails."
+"(SSE_T, SSE_RH, SSE_CO2_dark, SSE_VP, SSE_CO2_day) of one block, Inf if the solve fails."
 function block_sse(p, S, b::Block, rtol)
-    us = simdays(p, S, b.days, b.u0, rtol); us === nothing && return (Inf, Inf, Inf)
-    T2 = us[2, :]; RH = rhf.(us[2, :], us[4, :]); C1 = us[3, :]
-    sT = 0.0; sR = 0.0; sC = 0.0
-    for k in eachindex(b.binsC); sC += (_binmean(C1, b.binsC[k]) - b.obsC[k])^2; end
-    for k in eachindex(b.binsT); sT += (_binmean(T2, b.binsT[k]) - b.obsT[k])^2; end
-    for k in eachindex(b.binsR); sR += (_binmean(RH, b.binsR[k]) - b.obsR[k])^2; end
+    us = simdays(p, S, b.days, b.u0, rtol); us === nothing && return (Inf, Inf, Inf, Inf, Inf)
+    T2 = us[2, :]; RH = rhf.(us[2, :], us[4, :]); C1 = us[3, :]; V1 = us[4, :]
+    sT = 0.0; sR = 0.0; sC = 0.0; sVP = 0.0; sCd = 0.0
+    for k in eachindex(b.binsC);  sC  += (_binmean(C1, b.binsC[k])  - b.obsC[k])^2;  end
+    for k in eachindex(b.binsT);  sT  += (_binmean(T2, b.binsT[k])  - b.obsT[k])^2;  end
+    for k in eachindex(b.binsR);  sR  += (_binmean(RH, b.binsR[k])  - b.obsR[k])^2;  end
+    for k in eachindex(b.binsVP); sVP += (_binmean(V1, b.binsVP[k]) - b.obsVP[k])^2; end
+    for k in eachindex(b.binsCd); sCd += (_binmean(C1, b.binsCd[k]) - b.obsCd[k])^2; end
     f(s) = isfinite(s) ? s : Inf
-    return (f(sT), f(sR), f(sC))
+    return (f(sT), f(sR), f(sC), f(sVP), f(sCd))
 end
 
 """
     climate_energy(z, p0, S, blocks; rtol) -> U
 
-z = values of CLIMATE_QOI followed by sigma_T, sigma_RH, sigma_C; p0 = base parameters (load_params of
-climate_n79.json); S = load_agc_season(...); blocks = climate_blocks(S).
+z = values of CLIMATE_QOI followed by sigma_T, sigma_RH, sigma_C, sigma_VP, sigma_CO2_day; p0 = base
+parameters (load_params of climate_n79.json); S = load_agc_season(...); blocks = climate_blocks(S).
 """
 function climate_energy(z, p0, S, blocks; rtol = 1e-6)
     nm = length(CLIMATE_QOI)
     p = update_params(p0, CLIMATE_QOI, z[1:nm])
-    sT = 0.0; sR = 0.0; sC = 0.0
+    sT = 0.0; sR = 0.0; sC = 0.0; sVP = 0.0; sCd = 0.0
     for b in blocks
-        a, c, g = block_sse(p, S, b, rtol); (isfinite(a) && isfinite(c) && isfinite(g)) || return Inf
-        sT += a; sR += c; sC += g
+        a, c, g, v, cd = block_sse(p, S, b, rtol)
+        (isfinite(a) && isfinite(c) && isfinite(g) && isfinite(v) && isfinite(cd)) || return Inf
+        sT += a; sR += c; sC += g; sVP += v; sCd += cd
     end
-    nT = sum(length(b.obsT) for b in blocks); nR = sum(length(b.obsR) for b in blocks); nC = sum(length(b.obsC) for b in blocks)
-    σT, σR, σC = z[nm+1], z[nm+2], z[nm+3]
-    return nT * log(σT) + sT / (2σT^2) + nR * log(σR) + sR / (2σR^2) + nC * log(σC) + sC / (2σC^2)
+    nT  = sum(length(b.obsT)   for b in blocks); nR  = sum(length(b.obsR)   for b in blocks)
+    nC  = sum(length(b.obsC)   for b in blocks); nVP = sum(length(b.binsVP) for b in blocks)
+    nCd = sum(length(b.binsCd) for b in blocks)
+    σT, σR, σC, σVP, σCd = z[nm+1], z[nm+2], z[nm+3], z[nm+4], z[nm+5]
+    return nT  * log(σT)  + sT  / (2σT^2)  +
+           nR  * log(σR)  + sR  / (2σR^2)  +
+           nC  * log(σC)  + sC  / (2σC^2)  +
+           nVP * log(σVP) + sVP / (2σVP^2) +
+           nCd * log(σCd) + sCd / (2σCd^2)
 end
 
 # --- full-season evaluation ------------------------------------------------------------------------------------------

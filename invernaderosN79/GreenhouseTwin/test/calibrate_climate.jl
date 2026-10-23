@@ -22,7 +22,8 @@ const SEED    = parse(Int, get(ENV, "SEED", "1")); Random.seed!(SEED)
 const CHAIN   = parse(Int, get(ENV, "CHAIN", "100000"))
 const BURN    = parse(Int, get(ENV, "BURN", "40000"))
 const RELTOL  = parse(Float64, get(ENV, "RELTOL", "1e-4"))
-const CROPTAG = get(ENV, "CROPTAG", "n105")
+const CROPTAG  = get(ENV, "CROPTAG", "n105")
+const CLIMTAG  = get(ENV, "CLIMTAG", "n79")
 const NSMOKE  = 200
 const INV     = normpath(joinpath(@__DIR__, "..", "..", ".."))
 const CJ      = joinpath(@__DIR__, "..", "configfiles", "climate_n79.json")
@@ -49,8 +50,9 @@ end
 
 println("="^78)
 @printf("n79 climate calibration (GreenhouseTwin) -- mode %s, seed %d, reltol %.0e, crop series %s\n", MODE, SEED, RELTOL, CROPCSV)
-@printf("TRAIN bins: T %d, RH %d, dark CO2 %d (%d simulated days per energy)\n", sum(length(b.obsT) for b in BL),
-        sum(length(b.obsR) for b in BL), sum(length(b.obsC) for b in BL), sum(length(b.days) for b in BL))
+@printf("TRAIN bins: T %d, RH %d, dark CO2 %d, day VP %d, day CO2 %d (%d simulated days per energy)\n",
+        sum(length(b.obsT) for b in BL), sum(length(b.obsR) for b in BL), sum(length(b.obsC) for b in BL),
+        sum(length(b.binsVP) for b in BL), sum(length(b.binsCd) for b in BL), sum(length(b.days) for b in BL))
 println("="^78)
 
 if MODE == "smoke"
@@ -80,8 +82,8 @@ end
 
 obj = jtwalk(n = length(Q), U = energy, Supp = supp)
 @time Run!(obj, T = CHAIN, x0 = jitter(centre), xp0 = jitter(centre))
-fn = joinpath(POST, "AiCU_climate_n79_twin_seed$(SEED).jld2")
-JLD2.@save fn chain = obj.Output QoI = Q burn_in = BURN seed = SEED reltol = RELTOL croptag = CROPTAG
+fn = joinpath(POST, "AiCU_climate_$(CLIMTAG)_twin_seed$(SEED).jld2")
+JLD2.@save fn chain = obj.Output QoI = Q burn_in = BURN seed = SEED reltol = RELTOL croptag = CROPTAG climtag = CLIMTAG
 println("saved ", fn)
 post = obj.Output[BURN+1:end, 1:end-1]; pm = vec(mean(post, dims = 1))
 println("\nposterior (mean, 95 %):")
